@@ -1,0 +1,109 @@
+version: "3.9"
+
+networks:
+  leilao-net:
+    driver: bridge
+
+volumes:
+  auth-db-data:
+  usuarios-db-data:
+
+services:
+  # ---------------- Bancos de dados ----------------
+  auth-db:
+    image: postgres:16-alpine
+    container_name: auth-db
+    environment:
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass
+      POSTGRES_DB: auth_db
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+      - ./auth-service/src/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - leilao-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  usuarios-db:
+    image: postgres:16-alpine
+    container_name: usuarios-db
+    environment:
+      POSTGRES_USER: usuarios_user
+      POSTGRES_PASSWORD: usuarios_pass
+      POSTGRES_DB: usuarios_db
+    volumes:
+      - usuarios-db-data:/var/lib/postgresql/data
+      - ./usuarios-service/src/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - leilao-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U usuarios_user -d usuarios_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ---------------- Microsserviços ----------------
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    environment:
+      PORT: 3001
+      DB_HOST: auth-db
+      DB_PORT: 5432
+      DB_USER: auth_user
+      DB_PASSWORD: auth_pass
+      DB_NAME: auth_db
+      JWT_SECRET: ${JWT_SECRET:-super-segredo-trabalho-microsservicos}
+      JWT_ISSUER: sistema-leilao-auth
+      JWT_EXPIRES_IN: 2h
+      USUARIOS_SERVICE_URL: http://usuarios-service:3002
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    networks:
+      - leilao-net
+
+  usuarios-service:
+    build: ./usuarios-service
+    container_name: usuarios-service
+    environment:
+      PORT: 3002
+      DB_HOST: usuarios-db
+      DB_PORT: 5432
+      DB_USER: usuarios_user
+      DB_PASSWORD: usuarios_pass
+      DB_NAME: usuarios_db
+      JWT_SECRET: ${JWT_SECRET:-super-segredo-trabalho-microsservicos}
+      JWT_ISSUER: sistema-leilao-auth
+    depends_on:
+      usuarios-db:
+        condition: service_healthy
+    networks:
+      - leilao-net
+
+  # ---------------- API Gateway ----------------
+  kong:
+    image: kong:3.6
+    container_name: kong
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    volumes:
+      - ./kong/kong.yml:/kong/kong.yml
+    ports:
+      - "8000:8000"   # Proxy (entrada pública da API)
+      - "8001:8001"   # Admin API (uso local/dev)
+    depends_on:
+      - auth-service
+      - usuarios-service
+    networks:
+      - leilao-net
