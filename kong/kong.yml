@@ -1,0 +1,43 @@
+_format_version: "3.0"
+_transform: true
+
+# ---------------------------------------------------------------------------
+# Kong como API Gateway (padrão de microsserviços usado pelo grupo) + plugin
+# JWT no papel de "porteiro" da autenticação: valida o token emitido pelo
+# auth-service antes de deixar a requisição chegar nos serviços de domínio.
+# ---------------------------------------------------------------------------
+
+services:
+  - name: auth-service
+    url: http://auth-service:3001
+    routes:
+      - name: auth-routes
+        paths:
+          - /auth
+        strip_path: true
+    # Rotas de autenticação (login/registro) são públicas: sem plugin JWT.
+
+  - name: usuarios-service
+    url: http://usuarios-service:3002
+    routes:
+      - name: leiloeiros-routes
+        paths:
+          - /leiloeiros
+        strip_path: false
+      - name: licitantes-routes
+        paths:
+          - /licitantes
+        strip_path: false
+    plugins:
+      - name: jwt
+        config:
+          claims_to_verify:
+            - exp
+          key_claim_name: iss
+
+consumers:
+  - username: sistema-leilao
+    jwt_secrets:
+      - key: sistema-leilao-auth
+        algorithm: HS256
+        secret: super-segredo-trabalho-microsservicos
