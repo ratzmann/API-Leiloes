@@ -1,0 +1,178 @@
+{
+  "info": {
+    "name": "Leilão de Bois - Microsserviços",
+    "description": "Teste do fluxo de autenticação (Kong + JWT) e do cadastro de leiloeiros/licitantes. Tudo passa pela porta 8000 (Kong).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000" },
+    { "key": "token_licitante", "value": "" },
+    { "key": "token_leiloeiro", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Health - auth-service",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/auth/health"
+      }
+    },
+    {
+      "name": "2. Rota protegida SEM token (espera 401)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/licitantes"
+      }
+    },
+    {
+      "name": "3. Registrar licitante",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "  const body = pm.response.json();",
+              "  pm.collectionVariables.set('token_licitante', body.token);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/auth/registrar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nome\": \"Maria Souza\",\n  \"email\": \"maria@example.com\",\n  \"senha\": \"senha123\",\n  \"papel\": \"LICITANTE\",\n  \"dadosPerfil\": { \"cpf\": \"52998224725\", \"limiteCredito\": 5000 }\n}"
+        }
+      }
+    },
+    {
+      "name": "4. Login licitante",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  const body = pm.response.json();",
+              "  pm.collectionVariables.set('token_licitante', body.token);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"email\": \"maria@example.com\", \"senha\": \"senha123\" }"
+        }
+      }
+    },
+    {
+      "name": "5. Login com senha errada (espera 401)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"email\": \"maria@example.com\", \"senha\": \"errada\" }"
+        }
+      }
+    },
+    {
+      "name": "6. Listar licitantes COM token",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token_licitante}}" }],
+        "url": "{{base_url}}/licitantes"
+      }
+    },
+    {
+      "name": "7. Registrar leiloeiro",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "  const body = pm.response.json();",
+              "  pm.collectionVariables.set('token_leiloeiro', body.token);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/auth/registrar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nome\": \"Carlos Pereira\",\n  \"email\": \"carlos@example.com\",\n  \"senha\": \"senha123\",\n  \"papel\": \"LEILOEIRO\",\n  \"dadosPerfil\": { \"registroProfissional\": \"JUCESC-000123\", \"telefone\": \"47999998888\" }\n}"
+        }
+      }
+    },
+    {
+      "name": "8. Registro invalido - CPF invalido (espera 400)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/auth/registrar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nome\": \"Teste Invalido\",\n  \"email\": \"invalido@example.com\",\n  \"senha\": \"senha123\",\n  \"papel\": \"LICITANTE\",\n  \"dadosPerfil\": { \"cpf\": \"11111111111\" }\n}"
+        }
+      }
+    },
+    {
+      "name": "9. Cadastro duplicado - mesmo email (espera 409)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/auth/registrar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nome\": \"Maria Souza\",\n  \"email\": \"maria@example.com\",\n  \"senha\": \"outrasenha\",\n  \"papel\": \"LICITANTE\",\n  \"dadosPerfil\": { \"cpf\": \"11144477735\" }\n}"
+        }
+      }
+    },
+    {
+      "name": "10. Buscar leiloeiro por id",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token_leiloeiro}}" }],
+        "url": "{{base_url}}/leiloeiros/1"
+      }
+    },
+    {
+      "name": "11. Atualizar leiloeiro",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token_leiloeiro}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{base_url}}/leiloeiros/1",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"telefone\": \"47988887777\" }"
+        }
+      }
+    },
+    {
+      "name": "12. Deletar leiloeiro",
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token_leiloeiro}}" }],
+        "url": "{{base_url}}/leiloeiros/1"
+      }
+    }
+  ]
+}
