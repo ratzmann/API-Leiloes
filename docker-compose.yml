@@ -7,6 +7,7 @@ networks:
 volumes:
   auth-db-data:
   usuarios-db-data:
+  leiloes-db-data:
 
 services:
   # ---------------- Bancos de dados ----------------
@@ -42,6 +43,24 @@ services:
       - leilao-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U usuarios_user -d usuarios_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  leiloes-db:
+    image: postgres:16-alpine
+    container_name: leiloes-db
+    environment:
+      POSTGRES_USER: leiloes_user
+      POSTGRES_PASSWORD: leiloes_pass
+      POSTGRES_DB: leiloes_db
+    volumes:
+      - leiloes-db-data:/var/lib/postgresql/data
+      - ./leiloes-service/src/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - leilao-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leiloes_user -d leiloes_db"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -85,6 +104,28 @@ services:
     networks:
       - leilao-net
 
+  leiloes-service:
+    build: ./leiloes-service
+    container_name: leiloes-service
+    environment:
+      PORT: 3003
+      DB_HOST: leiloes-db
+      DB_PORT: 5432
+      DB_USER: leiloes_user
+      DB_PASSWORD: leiloes_pass
+      DB_NAME: leiloes_db
+      JWT_SECRET: ${JWT_SECRET:-super-segredo-trabalho-microsservicos}
+      JWT_ISSUER: sistema-leilao-auth
+      # Comunicação entre microsserviços sempre por variável de ambiente
+      USUARIOS_SERVICE_URL: http://usuarios-service:3002
+    depends_on:
+      leiloes-db:
+        condition: service_healthy
+      usuarios-service:
+        condition: service_started
+    networks:
+      - leilao-net
+
   # ---------------- API Gateway ----------------
   kong:
     image: kong:3.6
@@ -105,5 +146,6 @@ services:
     depends_on:
       - auth-service
       - usuarios-service
+      - leiloes-service
     networks:
       - leilao-net
