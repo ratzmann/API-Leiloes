@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="1789004026722" clover="3.2.0">
+  <project timestamp="1789004026722" name="All files">
+    <metrics statements="97" coveredstatements="93" conditionals="86" coveredconditionals="78" methods="23" coveredmethods="22" elements="206" coveredelements="193" complexity="0" loc="97" ncloc="97" packages="2" files="3" classes="3"/>
+    <package name="services">
+      <metrics statements="78" coveredstatements="74" conditionals="69" coveredconditionals="62" methods="15" coveredmethods="14"/>
+      <file name="leilaoService.js" path="C:\Users\User\Desktop\UDESC\Devops\Trabalho 01\API-Leiloes\leiloes-service\src\services\leilaoService.js">
+        <metrics statements="78" coveredstatements="74" conditionals="69" coveredconditionals="62" methods="15" coveredmethods="14"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="2" count="1" type="stmt"/>
+        <line num="3" count="1" type="stmt"/>
+        <line num="12" count="1" type="stmt"/>
+        <line num="14" count="1" type="stmt"/>
+        <line num="28" count="15" type="cond" truecount="4" falsecount="0"/>
+        <line num="29" count="1" type="stmt"/>
+        <line num="31" count="14" type="cond" truecount="2" falsecount="0"/>
+        <line num="32" count="1" type="stmt"/>
+        <line num="34" count="13" type="cond" truecount="2" falsecount="0"/>
+        <line num="35" count="1" type="stmt"/>
+        <line num="37" count="12" type="cond" truecount="1" falsecount="1"/>
+        <line num="38" count="0" type="stmt"/>
+        <line num="40" count="12" type="cond" truecount="2" falsecount="0"/>
+        <line num="41" count="1" type="stmt"/>
+        <line num="43" count="11" type="cond" truecount="4" falsecount="0"/>
+        <line num="44" count="1" type="stmt"/>
+        <line num="47" count="10" type="stmt"/>
+        <line num="48" count="10" type="stmt"/>
+        <line num="50" count="10" type="cond" truecount="2" falsecount="0"/>
+        <line num="51" count="1" type="stmt"/>
+        <line num="53" count="9" type="stmt"/>
+        <line num="54" count="9" type="cond" truecount="2" falsecount="0"/>
+        <line num="55" count="1" type="stmt"/>
+        <line num="62" count="6" type="cond" truecount="2" falsecount="0"/>
+        <line num="63" count="1" type="stmt"/>
+        <line num="68" count="0" type="stmt"/>
+        <line num="72" count="10" type="stmt"/>
+        <line num="73" count="10" type="cond" truecount="2" falsecount="0"/>
+        <line num="74" count="1" type="stmt"/>
+        <line num="76" count="9" type="stmt"/>
+        <line num="85" count="5" type="cond" truecount="2" falsecount="0"/>
+        <line num="86" count="1" type="stmt"/>
+        <line num="90" count="4" type="stmt"/>
+        <line num="91" count="4" type="stmt"/>
+        <line num="93" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="94" count="1" type="stmt"/>
+        <line num="99" count="0" type="stmt"/>
+        <line num="104" count="3" type="cond" truecount="4" falsecount="0"/>
+        <line num="105" count="1" type="stmt"/>
+        <line num="107" count="2" type="stmt"/>
+        <line num="115" count="2" type="stmt"/>
+        <line num="116" count="2" type="cond" truecount="1" falsecount="1"/>
+        <line num="117" count="2" type="stmt"/>
+        <line num="120" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="121" count="1" type="stmt"/>
+        <line num="140" count="6" type="stmt"/>
+        <line num="142" count="6" type="stmt"/>
+        <line num="143" count="6" type="stmt"/>
+        <line num="144" count="5" type="stmt"/>
+        <line num="145" count="2" type="stmt"/>
+        <line num="147" count="1" type="stmt"/>
+        <line num="166" count="2" type="stmt"/>
+        <line num="168" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="169" count="1" type="stmt"/>
+        <line num="175" count="1" type="stmt"/>
+        <line num="184" count="1" type="stmt"/>
+        <line num="186" count="1" type="cond" truecount="3" falsecount="1"/>
+        <line num="187" count="0" type="stmt"/>
+        <line num="195" count="1" type="stmt"/>
+        <line num="208" count="4" type="cond" truecount="2" falsecount="0"/>
+        <line num="209" count="1" type="stmt"/>
+        <line num="212" count="3" type="stmt"/>
+        <line num="214" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="215" count="2" type="stmt"/>
+        <line num="221" count="1" type="stmt"/>
+        <line num="225" count="1" type="stmt"/>
+        <line num="229" count="1" type="stmt"/>
+        <line num="233" count="1" type="stmt"/>
+        <line num="241" count="2" type="stmt"/>
+        <line num="242" count="2" type="stmt"/>
+        <line num="245" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="247" count="2" type="stmt"/>
+        <line num="259" count="2" type="stmt"/>
+        <line num="260" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="261" count="1" type="stmt"/>
+        <line num="266" count="1" type="stmt"/>
+        <line num="269" count="1" type="stmt"/>
+      </file>
+    </package>
+    <package name="utils">
+      <metrics statements="19" coveredstatements="19" conditionals="17" coveredconditionals="16" methods="8" coveredmethods="8"/>
+      <file name="erros.js" path="C:\Users\User\Desktop\UDESC\Devops\Trabalho 01\API-Leiloes\leiloes-service\src\utils\erros.js">
+        <metrics statements="4" coveredstatements="4" conditionals="1" coveredconditionals="1" methods="1" coveredmethods="1"/>
+        <line num="3" count="18" type="stmt"/>
+        <line num="4" count="18" type="stmt"/>
+        <line num="5" count="18" type="stmt"/>
+        <line num="9" count="1" type="stmt"/>
+      </file>
+      <file name="validadores.js" path="C:\Users\User\Desktop\UDESC\Devops\Trabalho 01\API-Leiloes\leiloes-service\src\utils\validadores.js">
+        <metrics statements="15" coveredstatements="15" conditionals="16" coveredconditionals="15" methods="7" coveredmethods="7"/>
+        <line num="1" count="2" type="stmt"/>
+        <line num="4" count="2" type="stmt"/>
+        <line num="12" count="26" type="cond" truecount="2" falsecount="0"/>
+        <line num="13" count="25" type="cond" truecount="4" falsecount="0"/>
+        <line num="14" count="23" type="stmt"/>
+        <line num="18" count="51" type="cond" truecount="1" falsecount="1"/>
+        <line num="22" count="29" type="stmt"/>
+        <line num="23" count="29" type="cond" truecount="2" falsecount="0"/>
+        <line num="27" count="22" type="stmt"/>
+        <line num="28" count="22" type="cond" truecount="2" falsecount="0"/>
+        <line num="32" count="6" type="stmt"/>
+        <line num="36" count="8" type="stmt"/>
+        <line num="37" count="8" type="cond" truecount="2" falsecount="0"/>
+        <line num="45" count="5" type="cond" truecount="2" falsecount="0"/>
+        <line num="48" count="2" type="stmt"/>
+      </file>
+    </package>
+  </project>
+</coverage>

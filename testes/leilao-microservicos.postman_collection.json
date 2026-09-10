@@ -1,13 +1,34 @@
 {
   "info": {
     "name": "Leilão de Bois - Microsserviços",
-    "description": "Teste do fluxo de autenticação (Kong + JWT) e do cadastro de leiloeiros/licitantes. Tudo passa pela porta 8000 (Kong).",
+    "description": "Teste do fluxo de autenticação (Kong + JWT), do cadastro de leiloeiros/licitantes e do cadastro de leilões (eventos). Tudo passa pela porta 8000 (Kong).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "http://localhost:8000" },
-    { "key": "token_licitante", "value": "" },
-    { "key": "token_leiloeiro", "value": "" }
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "token_licitante",
+      "value": ""
+    },
+    {
+      "key": "token_leiloeiro",
+      "value": ""
+    },
+    {
+      "key": "leilao_id",
+      "value": ""
+    },
+    {
+      "key": "data_inicio",
+      "value": ""
+    },
+    {
+      "key": "data_fim",
+      "value": ""
+    }
   ],
   "item": [
     {
@@ -41,7 +62,12 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "url": "{{base_url}}/auth/registrar",
         "body": {
           "mode": "raw",
@@ -66,7 +92,12 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "url": "{{base_url}}/auth/login",
         "body": {
           "mode": "raw",
@@ -78,7 +109,12 @@
       "name": "5. Login com senha errada (espera 401)",
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "url": "{{base_url}}/auth/login",
         "body": {
           "mode": "raw",
@@ -90,7 +126,12 @@
       "name": "6. Listar licitantes COM token",
       "request": {
         "method": "GET",
-        "header": [{ "key": "Authorization", "value": "Bearer {{token_licitante}}" }],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_licitante}}"
+          }
+        ],
         "url": "{{base_url}}/licitantes"
       }
     },
@@ -111,7 +152,12 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "url": "{{base_url}}/auth/registrar",
         "body": {
           "mode": "raw",
@@ -123,7 +169,12 @@
       "name": "8. Registro invalido - CPF invalido (espera 400)",
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "url": "{{base_url}}/auth/registrar",
         "body": {
           "mode": "raw",
@@ -135,7 +186,12 @@
       "name": "9. Cadastro duplicado - mesmo email (espera 409)",
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "url": "{{base_url}}/auth/registrar",
         "body": {
           "mode": "raw",
@@ -147,7 +203,12 @@
       "name": "10. Buscar leiloeiro por id",
       "request": {
         "method": "GET",
-        "header": [{ "key": "Authorization", "value": "Bearer {{token_leiloeiro}}" }],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          }
+        ],
         "url": "{{base_url}}/leiloeiros/1"
       }
     },
@@ -156,8 +217,14 @@
       "request": {
         "method": "PUT",
         "header": [
-          { "key": "Authorization", "value": "Bearer {{token_leiloeiro}}" },
-          { "key": "Content-Type", "value": "application/json" }
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
         ],
         "url": "{{base_url}}/leiloeiros/1",
         "body": {
@@ -167,10 +234,262 @@
       }
     },
     {
-      "name": "12. Deletar leiloeiro",
+      "name": "12. Leiloes SEM token (espera 401 do Kong)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/leiloes"
+      }
+    },
+    {
+      "name": "13. Cadastrar leilao (espera 201)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const inicio = new Date(Date.now() + 24 * 60 * 60 * 1000);",
+              "const fim = new Date(inicio.getTime() + 3 * 60 * 60 * 1000);",
+              "pm.collectionVariables.set('data_inicio', inicio.toISOString());",
+              "pm.collectionVariables.set('data_fim', fim.toISOString());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "  pm.collectionVariables.set(\"leilao_id\", pm.response.json().id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/leiloes",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"leiloeiroId\": 1,\n  \"titulo\": \"Leilao de Nelore - Lote 12\",\n  \"descricao\": \"Bois nelore terminados a pasto, media de 18 arrobas.\",\n  \"localEvento\": \"Parque de Exposicoes de Lages\",\n  \"raca\": \"Nelore\",\n  \"quantidadeBois\": 40,\n  \"lanceInicial\": 5000,\n  \"incrementoMinimo\": 100,\n  \"dataInicio\": \"{{data_inicio}}\",\n  \"dataFim\": \"{{data_fim}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "14. Cadastrar leilao com leiloeiro inexistente (espera 404)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/leiloes",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"leiloeiroId\": 9999,\n  \"titulo\": \"Leilao sem dono\",\n  \"quantidadeBois\": 10,\n  \"lanceInicial\": 1000,\n  \"incrementoMinimo\": 50,\n  \"dataInicio\": \"{{data_inicio}}\",\n  \"dataFim\": \"{{data_fim}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "15. Cadastrar leilao com data no passado (espera 400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/leiloes",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"leiloeiroId\": 1,\n  \"titulo\": \"Leilao no passado\",\n  \"quantidadeBois\": 10,\n  \"lanceInicial\": 1000,\n  \"incrementoMinimo\": 50,\n  \"dataInicio\": \"2020-01-01T10:00:00Z\",\n  \"dataFim\": \"2020-01-01T14:00:00Z\"\n}"
+        }
+      }
+    },
+    {
+      "name": "16. Cadastrar leilao no mesmo horario (espera 409 - conflito de agenda)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/leiloes",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"leiloeiroId\": 1,\n  \"titulo\": \"Leilao concorrente\",\n  \"quantidadeBois\": 20,\n  \"lanceInicial\": 2000,\n  \"incrementoMinimo\": 50,\n  \"dataInicio\": \"{{data_inicio}}\",\n  \"dataFim\": \"{{data_fim}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "17. Listar leiloes COM token",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          }
+        ],
+        "url": "{{base_url}}/leiloes"
+      }
+    },
+    {
+      "name": "18. Buscar leilao por id",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          }
+        ],
+        "url": "{{base_url}}/leiloes/{{leilao_id}}"
+      }
+    },
+    {
+      "name": "19. Atualizar leilao AGENDADO",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/leiloes/{{leilao_id}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"titulo\": \"Leilao de Nelore - Lote 12 (revisado)\",\n  \"quantidadeBois\": 45\n}"
+        }
+      }
+    },
+    {
+      "name": "20. Encerrar leilao ainda AGENDADO (espera 409)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          }
+        ],
+        "url": "{{base_url}}/leiloes/{{leilao_id}}/encerrar"
+      }
+    },
+    {
+      "name": "21. Abrir leilao (AGENDADO -> ABERTO)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          }
+        ],
+        "url": "{{base_url}}/leiloes/{{leilao_id}}/abrir"
+      }
+    },
+    {
+      "name": "22. Editar leilao ja ABERTO (espera 409)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/leiloes/{{leilao_id}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"titulo\": \"Nao deveria passar\"\n}"
+        }
+      }
+    },
+    {
+      "name": "23. Disponibilidade do leilao (consumido pelo servico de lances)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          }
+        ],
+        "url": "{{base_url}}/leiloes/{{leilao_id}}/disponibilidade"
+      }
+    },
+    {
+      "name": "24. Encerrar leilao (ABERTO -> ENCERRADO)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          }
+        ],
+        "url": "{{base_url}}/leiloes/{{leilao_id}}/encerrar"
+      }
+    },
+    {
+      "name": "25. Cancelar leilao ja ENCERRADO (espera 409)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          }
+        ],
+        "url": "{{base_url}}/leiloes/{{leilao_id}}/cancelar"
+      }
+    },
+    {
+      "name": "26. Deletar leiloeiro",
       "request": {
         "method": "DELETE",
-        "header": [{ "key": "Authorization", "value": "Bearer {{token_leiloeiro}}" }],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          }
+        ],
         "url": "{{base_url}}/leiloeiros/1"
       }
     }

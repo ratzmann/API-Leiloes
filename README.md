@@ -1,26 +1,29 @@
 # Sistema de Leilão de Bois — Microsserviços
 
-Parte inicial do Trabalho 1 (Microsserviços): **cadastro de leiloeiros e
-licitantes** + **sistema de autenticação com Kong**.
+Trabalho 1 (Microsserviços): **cadastro de leiloeiros e licitantes**,
+**cadastro de leilão (evento)** e **sistema de autenticação com Kong**.
 
 ## Arquitetura
 
 ```
-                         ┌──────────────┐
-   Cliente / Frontend ─▶ │  Kong (8000) │  ← API Gateway (padrão de microsserviços)
-                         └──────┬───────┘
-                 público        │        protegido por plugin JWT
-              /auth/*           │        /leiloeiros/*  /licitantes/*
-                 │              │
-        ┌────────▼───────┐  ┌───▼─────────────┐
-        │  auth-service   │  │ usuarios-service │
-        │   (porta 3001)  │  │   (porta 3002)   │
-        │  Postgres auth  │  │ Postgres usuarios│
-        └────────┬────────┘  └──────────────────┘
-                  │  cria perfil via HTTP interno
-                  │  (USUARIOS_SERVICE_URL, chamada direta
-                  │   ao container, sem passar pelo Kong)
-                  └───────────────────────────▶ usuarios-service
+                              ┌──────────────┐
+        Cliente / Frontend ─▶ │  Kong (8000) │  ← API Gateway (padrão de microsserviços)
+                              └──────┬───────┘
+                      público        │        protegido por plugin JWT
+                   /auth/*           │        /leiloeiros/*  /licitantes/*  /leiloes/*
+                      │              │
+        ┌─────────────▼──┐  ┌────────▼─────────┐  ┌──────────────────┐
+        │  auth-service  │  │ usuarios-service │  │  leiloes-service │
+        │  (porta 3001)  │  │   (porta 3002)   │  │   (porta 3003)   │
+        │ Postgres auth  │  │ Postgres usuarios│  │ Postgres leiloes │
+        └────────┬───────┘  └────────▲─────────┘  └─────────┬────────┘
+                 │                   │                      │
+                 │ cria perfil       │  valida leiloeiro    │
+                 │ (USUARIOS_SERVICE_URL)                   │
+                 └───────────────────┴──────────────────────┘
+             chamadas HTTP diretas ao container, pela rede interna do
+             Docker (sem passar pelo Kong), sempre com a URL do destino
+             vinda de variável de ambiente
 ```
 
 - **auth-service**: cadastro de credenciais (e-mail/senha), login, emissão de
@@ -29,12 +32,17 @@ licitantes** + **sistema de autenticação com Kong**.
   domínio (leiloeiro ou licitante) — é assim que os dois serviços se
   comunicam, e o mesmo padrão (URL do serviço em variável de ambiente) deve
   facilitar a integração no Trabalho 2.
-- **usuarios-service** (meu microsserviço individual): CRUD de **Leiloeiro**
-  e **Licitante**, arquitetura em camadas (`routes → controllers → services →
-  repositories → Postgres`).
+- **usuarios-service**: CRUD de **Leiloeiro** e **Licitante**, arquitetura em
+  camadas (`routes → controllers → services → repositories → Postgres`).
+- **leiloes-service**: cadastro de **Leilão (evento)** — o pregão em si, com
+  lote, valores, período e ciclo de vida (`AGENDADO → ABERTO → ENCERRADO`).
+  Mesma arquitetura em camadas, mais uma camada `clients/` para a comunicação
+  REST com o `usuarios-service` (`USUARIOS_SERVICE_URL`), usada para validar o
+  leiloeiro responsável antes de gravar o leilão. Detalhes em
+  [`leiloes-service/README.md`](leiloes-service/README.md).
 - **Kong**: roda em modo *DB-less* (config declarativa em `kong/kong.yml`).
   É o único ponto de entrada exposto (porta `8000`). As rotas
-  `/leiloeiros` e `/licitantes` exigem um JWT válido (plugin `jwt` do Kong);
+  `/leiloeiros`, `/licitantes` e `/leiloes` exigem um JWT válido (plugin `jwt` do Kong);
   a rota `/auth` (login/registro) é pública. O Kong valida a assinatura do
   token emitido pelo `auth-service` porque o `Consumer` `sistema-leilao`
   está configurado com o mesmo segredo HS256 (`JWT_SECRET`) usado para
@@ -52,6 +60,20 @@ licitantes** + **sistema de autenticação com Kong**.
 2. E-mail único.
 3. Limite de crédito nunca pode ser negativo.
 
+## Regras de negócio implementadas (leiloes-service)
+
+**Leilão (evento)**
+1. Validação do evento: título, lote (≥ 1 boi), lance inicial e incremento
+   mínimo maiores que zero (e incremento nunca maior que o lance inicial),
+   datas ISO 8601 com fim depois do início e duração mínima de 30 minutos.
+2. O leilão só é gravado se o `leiloeiroId` existir de fato — verificado por
+   chamada REST ao `usuarios-service`.
+3. Data de início obrigatoriamente no futuro.
+4. Um leiloeiro não pode ter dois leilões ativos com períodos sobrepostos.
+5. Ciclo de vida controlado: `AGENDADO → ABERTO → ENCERRADO`, com cancelamento
+   permitido apenas enquanto não estiver encerrado.
+6. Edição e exclusão só enquanto o leilão está `AGENDADO`.
+
 ## Como rodar
 
 ```bash
@@ -62,9 +84,10 @@ Serviços:
 - Gateway (Kong): `http://localhost:8000`
 - Admin API do Kong (dev): `http://localhost:8001`
 
-> `auth-service` e `usuarios-service` **não** têm porta publicada no host —
-> só são acessíveis pela rede interna do Docker ou através do Kong. Isso
-> garante que o Kong é o único ponto de entrada real da aplicação.
+> `auth-service`, `usuarios-service` e `leiloes-service` **não** têm porta
+> publicada no host — só são acessíveis pela rede interna do Docker ou através
+> do Kong. Isso garante que o Kong é o único ponto de entrada real da
+> aplicação.
 
 ## Fluxo de uso (via Kong, porta 8000)
 
@@ -110,16 +133,37 @@ curl -X POST http://localhost:8000/auth/registrar \
   }'
 ```
 
+### 5. Cadastrar um leilão (rota protegida pelo Kong)
+```bash
+curl -X POST http://localhost:8000/leiloes \
+  -H "Authorization: Bearer <TOKEN_DO_LEILOEIRO>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "leiloeiroId": 1,
+    "titulo": "Leilão de Nelore - Lote 12",
+    "localEvento": "Parque de Exposições de Lages",
+    "raca": "Nelore",
+    "quantidadeBois": 40,
+    "lanceInicial": 5000,
+    "incrementoMinimo": 100,
+    "dataInicio": "2026-10-01T14:00:00Z",
+    "dataFim": "2026-10-01T18:00:00Z"
+  }'
+```
+Depois, `PATCH /leiloes/1/abrir` coloca o pregão no ar e
+`GET /leiloes/1/disponibilidade` informa se ele está aceitando lances.
+
 ## Testes automatizados
 
 ```bash
 cd auth-service && npm install && npm test
 cd usuarios-service && npm install && npm test
+cd leiloes-service && npm install && npm test
 ```
 
-Ambos usam Jest com repositórios mockados (testando as regras de negócio em
-`services/`) e reportam cobertura (`--coverage`), ficando acima dos 50%
-exigidos.
+Todos usam Jest com repositórios (e clients HTTP) mockados, testando as regras
+de negócio em `services/`, e reportam cobertura (`--coverage`), ficando acima
+dos 50% exigidos.
 
 ## Variáveis de ambiente
 
@@ -129,9 +173,13 @@ para `.env` e ajuste `DB_HOST` etc.
 
 ## Próximos passos (grupo)
 
-- Cadastro de Leilão (Evento) e de Lances — outros microsserviços do grupo.
+- Cadastro de Lances — próximo microsserviço do grupo. Já existe o ponto de
+  integração pronto: `GET /leiloes/:id/disponibilidade` no `leiloes-service`
+  responde se o leilão está `ABERTO` e dentro do período, junto com
+  `lanceInicial` e `incrementoMinimo` para validar o valor do lance.
 - Acompanhamento ao vivo dos lances (provavelmente WebSockets ou Event-Driven,
   que conta como o 2º padrão de microsserviços exigido, junto com o API
   Gateway já implementado aqui via Kong).
 - Padronizar as URLs dos novos serviços por variável de ambiente, seguindo o
-  mesmo modelo usado entre `auth-service` e `usuarios-service`.
+  mesmo modelo já usado entre `auth-service`, `usuarios-service` e
+  `leiloes-service`.
