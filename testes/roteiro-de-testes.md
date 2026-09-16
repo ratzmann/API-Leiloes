@@ -207,18 +207,87 @@ curl -i -X DELETE http://localhost:8000/leiloeiros/1 \
   -H "Authorization: Bearer $TOKEN_LEILOEIRO"
 ```
 
-## 13. Ver logs se algo der errado
+## 13. Testar o microsserviço de lances (lances-service)
+
+### 13.1 Testar rota protegida sem token (deve dar 401)
+```bash
+curl -i http://localhost:8000/lances
+```
+
+### 13.2 Submeter o primeiro lance válido de um leilão
+```bash
+curl -X POST http://localhost:8000/lances \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "leilaoId": 1,
+    "licitanteId": 1,
+    "valor": 1000.00
+  }'
+```
+
+### 13.3 Tentar cobrir o próprio lance consecutivo (deve dar 400)
+```bash
+curl -i -X POST http://localhost:8000/lances \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "leilaoId": 1,
+    "licitanteId": 1,
+    "valor": 1200.00
+  }'
+```
+
+### 13.4 Submeter novo lance com outro licitante e valor menor ou igual (deve dar 400)
+```bash
+curl -i -X POST http://localhost:8000/lances \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "leilaoId": 1,
+    "licitanteId": 2,
+    "valor": 950.00
+  }'
+```
+
+### 13.5 Submeter novo lance superior com outro licitante (deve dar 201)
+```bash
+curl -X POST http://localhost:8000/lances \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "leilaoId": 1,
+    "licitanteId": 2,
+    "valor": 1350.00
+  }'
+```
+
+### 13.6 Consultar maior lance atual do leilão
+```bash
+curl http://localhost:8000/lances/leilao/1/maior \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### 13.7 Consultar histórico completo de lances do leilão
+```bash
+curl http://localhost:8000/lances/leilao/1 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+## 14. Ver logs se algo der errado
 ```bash
 docker compose logs -f auth-service
 docker compose logs -f usuarios-service
 docker compose logs -f leiloes-service
+docker compose logs -f lances-service
 docker compose logs -f kong
 ```
 
-## 14. Inspecionar a config do Kong direto (Admin API, porta 8001)
+## 15. Inspecionar a config do Kong direto (Admin API, porta 8001)
 ```bash
 curl http://localhost:8001/services
 curl http://localhost:8001/routes
 curl http://localhost:8001/consumers/sistema-leilao/jwt
 ```
 Útil pra debugar se o plugin JWT está mesmo aplicado nas rotas certas.
+
