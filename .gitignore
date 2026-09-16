@@ -1,0 +1,18 @@
+# Dependências (cada serviço roda seu próprio npm install)
+node_modules/
+
+# Variáveis de ambiente — os .env.example continuam versionados
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# Arquivos gerados pelo sistema operacional / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
