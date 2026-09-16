@@ -1,37 +1,38 @@
 # Sistema de Leilão de Bois — Microsserviços
 
-Trabalho 1 (Microsserviços): **cadastro de leiloeiros e licitantes**,
-**cadastro de leilão (evento)** e **sistema de autenticação com Kong**.
+Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro de leilão (evento)**, **registro e consulta de lances** + **sistema de autenticação com Kong**.
 
 ## Arquitetura
 
 ```
-                              ┌──────────────┐
-        Cliente / Frontend ─▶ │  Kong (8000) │  ← API Gateway (padrão de microsserviços)
-                              └──────┬───────┘
-                      público        │        protegido por plugin JWT
-                   /auth/*           │        /leiloeiros/*  /licitantes/*  /leiloes/*
-                      │              │
-        ┌─────────────▼──┐  ┌────────▼─────────┐  ┌──────────────────┐
-        │  auth-service  │  │ usuarios-service │  │  leiloes-service │
-        │  (porta 3001)  │  │   (porta 3002)   │  │   (porta 3003)   │
-        │ Postgres auth  │  │ Postgres usuarios│  │ Postgres leiloes │
-        └────────┬───────┘  └────────▲─────────┘  └─────────┬────────┘
-                 │                   │                      │
-                 │ cria perfil       │  valida leiloeiro    │
-                 │ (USUARIOS_SERVICE_URL)                   │
-                 └───────────────────┴──────────────────────┘
-             chamadas HTTP diretas ao container, pela rede interna do
-             Docker (sem passar pelo Kong), sempre com a URL do destino
-             vinda de variável de ambiente
+                         ┌──────────────┐
+    Cliente / Frontend ─▶│  Kong (8000) │  ← API Gateway (padrão de microsserviços)
+                         └──────┬───────┘
+       ┌────────────────┬───────┴────────┬────────────────┐
+    público      protegido (JWT)  protegido (JWT)  protegido (JWT)
+    /auth/*      /leiloeiros/*       /leiloes/*       /lances/*
+                 /licitantes/*
+       │                │                │                │
+       ▼                ▼                ▼                ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ auth-service │ │ usuarios-    │ │ leiloes-     │ │ lances-      │
+│ (porta 3001) │ │ service(3002)│ │ service(3003)│ │ service(3003)│
+│ Postgres auth│ │ Postgres usr │ │ Postgres lei │ │ Postgres lnc │
+└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+       │                ▲                │
+       │ cria perfil    │                │ valida leiloeiro
+       │ via HTTP       │                │ (USUARIOS_SERVICE_URL)
+       └────────────────┤                │
+                        └────────────────┘
+   chamadas HTTP diretas ao container, pela rede interna do Docker
+   (sem passar pelo Kong), sempre com a URL do destino vinda de
+   variável de ambiente
 ```
 
 - **auth-service**: cadastro de credenciais (e-mail/senha), login, emissão de
   JWT (HS256). Ao registrar um usuário, chama o `usuarios-service` via HTTP
   usando a variável de ambiente `USUARIOS_SERVICE_URL` para criar o perfil de
-  domínio (leiloeiro ou licitante) — é assim que os dois serviços se
-  comunicam, e o mesmo padrão (URL do serviço em variável de ambiente) deve
-  facilitar a integração no Trabalho 2.
+  domínio (leiloeiro ou licitante).
 - **usuarios-service**: CRUD de **Leiloeiro** e **Licitante**, arquitetura em
   camadas (`routes → controllers → services → repositories → Postgres`).
 - **leiloes-service**: cadastro de **Leilão (evento)** — o pregão em si, com
@@ -40,15 +41,20 @@ Trabalho 1 (Microsserviços): **cadastro de leiloeiros e licitantes**,
   REST com o `usuarios-service` (`USUARIOS_SERVICE_URL`), usada para validar o
   leiloeiro responsável antes de gravar o leilão. Detalhes em
   [`leiloes-service/README.md`](leiloes-service/README.md).
+- **lances-service**: Registro e consulta de **Lances** de leilões, com histórico,
+  validação de maior lance atual e regras anti-lance repetido. Segue a mesma
+  arquitetura em camadas (`routes → controllers → services → repositories → Postgres`).
 - **Kong**: roda em modo *DB-less* (config declarativa em `kong/kong.yml`).
   É o único ponto de entrada exposto (porta `8000`). As rotas
-  `/leiloeiros`, `/licitantes` e `/leiloes` exigem um JWT válido (plugin `jwt` do Kong);
+  `/leiloeiros`, `/licitantes`, `/leiloes` e `/lances` exigem um JWT válido (plugin `jwt` do Kong);
   a rota `/auth` (login/registro) é pública. O Kong valida a assinatura do
   token emitido pelo `auth-service` porque o `Consumer` `sistema-leilao`
   está configurado com o mesmo segredo HS256 (`JWT_SECRET`) usado para
   assinar os tokens.
 
-## Regras de negócio implementadas (usuarios-service)
+## Regras de negócio implementadas
+
+### usuarios-service
 
 **Leiloeiro**
 1. Nome, e-mail e registro profissional obrigatórios.
@@ -60,7 +66,7 @@ Trabalho 1 (Microsserviços): **cadastro de leiloeiros e licitantes**,
 2. E-mail único.
 3. Limite de crédito nunca pode ser negativo.
 
-## Regras de negócio implementadas (leiloes-service)
+### leiloes-service
 
 **Leilão (evento)**
 1. Validação do evento: título, lote (≥ 1 boi), lance inicial e incremento
@@ -74,6 +80,14 @@ Trabalho 1 (Microsserviços): **cadastro de leiloeiros e licitantes**,
    permitido apenas enquanto não estiver encerrado.
 6. Edição e exclusão só enquanto o leilão está `AGENDADO`.
 
+### lances-service
+
+**Lance**
+1. Identificadores (`leilaoId`, `licitanteId`) e `valor` obrigatórios e válidos.
+2. Valor do lance deve ser estritamente positivo (> 0).
+3. Novo lance deve ser **estritamente superior** ao maior lance registrado atualmente para o leilão.
+4. Licitante não pode cobrir o seu próprio lance consecutivo se já detém o maior lance atual.
+
 ## Como rodar
 
 ```bash
@@ -84,7 +98,7 @@ Serviços:
 - Gateway (Kong): `http://localhost:8000`
 - Admin API do Kong (dev): `http://localhost:8001`
 
-> `auth-service`, `usuarios-service` e `leiloes-service` **não** têm porta
+> `auth-service`, `usuarios-service`, `leiloes-service` e `lances-service` **não** têm porta
 > publicada no host — só são acessíveis pela rede interna do Docker ou através
 > do Kong. Isso garante que o Kong é o único ponto de entrada real da
 > aplicação.
@@ -118,7 +132,7 @@ curl http://localhost:8000/licitantes \
   -H "Authorization: Bearer <TOKEN_RECEBIDO>"
 ```
 Sem o header `Authorization` (ou com token inválido), o Kong responde
-`401 Unauthorized` antes mesmo de a requisição chegar ao `usuarios-service`.
+`401 Unauthorized` antes mesmo de a requisição chegar ao serviço interno.
 
 ### 4. Registrar um leiloeiro
 ```bash
@@ -153,12 +167,36 @@ curl -X POST http://localhost:8000/leiloes \
 Depois, `PATCH /leiloes/1/abrir` coloca o pregão no ar e
 `GET /leiloes/1/disponibilidade` informa se ele está aceitando lances.
 
+### 6. Registrar um lance (rota protegida)
+```bash
+curl -X POST http://localhost:8000/lances \
+  -H "Authorization: Bearer <TOKEN_RECEBIDO>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "leilaoId": 1,
+    "licitanteId": 1,
+    "valor": 1500.00
+  }'
+```
+
+### 7. Consultar lances de um leilão e maior lance atual
+```bash
+# Todos os lances do leilão 1
+curl http://localhost:8000/lances/leilao/1 \
+  -H "Authorization: Bearer <TOKEN_RECEBIDO>"
+
+# Maior lance atual do leilão 1
+curl http://localhost:8000/lances/leilao/1/maior \
+  -H "Authorization: Bearer <TOKEN_RECEBIDO>"
+```
+
 ## Testes automatizados
 
 ```bash
 cd auth-service && npm install && npm test
 cd usuarios-service && npm install && npm test
 cd leiloes-service && npm install && npm test
+cd lances-service && npm install && npm test
 ```
 
 Todos usam Jest com repositórios (e clients HTTP) mockados, testando as regras
@@ -173,13 +211,13 @@ para `.env` e ajuste `DB_HOST` etc.
 
 ## Próximos passos (grupo)
 
-- Cadastro de Lances — próximo microsserviço do grupo. Já existe o ponto de
-  integração pronto: `GET /leiloes/:id/disponibilidade` no `leiloes-service`
-  responde se o leilão está `ABERTO` e dentro do período, junto com
-  `lanceInicial` e `incrementoMinimo` para validar o valor do lance.
-- Acompanhamento ao vivo dos lances (provavelmente WebSockets ou Event-Driven,
+- Acompanhamento ao vivo dos lances (WebSockets ou Event-Driven,
   que conta como o 2º padrão de microsserviços exigido, junto com o API
-  Gateway já implementado aqui via Kong).
+  Gateway já implementado via Kong).
+- Ligar o `lances-service` ao `leiloes-service`: o ponto de integração já está
+  pronto — `GET /leiloes/:id/disponibilidade` responde se o leilão está `ABERTO`
+  e dentro do período, junto com `lanceInicial` e `incrementoMinimo` para
+  validar o valor do lance.
 - Padronizar as URLs dos novos serviços por variável de ambiente, seguindo o
   mesmo modelo já usado entre `auth-service`, `usuarios-service` e
   `leiloes-service`.
