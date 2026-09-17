@@ -16,3 +16,6 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Relatorios de cobertura gerados pelo npm test
+coverage/

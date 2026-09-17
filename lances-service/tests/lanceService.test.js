@@ -1,5 +1,9 @@
 jest.mock('../src/repositories/lanceRepository');
+jest.mock('../src/repositories/sagaRepository');
+jest.mock('../src/sagas/registrarLanceSaga');
 const lanceRepository = require('../src/repositories/lanceRepository');
+const sagaRepository = require('../src/repositories/sagaRepository');
+const registrarLanceSaga = require('../src/sagas/registrarLanceSaga');
 const lanceService = require('../src/services/lanceService');
 
 beforeEach(() => jest.clearAllMocks());
@@ -102,93 +106,52 @@ describe('lanceService.buscarMaiorPorLeilao', () => {
 });
 
 describe('lanceService.registrarLance', () => {
-  test('registra com sucesso quando for o primeiro lance do leilao', async () => {
-    lanceRepository.buscarMaiorPorLeilao.mockResolvedValue(null);
-    lanceRepository.criar.mockResolvedValue({
-      id: 1,
-      leilao_id: 1,
-      licitante_id: 2,
-      valor: 1000,
-    });
+  test('valida os dados antes de iniciar a saga', async () => {
+    await expect(
+      lanceService.registrarLance({ leilaoId: 1, licitanteId: 2, valor: -10 })
+    ).rejects.toThrow('Valor do lance deve ser um numero maior que zero.');
+    expect(registrarLanceSaga.executar).not.toHaveBeenCalled();
+  });
+
+  test('delega o registro para a saga, repassando a falha simulada', async () => {
+    registrarLanceSaga.executar.mockResolvedValue({ id: 5, sagaId: 9, sagaStatus: 'CONCLUIDA' });
 
     const resultado = await lanceService.registrarLance({
+      leilaoId: '1',
+      licitanteId: '2',
+      valor: '1000',
+      simularFalha: 'gravar-lance',
+    });
+
+    expect(resultado.sagaId).toBe(9);
+    expect(registrarLanceSaga.executar).toHaveBeenCalledWith({
       leilaoId: 1,
       licitanteId: 2,
       valor: 1000,
-    });
-
-    expect(resultado.id).toBe(1);
-    expect(lanceRepository.criar).toHaveBeenCalledWith({
-      leilaoId: 1,
-      licitanteId: 2,
-      valor: 1000,
+      simularFalha: 'gravar-lance',
     });
   });
+});
 
-  test('rejeita lance quando licitante ja detem o maior lance atual', async () => {
-    lanceRepository.buscarMaiorPorLeilao.mockResolvedValue({
-      id: 1,
-      leilao_id: 1,
-      licitante_id: 2,
-      valor: '1000.00',
-    });
-
-    await expect(
-      lanceService.registrarLance({
-        leilaoId: 1,
-        licitanteId: 2,
-        valor: 1200,
-      })
-    ).rejects.toThrow('Voce ja detem o maior lance atual para este leilao.');
+describe('lanceService sagas', () => {
+  test('busca saga existente', async () => {
+    sagaRepository.buscarPorId.mockResolvedValue({ id: 3, status: 'CONCLUIDA' });
+    await expect(lanceService.buscarSaga('3')).resolves.toEqual({ id: 3, status: 'CONCLUIDA' });
   });
 
-  test('rejeita lance com valor menor ou igual ao lance atual', async () => {
-    lanceRepository.buscarMaiorPorLeilao.mockResolvedValue({
-      id: 1,
-      leilao_id: 1,
-      licitante_id: 2,
-      valor: '1500.00',
-    });
-
-    await expect(
-      lanceService.registrarLance({
-        leilaoId: 1,
-        licitanteId: 3,
-        valor: 1500,
-      })
-    ).rejects.toThrow('O lance deve ser estritamente maior que o lance atual de R$ 1500.00.');
-
-    await expect(
-      lanceService.registrarLance({
-        leilaoId: 1,
-        licitanteId: 3,
-        valor: 1400,
-      })
-    ).rejects.toThrow('O lance deve ser estritamente maior que o lance atual de R$ 1500.00.');
+  test('lanca 404 para saga inexistente e 400 para id invalido', async () => {
+    sagaRepository.buscarPorId.mockResolvedValue(null);
+    await expect(lanceService.buscarSaga(99)).rejects.toMatchObject({ codigo: 404 });
+    await expect(lanceService.buscarSaga('x')).rejects.toMatchObject({ codigo: 400 });
   });
 
-  test('aceita lance maior que o anterior de outro licitante', async () => {
-    lanceRepository.buscarMaiorPorLeilao.mockResolvedValue({
-      id: 1,
-      leilao_id: 1,
-      licitante_id: 2,
-      valor: '1500.00',
-    });
-    lanceRepository.criar.mockResolvedValue({
-      id: 2,
-      leilao_id: 1,
-      licitante_id: 3,
-      valor: 1600,
-    });
+  test('lista sagas e reprocessa pela saga', async () => {
+    sagaRepository.listar.mockResolvedValue([{ id: 1 }]);
+    registrarLanceSaga.reprocessar.mockResolvedValue({ id: 1, status: 'CONCLUIDA' });
 
-    const resultado = await lanceService.registrarLance({
-      leilaoId: 1,
-      licitanteId: 3,
-      valor: 1600,
-    });
-
-    expect(resultado.id).toBe(2);
-    expect(lanceRepository.criar).toHaveBeenCalledTimes(1);
+    await expect(lanceService.listarSagas()).resolves.toEqual([{ id: 1 }]);
+    await expect(lanceService.reprocessarSaga('1')).resolves.toMatchObject({ status: 'CONCLUIDA' });
+    await expect(lanceService.reprocessarSaga(0)).rejects.toMatchObject({ codigo: 400 });
   });
 });
 

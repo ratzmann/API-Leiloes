@@ -47,10 +47,16 @@ async function registrar(req, res) {
       licitanteId = req.usuarioAutenticado.perfilId || req.usuarioAutenticado.sub;
     }
 
+    // Injecao de falha para demonstrar a compensacao da Saga. So vale quando
+    // SAGA_PERMITIR_FALHA_SIMULADA=true (ambiente academico / de testes).
+    const simularFalha =
+      process.env.SAGA_PERMITIR_FALHA_SIMULADA === 'true' ? req.get('X-Simular-Falha') || null : null;
+
     const lance = await lanceService.registrarLance({
       leilaoId,
       licitanteId,
       valor,
+      simularFalha,
     });
     res.status(201).json(lance);
   } catch (err) {
@@ -58,9 +64,35 @@ async function registrar(req, res) {
   }
 }
 
+async function listarSagas(req, res) {
+  try {
+    res.json(await lanceService.listarSagas());
+  } catch (err) {
+    tratarErro(res, err);
+  }
+}
+
+async function buscarSaga(req, res) {
+  try {
+    res.json(await lanceService.buscarSaga(req.params.id));
+  } catch (err) {
+    tratarErro(res, err);
+  }
+}
+
+async function reprocessarSaga(req, res) {
+  try {
+    res.json(await lanceService.reprocessarSaga(req.params.id));
+  } catch (err) {
+    tratarErro(res, err);
+  }
+}
+
 function tratarErro(res, err) {
   if (err instanceof ErroDeValidacao) {
-    return res.status(err.codigo).json({ erro: err.message });
+    const corpo = { erro: err.message };
+    if (err.sagaId) corpo.sagaId = err.sagaId;
+    return res.status(err.codigo).json(corpo);
   }
   console.error(err);
   return res.status(500).json({ erro: 'Erro interno no servico de lances.' });
@@ -72,4 +104,7 @@ module.exports = {
   buscarPorLeilao,
   buscarMaiorPorLeilao,
   registrar,
+  listarSagas,
+  buscarSaga,
+  reprocessarSaga,
 };

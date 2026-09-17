@@ -28,6 +28,17 @@ services:
         paths:
           - /licitantes
         strip_path: false
+      # Reservas de credito sao internas: so o lances-service (Saga) chama,
+      # direto pela rede do Docker. Pelo gateway, o acesso e bloqueado.
+      - name: reservas-credito-internas
+        paths:
+          - '~/licitantes/\d+/reservas'
+        strip_path: false
+        plugins:
+          - name: request-termination
+            config:
+              status_code: 403
+              message: Reservas de credito sao internas e so podem ser feitas pela Saga de lances.
     plugins:
       - name: jwt
         config:

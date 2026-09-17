@@ -23,6 +23,7 @@
     "testEnvironment": "node",
     "collectCoverageFrom": [
       "src/services/**/*.js",
+      "src/sagas/**/*.js",
       "src/utils/**/*.js"
     ]
   }

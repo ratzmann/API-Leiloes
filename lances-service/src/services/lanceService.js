@@ -1,4 +1,6 @@
 const lanceRepository = require('../repositories/lanceRepository');
+const sagaRepository = require('../repositories/sagaRepository');
+const registrarLanceSaga = require('../sagas/registrarLanceSaga');
 const { ErroDeValidacao } = require('../utils/erros');
 const { idValido, valorValido } = require('../utils/validadores');
 
@@ -49,33 +51,43 @@ async function buscarMaiorPorLeilao(leilaoId) {
 
 // Regra de negocio 1: leilaoId, licitanteId e valor obrigatorios e validos.
 // Regra de negocio 2: valor estritamente maior que zero.
-// Regra de negocio 3: novo lance deve ser superior ao maior lance atual do leilao.
+// Regra de negocio 3: primeiro lance >= lance inicial; os seguintes >= maior lance + incremento minimo.
 // Regra de negocio 4: mesmo licitante nao pode cobrir seu proprio lance atual.
-async function registrarLance({ leilaoId, licitanteId, valor }) {
+// Regra de negocio 5: o licitante precisa ter credito disponivel para o valor do lance.
+//
+// As regras 3 a 5 dependem de dados de outros servicos (leiloes e usuarios), por
+// isso o registro e feito pela Saga orquestrada em src/sagas/registrarLanceSaga.js.
+async function registrarLance({ leilaoId, licitanteId, valor, simularFalha = null }) {
   validarDados({ leilaoId, licitanteId, valor });
 
-  const valorNum = Number(valor);
-  const maiorLanceAtual = await lanceRepository.buscarMaiorPorLeilao(Number(leilaoId));
-
-  if (maiorLanceAtual) {
-    const maiorValor = Number(maiorLanceAtual.valor);
-
-    if (Number(maiorLanceAtual.licitante_id) === Number(licitanteId)) {
-      throw new ErroDeValidacao('Voce ja detem o maior lance atual para este leilao.');
-    }
-
-    if (valorNum <= maiorValor) {
-      throw new ErroDeValidacao(
-        `O lance deve ser estritamente maior que o lance atual de R$ ${maiorValor.toFixed(2)}.`
-      );
-    }
-  }
-
-  return lanceRepository.criar({
+  return registrarLanceSaga.executar({
     leilaoId: Number(leilaoId),
     licitanteId: Number(licitanteId),
-    valor: valorNum,
+    valor: Number(valor),
+    simularFalha,
   });
+}
+
+async function listarSagas() {
+  return sagaRepository.listar();
+}
+
+async function buscarSaga(id) {
+  if (!idValido(id)) {
+    throw new ErroDeValidacao('ID de saga invalido.');
+  }
+  const saga = await sagaRepository.buscarPorId(Number(id));
+  if (!saga) {
+    throw new ErroDeValidacao('Saga nao encontrada.', 404);
+  }
+  return saga;
+}
+
+async function reprocessarSaga(id) {
+  if (!idValido(id)) {
+    throw new ErroDeValidacao('ID de saga invalido.');
+  }
+  return registrarLanceSaga.reprocessar(Number(id));
 }
 
 module.exports = {
@@ -84,5 +96,8 @@ module.exports = {
   buscarPorLeilao,
   buscarMaiorPorLeilao,
   registrarLance,
+  listarSagas,
+  buscarSaga,
+  reprocessarSaga,
   validarDados,
 };

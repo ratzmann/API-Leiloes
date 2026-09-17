@@ -36,10 +36,53 @@ async function criar({ leilaoId, licitanteId, valor }) {
   return rows[0];
 }
 
+/**
+ * Passo 3 da Saga (ponto sem volta): grava o lance com o leilao travado.
+ *
+ * `pg_advisory_xact_lock` serializa os lances de um mesmo leilao ate o fim da
+ * transacao. Assim a regra "maior que o lance atual" e conferida de novo com a
+ * certeza de que ninguem gravou outro lance entre a checagem e o INSERT.
+ */
+async function registrarComTrava(leilaoId, fn) {
+  const client = await pool.connect();
+  const tx = {
+    async buscarMaior() {
+      const { rows } = await client.query(
+        'SELECT * FROM lances WHERE leilao_id = $1 ORDER BY valor DESC, criado_em DESC LIMIT 1',
+        [leilaoId]
+      );
+      return rows[0] || null;
+    },
+    async criar({ licitanteId, valor, sagaId, reservaId }) {
+      const { rows } = await client.query(
+        `INSERT INTO lances (leilao_id, licitante_id, valor, saga_id, reserva_id)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        [leilaoId, licitanteId, valor, sagaId, reservaId]
+      );
+      return rows[0];
+    },
+  };
+
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('lances'), $1)", [leilaoId]);
+    const resultado = await fn(tx);
+    await client.query('COMMIT');
+    return resultado;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   listar,
   buscarPorId,
   buscarPorLeilao,
   buscarMaiorPorLeilao,
   criar,
+  registrarComTrava,
 };

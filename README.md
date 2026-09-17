@@ -19,14 +19,14 @@ Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro
 │ (porta 3001) │ │ service(3002)│ │ service(3003)│ │ service(3003)│
 │ Postgres auth│ │ Postgres usr │ │ Postgres lei │ │ Postgres lnc │
 └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
-       │                ▲                │
-       │ cria perfil    │                │ valida leiloeiro
-       │ via HTTP       │                │ (USUARIOS_SERVICE_URL)
-       └────────────────┤                │
-                        └────────────────┘
-   chamadas HTTP diretas ao container, pela rede interna do Docker
-   (sem passar pelo Kong), sempre com a URL do destino vinda de
-   variável de ambiente
+
+   Comunicação REST entre os serviços (direto pela rede do Docker,
+   sem passar pelo Kong, URL sempre vinda de variável de ambiente):
+
+   auth-service     ──▶ usuarios-service   cria o perfil ao registrar
+   leiloes-service  ──▶ usuarios-service   valida o leiloeiro do leilão
+   lances-service   ──▶ leiloes-service    Saga passo 1: leilão aceita lances?
+   lances-service   ──▶ usuarios-service   Saga passos 2 e 4: reserva e libera crédito
 ```
 
 - **auth-service**: cadastro de credenciais (e-mail/senha), login, emissão de
@@ -35,6 +35,8 @@ Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro
   domínio (leiloeiro ou licitante).
 - **usuarios-service**: CRUD de **Leiloeiro** e **Licitante**, arquitetura em
   camadas (`routes → controllers → services → repositories → Postgres`).
+  Também controla o **crédito do licitante**: reservas e liberações usadas
+  pela Saga de lances.
 - **leiloes-service**: cadastro de **Leilão (evento)** — o pregão em si, com
   lote, valores, período e ciclo de vida (`AGENDADO → ABERTO → ENCERRADO`).
   Mesma arquitetura em camadas, mais uma camada `clients/` para a comunicação
@@ -43,14 +45,57 @@ Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro
   [`leiloes-service/README.md`](leiloes-service/README.md).
 - **lances-service**: Registro e consulta de **Lances** de leilões, com histórico,
   validação de maior lance atual e regras anti-lance repetido. Segue a mesma
-  arquitetura em camadas (`routes → controllers → services → repositories → Postgres`).
+  arquitetura em camadas (`routes → controllers → services → repositories → Postgres`),
+  mais `clients/` (REST) e `sagas/`: é o **orquestrador da Saga** de registro de lance.
 - **Kong**: roda em modo *DB-less* (config declarativa em `kong/kong.yml`).
   É o único ponto de entrada exposto (porta `8000`). As rotas
   `/leiloeiros`, `/licitantes`, `/leiloes` e `/lances` exigem um JWT válido (plugin `jwt` do Kong);
   a rota `/auth` (login/registro) é pública. O Kong valida a assinatura do
   token emitido pelo `auth-service` porque o `Consumer` `sistema-leilao`
   está configurado com o mesmo segredo HS256 (`JWT_SECRET`) usado para
-  assinar os tokens.
+  assinar os tokens. As rotas de reserva de crédito
+  (`/licitantes/:id/reservas`) são internas e o Kong as bloqueia com `403`.
+
+## Padrões de microsserviços
+
+1. **API Gateway** — Kong, único ponto de entrada, com autenticação JWT.
+2. **Saga (orquestrada, via REST)** — registro de lance, descrito abaixo.
+
+## Saga: registro de lance
+
+Cada serviço tem o próprio banco, então não existe uma transação única que
+cubra "reservar o crédito do licitante" (banco do `usuarios-service`) e
+"gravar o lance" (banco do `lances-service`). A Saga troca essa transação por
+uma **sequência de transações locais**; se um passo falha, o orquestrador
+executa as **compensações** dos passos que já tinham dado certo.
+
+O orquestrador fica em
+[`lances-service/src/sagas/registrarLanceSaga.js`](lances-service/src/sagas/registrarLanceSaga.js).
+
+| # | Passo | Serviço | Tipo | Se falhar |
+|---|---|---|---|---|
+| 1 | `consultar-disponibilidade` | leiloes-service | leitura | recusa o lance (404 / 409); nada a desfazer |
+| 2 | `reservar-credito` | usuarios-service | **compensável** | recusa o lance (404 / 409 crédito insuficiente) |
+| 3 | `gravar-lance` | lances-service | **ponto sem volta** | **compensa o passo 2**: libera a reserva |
+| 4 | `liberar-credito-superado` | usuarios-service | **repetível** | tenta 3 vezes; se não der, a saga fica `CONCLUIDA_COM_PENDENCIA` e pode ser reprocessada |
+
+Detalhes de implementação:
+
+- **Idempotência**: a reserva usa o id da saga como `referencia` (única); repetir a chamada devolve a mesma reserva. Liberar duas vezes não gera erro.
+- **Concorrência**: a reserva trava o licitante (`SELECT ... FOR UPDATE`) e o passo 3 trava o leilão (`pg_advisory_xact_lock`) e confere a regra de valor de novo antes do `INSERT`.
+- **Rastreabilidade**: cada execução fica na tabela `sagas_lance`, com status e todos os passos.
+- **Demonstração da compensação**: com `SAGA_PERMITIR_FALHA_SIMULADA=true` (definido no `docker-compose.yml`), o header `X-Simular-Falha: gravar-lance` ou `X-Simular-Falha: liberar-credito-superado` força a falha naquele passo.
+
+Status possíveis: `CONCLUIDA`, `CONCLUIDA_COM_PENDENCIA`, `FALHOU` (nada a
+compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
+
+| Rota | O que faz |
+|---|---|
+| `POST /lances` | inicia a Saga; a resposta traz `sagaId` e `sagaStatus` (também nos erros) |
+| `GET /lances/sagas` | últimas sagas executadas |
+| `GET /lances/sagas/:id` | uma saga, passo a passo |
+| `POST /lances/sagas/:id/reprocessar` | tenta de novo o passo 4 de uma saga pendente |
+| `GET /licitantes/:id/credito` | limite, reservado e disponível do licitante |
 
 ## Regras de negócio implementadas
 
@@ -65,6 +110,10 @@ Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro
 1. CPF validado (dígitos verificadores) e único.
 2. E-mail único.
 3. Limite de crédito nunca pode ser negativo.
+
+**Crédito**
+1. A soma das reservas ativas nunca ultrapassa o limite de crédito do licitante.
+2. Reserva e liberação são idempotentes.
 
 ### leiloes-service
 
@@ -85,8 +134,10 @@ Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro
 **Lance**
 1. Identificadores (`leilaoId`, `licitanteId`) e `valor` obrigatórios e válidos.
 2. Valor do lance deve ser estritamente positivo (> 0).
-3. Novo lance deve ser **estritamente superior** ao maior lance registrado atualmente para o leilão.
-4. Licitante não pode cobrir o seu próprio lance consecutivo se já detém o maior lance atual.
+3. O leilão precisa existir e estar aceitando lances (`ABERTO` e dentro do período), consultado no `leiloes-service`.
+4. Primeiro lance ≥ lance inicial; os seguintes ≥ maior lance atual + incremento mínimo.
+5. Licitante não pode cobrir o seu próprio lance consecutivo se já detém o maior lance atual.
+6. O licitante precisa ter crédito disponível para o valor do lance (reservado no `usuarios-service`).
 
 ## Como rodar
 
@@ -167,7 +218,9 @@ curl -X POST http://localhost:8000/leiloes \
 Depois, `PATCH /leiloes/1/abrir` coloca o pregão no ar e
 `GET /leiloes/1/disponibilidade` informa se ele está aceitando lances.
 
-### 6. Registrar um lance (rota protegida)
+### 6. Registrar um lance (inicia a Saga)
+O leilão precisa estar `ABERTO` e dentro do período, e `licitanteId` é o id do
+**perfil** do licitante (campo `perfil.id` da resposta do registro).
 ```bash
 curl -X POST http://localhost:8000/lances \
   -H "Authorization: Bearer <TOKEN_RECEBIDO>" \
@@ -175,8 +228,19 @@ curl -X POST http://localhost:8000/lances \
   -d '{
     "leilaoId": 1,
     "licitanteId": 1,
-    "valor": 1500.00
+    "valor": 5000.00
   }'
+
+# a mesma chamada, forçando a compensação (crédito reservado é devolvido)
+curl -X POST http://localhost:8000/lances \
+  -H "Authorization: Bearer <TOKEN_RECEBIDO>" \
+  -H "X-Simular-Falha: gravar-lance" \
+  -H "Content-Type: application/json" \
+  -d '{ "leilaoId": 1, "licitanteId": 1, "valor": 5100.00 }'
+
+# acompanhar a saga (o sagaId vem na resposta)
+curl http://localhost:8000/lances/sagas/<SAGA_ID> \
+  -H "Authorization: Bearer <TOKEN_RECEBIDO>"
 ```
 
 ### 7. Consultar lances de um leilão e maior lance atual
@@ -200,8 +264,15 @@ cd lances-service && npm install && npm test
 ```
 
 Todos usam Jest com repositórios (e clients HTTP) mockados, testando as regras
-de negócio em `services/`, e reportam cobertura (`--coverage`), ficando acima
-dos 50% exigidos.
+de negócio em `services/` (e a Saga em `sagas/`), e reportam cobertura
+(`--coverage`), ficando acima dos 50% exigidos.
+
+Ponta a ponta, com a stack no ar (PowerShell):
+```powershell
+.\testes\testar-tudo.ps1
+```
+52 passos pelo Kong: autenticação, usuários, leilões e a Saga de lances —
+caminho feliz, recusas, compensação, pendência e reprocessamento.
 
 ## Variáveis de ambiente
 
@@ -211,13 +282,6 @@ para `.env` e ajuste `DB_HOST` etc.
 
 ## Próximos passos (grupo)
 
-- Acompanhamento ao vivo dos lances (WebSockets ou Event-Driven,
-  que conta como o 2º padrão de microsserviços exigido, junto com o API
-  Gateway já implementado via Kong).
-- Ligar o `lances-service` ao `leiloes-service`: o ponto de integração já está
-  pronto — `GET /leiloes/:id/disponibilidade` responde se o leilão está `ABERTO`
-  e dentro do período, junto com `lanceInicial` e `incrementoMinimo` para
-  validar o valor do lance.
-- Padronizar as URLs dos novos serviços por variável de ambiente, seguindo o
-  mesmo modelo já usado entre `auth-service`, `usuarios-service` e
-  `leiloes-service`.
+- Acompanhamento ao vivo dos lances (WebSockets ou Event-Driven).
+- Encerramento do pregão como Saga: ao encerrar, confirmar o crédito do
+  vencedor e liberar eventuais reservas remanescentes.
