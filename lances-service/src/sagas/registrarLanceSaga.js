@@ -1,21 +1,12 @@
-/**
- * SAGA ORQUESTRADA: registro de lance.
- *
- * Cada microsservico tem o proprio banco, entao nao existe uma transacao unica
- * que cubra "reservar credito no usuarios-service" e "gravar lance no
- * lances-service". A Saga troca essa transacao por uma sequencia de transacoes
- * locais. O orquestrador (este arquivo) chama cada passo via REST e, se um passo
- * falhar, executa as compensacoes dos passos que ja tinham dado certo.
- *
- *   1. consultar-disponibilidade  leiloes-service   leitura, nada a compensar
- *   2. reservar-credito           usuarios-service  COMPENSAVEL -> liberar reserva
- *   3. gravar-lance               lances-service    PONTO SEM VOLTA (pivot)
- *   4. liberar-credito-superado   usuarios-service  REPETIVEL: nao desfaz o lance;
- *                                                   se falhar, fica pendente e
- *                                                   pode ser reprocessado
- *
- * Todo o andamento fica gravado na tabela sagas_lance.
- */
+// Saga orquestrada do registro de lance.
+// Cada servico tem seu banco, entao nao da pra fazer tudo numa transacao so.
+//
+//   1. consultar-disponibilidade  leiloes-service   so leitura
+//   2. reservar-credito           usuarios-service  se algo falhar depois, libera a reserva
+//   3. gravar-lance               lances-service    daqui pra frente o lance vale
+//   4. liberar-credito-superado   usuarios-service  se falhar, fica pendente pra reprocessar
+//
+// O andamento fica salvo na tabela sagas_lance.
 
 const lanceRepository = require('../repositories/lanceRepository');
 const sagaRepository = require('../repositories/sagaRepository');
@@ -52,7 +43,7 @@ function registrarPasso(saga, passo, resultado, detalhe) {
   saga.passos.push({ passo, resultado, detalhe, em: new Date().toISOString() });
 }
 
-/** Converte qualquer falha num erro HTTP com o id da saga anexado. */
+// transforma qualquer erro em resposta HTTP, com o id da saga junto
 function erroDaSaga(err, passo, saga) {
   let erro;
   if (err instanceof ErroDeValidacao) {
@@ -79,7 +70,7 @@ async function executar({ leilaoId, licitanteId, valor, simularFalha = null }) {
   let superado = null;
 
   try {
-    // ---- Passo 1: o leilao existe e esta aceitando lances? ---------------------
+    // passo 1: o leilao existe e esta aceitando lance?
     const leilao = await leiloesClient.consultarDisponibilidade(leilaoId);
     if (!leilao) {
       throw new ErroDeValidacao('Leilao nao encontrado no leiloes-service.', 404);
@@ -90,7 +81,7 @@ async function executar({ leilaoId, licitanteId, valor, simularFalha = null }) {
         409
       );
     }
-    // Checagem antecipada: recusa lance baixo antes de mexer no credito de alguem.
+    // ja barra lance baixo aqui, antes de mexer no credito de alguem
     validarValorDoLance({
       valor,
       licitanteId,
@@ -101,7 +92,7 @@ async function executar({ leilaoId, licitanteId, valor, simularFalha = null }) {
     registrarPasso(saga, passoAtual, 'OK', `Leilao ${leilaoId} ${leilao.status}, aceitando lances.`);
     await sagaRepository.salvar(saga);
 
-    // ---- Passo 2: reservar o valor no credito do licitante (compensavel) -------
+    // passo 2: reserva o valor no credito do licitante
     passoAtual = PASSOS.RESERVA;
     simularSeSolicitado(simularFalha, passoAtual);
     reserva = await usuariosClient.reservarCredito(licitanteId, valor, `saga-${saga.id}`);
@@ -109,12 +100,12 @@ async function executar({ leilaoId, licitanteId, valor, simularFalha = null }) {
     registrarPasso(saga, passoAtual, 'OK', `Reserva ${reserva.id} de R$ ${Number(valor).toFixed(2)}.`);
     await sagaRepository.salvar(saga);
 
-    // ---- Passo 3: gravar o lance (ponto sem volta) -----------------------------
+    // passo 3: grava o lance
     passoAtual = PASSOS.GRAVAR;
     simularSeSolicitado(simularFalha, passoAtual);
     ({ lance, superado } = await lanceRepository.registrarComTrava(leilaoId, async (tx) => {
       const maiorAtual = await tx.buscarMaior();
-      // Mesma regra do passo 1, agora com o leilao travado contra lances concorrentes.
+      // confere de novo com o leilao travado (pode ter entrado outro lance no meio)
       validarValorDoLance({
         valor,
         licitanteId,
@@ -133,7 +124,7 @@ async function executar({ leilaoId, licitanteId, valor, simularFalha = null }) {
     saga.erro = erro.message;
     saga.status = 'FALHOU';
 
-    // ---- Compensacao: desfaz o passo 2, se ele chegou a acontecer --------------
+    // compensacao: se ja tinha reservado credito, devolve
     if (reserva) {
       try {
         await usuariosClient.liberarReserva(licitanteId, reserva.id);
@@ -149,7 +140,7 @@ async function executar({ leilaoId, licitanteId, valor, simularFalha = null }) {
     throw erro;
   }
 
-  // ---- Passo 4: liberar o credito de quem foi superado (repetivel) -------------
+  // passo 4: libera o credito de quem foi superado
   if (superado && superado.reserva_id) {
     saga.licitante_superado_id = Number(superado.licitante_id);
     saga.reserva_superada_id = Number(superado.reserva_id);
@@ -198,7 +189,7 @@ async function liberarCreditoSuperado(saga, simularFalha = null) {
   return false;
 }
 
-/** Tenta de novo o passo 4 de uma saga que ficou com pendencia. */
+// tenta de novo o passo 4 de uma saga que ficou pendente
 async function reprocessar(sagaId) {
   const saga = await sagaRepository.buscarPorId(sagaId);
   if (!saga) {

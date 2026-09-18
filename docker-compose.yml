@@ -135,7 +135,6 @@ services:
       DB_NAME: leiloes_db
       JWT_SECRET: ${JWT_SECRET:-super-segredo-trabalho-microsservicos}
       JWT_ISSUER: sistema-leilao-auth
-      # Comunicação entre microsserviços sempre por variável de ambiente
       USUARIOS_SERVICE_URL: http://usuarios-service:3002
     depends_on:
       leiloes-db:
@@ -157,12 +156,10 @@ services:
       DB_NAME: lances_db
       JWT_SECRET: ${JWT_SECRET:-super-segredo-trabalho-microsservicos}
       JWT_ISSUER: sistema-leilao-auth
-      # Saga de registro de lance: o lances-service orquestra chamadas REST
-      # ao leiloes-service (disponibilidade) e ao usuarios-service (credito).
+      # saga do lance: consulta o leilao e reserva/libera credito
       LEILOES_SERVICE_URL: http://leiloes-service:3003
       USUARIOS_SERVICE_URL: http://usuarios-service:3002
-      # Permite o header X-Simular-Falha para demonstrar a compensacao.
-      # Ambiente academico: desligue (false) fora de demonstracao e testes.
+      # libera o header X-Simular-Falha (so pra demo e testes)
       SAGA_PERMITIR_FALHA_SIMULADA: "true"
     depends_on:
       lances-db:

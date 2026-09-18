@@ -13,10 +13,7 @@ const {
 
 const DURACAO_MINIMA_MINUTOS = 30;
 
-/**
- * Regra de negocio 1: validacao do evento.
- * Titulo, periodo, lote e valores precisam fazer sentido para um leilao de bois.
- */
+// Regra 1: titulo, lote, valores e datas precisam fazer sentido
 function validarDados({
   titulo,
   quantidadeBois,
@@ -58,6 +55,7 @@ function validarDados({
   }
 }
 
+// Regra 2: nao da pra agendar leilao no passado
 function validarDataFutura(dataInicio) {
   if (paraData(dataInicio) <= new Date()) {
     throw new ErroDeValidacao('Data de inicio deve estar no futuro.');
@@ -76,11 +74,7 @@ async function buscarPorId(id) {
   return leilao;
 }
 
-/**
- * Regra de negocio 2: o leilao so existe se o leiloeiro existir.
- * A checagem e feita chamando o usuarios-service via REST (comunicacao entre
- * microsservicos), com a URL vinda de variavel de ambiente.
- */
+// Regra 3: o leiloeiro tem que existir no usuarios-service
 async function garantirLeiloeiroExiste(leiloeiroId) {
   if (!inteiroPositivo(leiloeiroId)) {
     throw new ErroDeValidacao('Informe o leiloeiroId responsavel pelo leilao.');
@@ -99,18 +93,14 @@ async function garantirLeiloeiroExiste(leiloeiroId) {
     throw err;
   }
 
-  // Sem USUARIOS_SERVICE_URL configurada o client devolve null; nesse caso nao
-  // ha como validar e o cadastro segue (util para rodar o servico isolado).
+  // sem USUARIOS_SERVICE_URL (servico rodando sozinho) nao tem como validar
   if (leiloeiro === null && process.env.USUARIOS_SERVICE_URL) {
     throw new ErroDeValidacao('Leiloeiro nao encontrado no servico de usuarios.', 404);
   }
   return leiloeiro;
 }
 
-/**
- * Regra de negocio 3: um leiloeiro nao pode conduzir dois leiloes ao mesmo
- * tempo — periodos de eventos AGENDADOS ou ABERTOS nao podem se sobrepor.
- */
+// Regra 4: o mesmo leiloeiro nao pode ter dois leiloes no mesmo horario
 async function garantirAgendaLivre(leiloeiroId, dataInicio, dataFim, ignorarId = null) {
   const ativos = await leilaoRepository.listarAtivosPorLeiloeiro(leiloeiroId, ignorarId);
   const conflito = (ativos || []).find((leilao) =>
@@ -158,10 +148,7 @@ async function cadastrar(dados) {
   });
 }
 
-/**
- * Regra de negocio 4: leilao so pode ser editado enquanto esta AGENDADO —
- * depois de aberto ja existem lances dependendo das regras publicadas.
- */
+// Regra 6: so edita enquanto esta AGENDADO (depois de aberto ja tem lance)
 async function atualizar(id, dados) {
   const leilao = await buscarPorId(id);
 
@@ -199,11 +186,7 @@ async function atualizar(id, dados) {
   });
 }
 
-/**
- * Regra de negocio 5: o ciclo de vida do leilao segue
- * AGENDADO -> ABERTO -> ENCERRADO, e AGENDADO/ABERTO podem ir para CANCELADO.
- * Qualquer outra transicao e recusada.
- */
+// Regra 5: AGENDADO -> ABERTO -> ENCERRADO; agendado ou aberto pode ser cancelado
 async function alterarStatus(id, novoStatus) {
   if (!statusValido(novoStatus)) {
     throw new ErroDeValidacao('Status invalido. Use AGENDADO, ABERTO, ENCERRADO ou CANCELADO.');
@@ -233,10 +216,7 @@ async function cancelar(id) {
   return alterarStatus(id, 'CANCELADO');
 }
 
-/**
- * Consultado pelo microsservico de lances antes de aceitar um lance:
- * devolve o leilao e se ele esta aceitando lances no momento.
- */
+// consultado pelo lances-service no passo 1 da saga
 async function consultarDisponibilidade(id) {
   const leilao = await buscarPorId(id);
   const agora = new Date();
@@ -255,6 +235,7 @@ async function consultarDisponibilidade(id) {
   };
 }
 
+// Regra 6 tambem: so remove enquanto AGENDADO, depois disso tem que cancelar
 async function remover(id) {
   const leilao = await buscarPorId(id);
   if (leilao.status !== 'AGENDADO') {

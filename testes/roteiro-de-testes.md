@@ -215,7 +215,7 @@ o leilão no `leiloes-service`, reserva o crédito do licitante no
 Por isso o lance precisa de um **leilão real, aberto e dentro do período**, e
 de **licitantes reais com limite de crédito**.
 
-> Para rodar tudo isso automaticamente: `.\testes\testar-tudo.ps1` (passos 30 a 52).
+> Para rodar tudo isso automaticamente: `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` (passos 30 a 52).
 
 ### 13.1 Testar rota protegida sem token (deve dar 401)
 ```bash

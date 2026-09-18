@@ -3,13 +3,8 @@ const { ErroDeValidacao } = require('../utils/erros');
 const centavos = (valor) => Math.round(Number(valor) * 100);
 const brl = (valor) => `R$ ${Number(valor).toFixed(2)}`;
 
-/**
- * Regras do valor do lance, usando os dados publicados pelo leiloes-service.
- *
- * - O primeiro lance do leilao precisa ser de pelo menos o lance inicial.
- * - Os seguintes precisam cobrir o maior lance em pelo menos o incremento minimo.
- * - O licitante que ja detem o maior lance nao pode cobrir a si mesmo.
- */
+// primeiro lance: pelo menos o lance inicial.
+// depois: maior lance + incremento minimo, e ninguem cobre o proprio lance.
 function validarValorDoLance({ valor, licitanteId, maiorLance, lanceInicial, incrementoMinimo }) {
   if (!maiorLance) {
     if (centavos(valor) < centavos(lanceInicial)) {

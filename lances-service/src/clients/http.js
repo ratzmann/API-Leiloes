@@ -1,10 +1,5 @@
-/**
- * Base da comunicacao REST com os outros microsservicos.
- *
- * As URLs vem sempre de variavel de ambiente e a chamada vai direto ao
- * container pela rede interna do Docker, sem passar pelo Kong. Timeout
- * explicito: um servico lento nao pode segurar a Saga indefinidamente.
- */
+// Chamadas REST para os outros servicos, direto pela rede do Docker.
+// Tem timeout pra um servico lento nao travar a saga.
 
 const TIMEOUT_MS = Number(process.env.SERVICOS_TIMEOUT_MS || 3000);
 
@@ -23,11 +18,8 @@ function urlBase(variavel) {
   return url;
 }
 
-/**
- * Faz a chamada e devolve { status, corpo } para respostas 2xx e 4xx — quem
- * chama decide o significado de cada 4xx. Falha de rede, timeout e 5xx viram
- * ServicoIndisponivel.
- */
+// devolve { status, corpo } nos 2xx e 4xx (quem chama decide o que fazer);
+// erro de rede, timeout e 5xx viram ServicoIndisponivel
 async function requisicao(servico, url, { method = 'GET', body } = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);

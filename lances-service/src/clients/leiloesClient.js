@@ -1,9 +1,6 @@
 const { requisicao, urlBase, ServicoIndisponivel } = require('./http');
 
-/**
- * Passo 1 da Saga: pergunta ao leiloes-service se o leilao aceita lances.
- * Devolve a disponibilidade, ou `null` quando o leilao nao existe.
- */
+// passo 1 da saga: o leilao existe e esta aceitando lance? (null = nao existe)
 async function consultarDisponibilidade(leilaoId) {
   const base = urlBase('LEILOES_SERVICE_URL');
   const { status, corpo } = await requisicao(

@@ -51,12 +51,10 @@ async function buscarMaiorPorLeilao(leilaoId) {
 
 // Regra de negocio 1: leilaoId, licitanteId e valor obrigatorios e validos.
 // Regra de negocio 2: valor estritamente maior que zero.
-// Regra de negocio 3: primeiro lance >= lance inicial; os seguintes >= maior lance + incremento minimo.
+// Regra de negocio 3: primeiro lance >= lance inicial; depois, >= maior lance + incremento.
 // Regra de negocio 4: mesmo licitante nao pode cobrir seu proprio lance atual.
-// Regra de negocio 5: o licitante precisa ter credito disponivel para o valor do lance.
-//
-// As regras 3 a 5 dependem de dados de outros servicos (leiloes e usuarios), por
-// isso o registro e feito pela Saga orquestrada em src/sagas/registrarLanceSaga.js.
+// Regra de negocio 5: o licitante precisa ter credito pro valor do lance.
+// As regras 3 a 5 dependem do leiloes e do usuarios, por isso o registro passa pela saga.
 async function registrarLance({ leilaoId, licitanteId, valor, simularFalha = null }) {
   validarDados({ leilaoId, licitanteId, valor });
 

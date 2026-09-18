@@ -2,13 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const pool = require('../config/db');
 
-/**
- * Aplica o init.sql ao subir o servico.
- *
- * O Postgres so executa o docker-entrypoint-initdb.d quando o volume esta vazio,
- * entao tabelas novas nunca chegariam a bancos ja existentes. Como o init.sql
- * e todo idempotente (IF NOT EXISTS), roda-lo a cada inicializacao e seguro.
- */
+// Roda o init.sql toda vez que o servico sobe. O Postgres so executa o
+// initdb com o volume vazio, entao tabela nova nao chegaria em banco que ja
+// existe. Como e tudo IF NOT EXISTS, rodar de novo nao quebra nada.
 async function migrar({ tentativas = 10, esperaMs = 2000 } = {}) {
   const sql = fs.readFileSync(path.join(__dirname, 'init.sql'), 'utf8');
 

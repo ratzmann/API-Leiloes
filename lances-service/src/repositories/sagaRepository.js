@@ -10,7 +10,7 @@ async function criar({ leilaoId, licitanteId, valor }) {
   return rows[0];
 }
 
-/** Grava o estado completo da saga (status, passos e ids envolvidos). */
+// grava o estado atual da saga
 async function salvar(saga) {
   const { rows } = await pool.query(
     `UPDATE sagas_lance SET

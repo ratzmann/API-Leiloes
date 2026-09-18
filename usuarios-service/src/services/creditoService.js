@@ -2,7 +2,7 @@ const licitanteRepository = require('../repositories/licitanteRepository');
 const reservaRepository = require('../repositories/reservaRepository');
 const { ErroDeValidacao } = require('../utils/erros');
 
-// Dinheiro comparado em centavos para nao sofrer com ponto flutuante.
+// compara em centavos pra evitar erro de ponto flutuante
 const centavos = (valor) => Math.round(Number(valor) * 100);
 const reais = (valorCentavos) => valorCentavos / 100;
 
@@ -36,13 +36,8 @@ async function listarReservas(licitanteId) {
   return reservaRepository.listarPorLicitante(id);
 }
 
-/**
- * Passo compensavel da Saga de lance: reserva parte do limite de credito.
- *
- * Regra de negocio: a soma das reservas ativas nunca ultrapassa o limite de
- * credito do licitante. A `referencia` (id da saga) torna a operacao
- * idempotente: se o orquestrador repetir a chamada, recebe a mesma reserva.
- */
+// Regra: a soma das reservas nunca passa do limite de credito.
+// Se vier a mesma referencia (id da saga) de novo, devolve a reserva que ja existe.
 async function reservar(licitanteId, { valor, referencia }) {
   const id = validarId(licitanteId, 'licitanteId');
   if (!(Number.isFinite(Number(valor)) && Number(valor) > 0)) {
@@ -79,10 +74,8 @@ async function reservar(licitanteId, { valor, referencia }) {
   });
 }
 
-/**
- * Compensacao do passo de reserva (e tambem o passo final da Saga, quando o
- * licitante e superado). Idempotente: liberar duas vezes nao gera erro.
- */
+// libera a reserva (compensacao da saga ou quando o licitante e superado).
+// liberar de novo nao da erro
 async function liberar(licitanteId, reservaId) {
   const idLicitante = validarId(licitanteId, 'licitanteId');
   const idReserva = validarId(reservaId, 'reservaId');

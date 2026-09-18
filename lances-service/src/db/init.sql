@@ -10,12 +10,11 @@ CREATE INDEX IF NOT EXISTS idx_lances_leilao_id ON lances(leilao_id);
 CREATE INDEX IF NOT EXISTS idx_lances_licitante_id ON lances(licitante_id);
 CREATE INDEX IF NOT EXISTS idx_lances_leilao_valor ON lances(leilao_id, valor DESC);
 
--- Saga de registro de lance: cada lance guarda a saga que o criou e a reserva
--- de credito que o garante (liberada quando o lance e superado).
+-- saga e reserva de credito ligadas ao lance
 ALTER TABLE lances ADD COLUMN IF NOT EXISTS saga_id    INTEGER;
 ALTER TABLE lances ADD COLUMN IF NOT EXISTS reserva_id INTEGER;
 
--- Registro de cada execucao da Saga, passo a passo, para auditoria e reprocessamento.
+-- historico de cada saga, passo a passo
 CREATE TABLE IF NOT EXISTS sagas_lance (
     id                    SERIAL PRIMARY KEY,
     leilao_id             INTEGER        NOT NULL,

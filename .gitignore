@@ -1,21 +1,21 @@
-# Dependências (cada serviço roda seu próprio npm install)
+# dependencias
 node_modules/
 
-# Variáveis de ambiente — os .env.example continuam versionados
+# variaveis de ambiente (o .env.example continua no git)
 .env
 .env.local
 .env.*.local
 
-# Logs
+# logs
 *.log
 npm-debug.log*
 yarn-error.log*
 
-# Arquivos gerados pelo sistema operacional / editor
+# sistema / editor
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
 
-# Relatorios de cobertura gerados pelo npm test
+# cobertura do jest
 coverage/
