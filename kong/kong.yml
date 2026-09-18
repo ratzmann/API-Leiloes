@@ -28,8 +28,7 @@ services:
         paths:
           - /licitantes
         strip_path: false
-      # Reservas de credito sao internas: so o lances-service (Saga) chama,
-      # direto pela rede do Docker. Pelo gateway, o acesso e bloqueado.
+      # reserva de credito e so pra uso interno da saga
       - name: reservas-credito-internas
         paths:
           - '~/licitantes/\d+/reservas'

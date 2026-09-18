@@ -47,8 +47,8 @@ async function registrar(req, res) {
       licitanteId = req.usuarioAutenticado.perfilId || req.usuarioAutenticado.sub;
     }
 
-    // Injecao de falha para demonstrar a compensacao da Saga. So vale quando
-    // SAGA_PERMITIR_FALHA_SIMULADA=true (ambiente academico / de testes).
+    // forca uma falha num passo da saga, pra mostrar a compensacao.
+    // so funciona com SAGA_PERMITIR_FALHA_SIMULADA=true
     const simularFalha =
       process.env.SAGA_PERMITIR_FALHA_SIMULADA === 'true' ? req.get('X-Simular-Falha') || null : null;
 

@@ -45,8 +45,7 @@ function Run-Step {
     }
 }
 
-# Chamada que devolve status e corpo JSON tambem em respostas de erro (4xx/5xx),
-# usada nos passos da Saga, que precisam ler o sagaId de uma falha.
+# igual ao Invoke-RestMethod, mas le o corpo tambem quando da erro (precisa do sagaId)
 function Invoke-Api {
     param([string]$Metodo, [string]$Rota, $Corpo = $null, [string]$Token = "", [hashtable]$Extras = @{})
 
@@ -71,8 +70,7 @@ function Invoke-Api {
         if ($_.Exception.Response) {
             $status = [int]$_.Exception.Response.StatusCode
             try {
-                # O PowerShell ja consome o corpo do erro para montar ErrorDetails;
-                # o stream so e lido (voltando ao inicio) se ErrorDetails vier vazio.
+                # o PowerShell ja le o corpo do erro no ErrorDetails; o stream so e o plano B
                 $texto = $null
                 if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
                     $texto = $_.ErrorDetails.Message
@@ -88,8 +86,7 @@ function Invoke-Api {
     }
 }
 
-# CPF com digitos verificadores validos e diferente a cada execucao
-# (o usuarios-service exige CPF valido e unico para criar o perfil).
+# gera um CPF valido e novo a cada execucao (o usuarios-service nao aceita repetido)
 function Novo-Cpf {
     $d = @(1..9 | ForEach-Object { Get-Random -Minimum 0 -Maximum 10 })
     foreach ($n in 9, 10) {
@@ -144,7 +141,7 @@ $bodyLicitante = @{
 Run-Step -Nome "3. Registrar licitante A (limite R$ 5000) com perfil criado" -CodigoEsperado 201 -Acao {
     $r = Invoke-RestMethod -Uri "$BaseUrl/auth/registrar" -Method Post -Body $bodyLicitante -ContentType "application/json"
     $script:token = $r.token
-    # auth -> usuarios: sem o perfil, a comunicacao entre os servicos falhou
+    # sem perfil = o auth nao conseguiu falar com o usuarios-service
     if (-not $r.perfil -or -not $r.perfil.id) { return @{ StatusCode = 500 } }
     $script:licitanteAId = [int]$r.perfil.id
     return @{ StatusCode = 201 }
@@ -219,7 +216,7 @@ $script:leiloeiroId = 0
 $script:leilaoCriadoId = 0
 $script:leilaoRemovivelId = 0
 
-# Datas sempre no futuro para o script ser repetivel (UTC, formato ISO 8601)
+# datas sempre no futuro, pra poder rodar o script varias vezes
 $amanha = (Get-Date).ToUniversalTime().Date.AddDays(1)
 $inicio = $amanha.AddHours(14).ToString("yyyy-MM-ddTHH:mm:ssZ")
 $fim = $amanha.AddHours(17).ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -384,11 +381,6 @@ Run-Step -Nome "29. Cadastrar e remover leilao AGENDADO (espera 204)" -CodigoEsp
 
 # ------------------------------------------------------------------------------
 # Lances + Saga orquestrada (lances-service -> leiloes-service / usuarios-service)
-#
-#   1. consultar-disponibilidade  leiloes-service   leitura
-#   2. reservar-credito           usuarios-service  compensavel
-#   3. gravar-lance               lances-service    ponto sem volta
-#   4. liberar-credito-superado   usuarios-service  repetivel (pendencia)
 # ------------------------------------------------------------------------------
 Write-Host ""
 Write-Host "---------------------- LANCES + SAGA (lances-service) --------------------" -ForegroundColor Cyan

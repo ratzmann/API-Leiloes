@@ -44,10 +44,10 @@ Tabela `leiloes` (`src/db/init.sql`):
    menos 1 boi, lance inicial e incremento mínimo maiores que zero, incremento
    nunca maior que o lance inicial, datas em ISO 8601, fim depois do início e
    duração mínima de 30 minutos.
-2. **Leilão só existe com leiloeiro válido** — antes de gravar, o serviço
+2. **Data de início no futuro** — não se cadastra um leilão que já começou.
+3. **Leilão só existe com leiloeiro válido** — antes de gravar, o serviço
    consulta o `usuarios-service` (`GET /leiloeiros/:id`) via REST. Leiloeiro
    inexistente → `404`; serviço fora do ar → `503`, sem gravar nada.
-3. **Data de início no futuro** — não se cadastra um leilão que já começou.
 4. **Agenda exclusiva do leiloeiro** — um leiloeiro não pode ter dois eventos
    `AGENDADO`/`ABERTO` com períodos sobrepostos (`409`).
 5. **Ciclo de vida controlado** — as únicas transições aceitas são

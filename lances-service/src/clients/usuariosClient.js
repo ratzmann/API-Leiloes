@@ -1,10 +1,8 @@
 const { requisicao, urlBase, ServicoIndisponivel } = require('./http');
 const { ErroDeValidacao } = require('../utils/erros');
 
-/**
- * Passo 2 da Saga (compensavel): reserva o valor do lance no credito do licitante.
- * A `referencia` e o id da saga, o que torna a chamada idempotente no usuarios-service.
- */
+// passo 2 da saga: reserva o valor no credito do licitante.
+// a referencia e o id da saga, entao repetir a chamada nao reserva duas vezes
 async function reservarCredito(licitanteId, valor, referencia) {
   const base = urlBase('USUARIOS_SERVICE_URL');
   const { status, corpo } = await requisicao(
@@ -20,9 +18,7 @@ async function reservarCredito(licitanteId, valor, referencia) {
   throw new ServicoIndisponivel(`usuarios-service respondeu ${status} ao reservar credito.`);
 }
 
-/**
- * Compensacao do passo 2, e tambem o passo 4 (liberar o credito de quem foi superado).
- */
+// usado na compensacao do passo 2 e no passo 4 (liberar quem foi superado)
 async function liberarReserva(licitanteId, reservaId) {
   const base = urlBase('USUARIOS_SERVICE_URL');
   const { status, corpo } = await requisicao(

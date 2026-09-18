@@ -1,15 +1,8 @@
 const jwt = require('jsonwebtoken');
 
-/**
- * A validacao criptografica do token ja e feita pelo Kong (plugin JWT) na
- * borda da arquitetura antes da requisicao chegar aqui. Este middleware
- * apenas decodifica o token (sem re-verificar assinatura) para disponibilizar
- * os dados do usuario autenticado no restante da aplicacao (ex: auditoria de
- * quem cadastrou o leilao).
- * Nao bloqueia a requisicao caso o header esteja ausente, pois este servico
- * tambem recebe chamadas internas de outros microsservicos pela rede do
- * Docker (ex: o servico de lances consultando um leilao).
- */
+// O Kong ja valida o token antes de chegar aqui, entao so decodifico
+// pra saber quem esta logado. Sem token nao bloqueia, porque o lances-service
+// chama esse servico direto pela rede interna.
 function extrairUsuario(req, res, next) {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {

@@ -1,13 +1,7 @@
 const pool = require('../config/db');
 
-/**
- * Executa `fn` dentro de uma transacao do Postgres.
- *
- * `fn` recebe as operacoes ja amarradas a mesma conexao, para que a leitura do
- * credito disponivel e a gravacao da reserva acontecam de forma atomica:
- * `travarLicitante` faz SELECT ... FOR UPDATE, entao duas reservas simultaneas
- * para o mesmo licitante esperam uma pela outra em vez de estourar o limite.
- */
+// Roda fn numa transacao. O travarLicitante faz FOR UPDATE, entao duas
+// reservas ao mesmo tempo pro mesmo licitante nao passam do limite.
 async function emTransacao(fn) {
   const client = await pool.connect();
   const tx = {

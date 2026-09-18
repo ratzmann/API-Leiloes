@@ -16,7 +16,7 @@ const saga = require('../src/sagas/registrarLanceSaga');
 const LEILAO_ABERTO = { id: 1, status: 'ABERTO', aceitandoLances: true, lanceInicial: 1000, incrementoMinimo: 100 };
 const PEDIDO = { leilaoId: 1, licitanteId: 7, valor: 1600 };
 
-// Estado gravado da saga a cada salvar(), para inspecionar o historico.
+// guarda uma copia da saga a cada salvar() pra conferir os passos
 let salvas;
 let tx;
 
@@ -132,7 +132,7 @@ describe('Saga de registro de lance: compensacao', () => {
   });
 
   test('lance concorrente detectado com o leilao travado tambem compensa', async () => {
-    // Entre a checagem do passo 1 e a trava, outro licitante gravou 1700.
+    // outro licitante gravou 1700 entre o passo 1 e a trava
     tx.buscarMaior.mockResolvedValue({ id: 4, licitante_id: 5, valor: '1700.00', reserva_id: 12 });
 
     await expect(saga.executar(PEDIDO)).rejects.toMatchObject({ codigo: 400 });

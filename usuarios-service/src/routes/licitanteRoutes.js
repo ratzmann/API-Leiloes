@@ -10,8 +10,7 @@ router.post('/', licitanteController.cadastrar);
 router.put('/:id', licitanteController.atualizar);
 router.delete('/:id', licitanteController.remover);
 
-// Credito do licitante: usado pela Saga de registro de lance (lances-service).
-// As rotas de reserva sao internas — o Kong bloqueia o acesso externo a elas.
+// credito do licitante (usado pela saga de lance; o Kong bloqueia as reservas de fora)
 router.get('/:id/credito', creditoController.consultar);
 router.get('/:id/reservas', creditoController.listarReservas);
 router.post('/:id/reservas', creditoController.reservar);

@@ -30,10 +30,7 @@ async function buscarPorId(id) {
   return rows[0] || null;
 }
 
-/**
- * Leiloes do leiloeiro que ainda ocupam agenda (agendados ou abertos).
- * O service usa isso para detectar conflito de horario.
- */
+// leiloes que ainda ocupam a agenda do leiloeiro (agendados ou abertos)
 async function listarAtivosPorLeiloeiro(leiloeiroId, ignorarId = null) {
   const { rows } = await pool.query(
     `SELECT ${COLUNAS} FROM leiloes

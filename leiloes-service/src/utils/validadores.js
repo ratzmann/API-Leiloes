@@ -1,6 +1,6 @@
 const STATUS_VALIDOS = ['AGENDADO', 'ABERTO', 'ENCERRADO', 'CANCELADO'];
 
-// Transicoes permitidas no ciclo de vida de um leilao.
+// transicoes de status permitidas
 const TRANSICOES_PERMITIDAS = {
   AGENDADO: ['ABERTO', 'CANCELADO'],
   ABERTO: ['ENCERRADO', 'CANCELADO'],
@@ -37,10 +37,7 @@ function transicaoPermitida(statusAtual, novoStatus) {
   return Array.isArray(permitidas) && permitidas.includes(novoStatus);
 }
 
-/**
- * Dois periodos se sobrepoem quando um comeca antes do outro terminar.
- * Usado para impedir que o mesmo leiloeiro conduza dois eventos ao mesmo tempo.
- */
+// dois periodos se sobrepoem quando um comeca antes do outro terminar
 function periodosSobrepoem(inicioA, fimA, inicioB, fimB) {
   return paraData(inicioA) < paraData(fimB) && paraData(inicioB) < paraData(fimA);
 }

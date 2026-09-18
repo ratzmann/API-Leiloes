@@ -36,13 +36,8 @@ async function criar({ leilaoId, licitanteId, valor }) {
   return rows[0];
 }
 
-/**
- * Passo 3 da Saga (ponto sem volta): grava o lance com o leilao travado.
- *
- * `pg_advisory_xact_lock` serializa os lances de um mesmo leilao ate o fim da
- * transacao. Assim a regra "maior que o lance atual" e conferida de novo com a
- * certeza de que ninguem gravou outro lance entre a checagem e o INSERT.
- */
+// passo 3 da saga: grava o lance com o leilao travado (advisory lock),
+// assim ninguem grava outro lance entre a checagem do valor e o INSERT
 async function registrarComTrava(leilaoId, fn) {
   const client = await pool.connect();
   const tx = {

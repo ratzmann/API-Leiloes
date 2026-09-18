@@ -4,7 +4,7 @@ const licitanteRepository = require('../src/repositories/licitanteRepository');
 const reservaRepository = require('../src/repositories/reservaRepository');
 const creditoService = require('../src/services/creditoService');
 
-// Transacao falsa: executa a funcao com operacoes mockadas, como o repositorio real faria.
+// transacao falsa: roda a funcao com as operacoes mockadas
 function transacaoFalsa(tx) {
   reservaRepository.emTransacao.mockImplementation((fn) => fn(tx));
   return tx;

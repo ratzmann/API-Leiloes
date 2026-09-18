@@ -121,9 +121,9 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 1. Validação do evento: título, lote (≥ 1 boi), lance inicial e incremento
    mínimo maiores que zero (e incremento nunca maior que o lance inicial),
    datas ISO 8601 com fim depois do início e duração mínima de 30 minutos.
-2. O leilão só é gravado se o `leiloeiroId` existir de fato — verificado por
+2. Data de início obrigatoriamente no futuro.
+3. O leilão só é gravado se o `leiloeiroId` existir de fato — verificado por
    chamada REST ao `usuarios-service`.
-3. Data de início obrigatoriamente no futuro.
 4. Um leiloeiro não pode ter dois leilões ativos com períodos sobrepostos.
 5. Ciclo de vida controlado: `AGENDADO → ABERTO → ENCERRADO`, com cancelamento
    permitido apenas enquanto não estiver encerrado.
@@ -269,7 +269,7 @@ de negócio em `services/` (e a Saga em `sagas/`), e reportam cobertura
 
 Ponta a ponta, com a stack no ar (PowerShell):
 ```powershell
-.\testes\testar-tudo.ps1
+powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
 ```
 52 passos pelo Kong: autenticação, usuários, leilões e a Saga de lances —
 caminho feliz, recusas, compensação, pendência e reprocessamento.

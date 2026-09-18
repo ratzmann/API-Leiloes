@@ -23,13 +23,13 @@ CREATE INDEX IF NOT EXISTS idx_leiloeiros_email ON leiloeiros(email);
 CREATE INDEX IF NOT EXISTS idx_licitantes_email ON licitantes(email);
 CREATE INDEX IF NOT EXISTS idx_licitantes_cpf ON licitantes(cpf);
 
--- Reservas de credito usadas pela Saga de registro de lance (lances-service).
--- Credito disponivel = limite_credito - soma das reservas com status RESERVADA.
+-- reservas de credito da saga de lance
+-- disponivel = limite_credito - soma das reservas RESERVADA
 CREATE TABLE IF NOT EXISTS reservas_credito (
     id           SERIAL PRIMARY KEY,
     licitante_id INTEGER       NOT NULL REFERENCES licitantes(id) ON DELETE CASCADE,
     valor        NUMERIC(12,2) NOT NULL,
-    referencia   VARCHAR(80)   UNIQUE,        -- id da saga que pediu a reserva (idempotencia)
+    referencia   VARCHAR(80)   UNIQUE,        -- id da saga
     status       VARCHAR(20)   NOT NULL DEFAULT 'RESERVADA',
     criado_em    TIMESTAMP     DEFAULT NOW(),
     liberado_em  TIMESTAMP,

@@ -97,7 +97,7 @@ async function cancelar(req, res) {
   }
 }
 
-// Consumido pelo microsservico de lances antes de registrar um lance.
+// usado pelo lances-service antes de aceitar um lance
 async function consultarDisponibilidade(req, res) {
   try {
     res.json(await leilaoService.consultarDisponibilidade(Number(req.params.id)));
