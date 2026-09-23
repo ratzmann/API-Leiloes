@@ -111,6 +111,8 @@ Write-Host ""
 Write-Host "---------------------- AUTENTICACAO E USUARIOS --------------------------" -ForegroundColor Cyan
 
 $script:token = ""
+$script:tokenA = ""
+$script:tokenB = ""
 $script:licitanteAId = 0
 $script:licitanteBId = 0
 
@@ -141,6 +143,8 @@ $bodyLicitante = @{
 Run-Step -Nome "3. Registrar licitante A (limite R$ 5000) com perfil criado" -CodigoEsperado 201 -Acao {
     $r = Invoke-RestMethod -Uri "$BaseUrl/auth/registrar" -Method Post -Body $bodyLicitante -ContentType "application/json"
     $script:token = $r.token
+    # token do licitante A (leva o perfilId): usado para os lances de A
+    $script:tokenA = $r.token
     # sem perfil = o auth nao conseguiu falar com o usuarios-service
     if (-not $r.perfil -or -not $r.perfil.id) { return @{ StatusCode = 500 } }
     $script:licitanteAId = [int]$r.perfil.id
@@ -202,6 +206,8 @@ Run-Step -Nome "8. Registrar licitante B (limite R$ 3000) com perfil criado" -Co
     $r = Invoke-RestMethod -Uri "$BaseUrl/auth/registrar" -Method Post -Body $bodyLicitanteB -ContentType "application/json"
     if (-not $r.perfil -or -not $r.perfil.id) { return @{ StatusCode = 500 } }
     $script:licitanteBId = [int]$r.perfil.id
+    # token do licitante B: cada licitante da lances com o proprio token
+    $script:tokenB = $r.token
     return @{ StatusCode = 201 }
 }
 
@@ -266,8 +272,8 @@ Run-Step -Nome "11. Cadastrar leilao valido (espera 201, AGENDADO)" -CodigoEsper
     return @{ StatusCode = 201 }
 }
 
-# 12. Regra: leiloeiro precisa existir no usuarios-service
-Run-Step -Nome "12. Leiloeiro inexistente (espera 404)" -CodigoEsperado 404 -Acao {
+# 12. Regra 7 (autorizacao): leiloeiro so cadastra leilao em nome proprio
+Run-Step -Nome "12. Leilao em nome de outro leiloeiro (espera 403)" -CodigoEsperado 403 -Acao {
     $body = Novo-Leilao -LeiloeiroId 999999 -Titulo "Leilao sem dono" -LanceInicial 1000 -Incremento 50 -Inicio $inicio -Fim $fim
     $null = Invoke-WebRequest -Uri "$BaseUrl/leiloes" -Headers $headersLeiloeiro -Method Post -Body $body -ContentType "application/json" -UseBasicParsing
 }
@@ -397,10 +403,18 @@ function Credito-Reservado([int]$LicitanteId) {
     return [double]$r.Json.reservado
 }
 
-function Lance([int]$LicitanteId, [double]$Valor, [int]$LeilaoId = $script:leilaoAoVivoId, [string]$Falha = "") {
+# cada licitante da lances com o PROPRIO token (Regra 6 do lances-service);
+# por padrao, o lance de B usa o token de B e qualquer outro usa o token de A
+function Token-Do([int]$LicitanteId) {
+    if ($LicitanteId -eq $script:licitanteBId) { return $script:tokenB }
+    return $script:tokenA
+}
+
+function Lance([int]$LicitanteId, [double]$Valor, [int]$LeilaoId = $script:leilaoAoVivoId, [string]$Falha = "", [string]$Token = "") {
     $extras = @{}
     if ($Falha) { $extras["X-Simular-Falha"] = $Falha }
-    return Invoke-Api POST "/lances" @{ leilaoId = $LeilaoId; licitanteId = $LicitanteId; valor = $Valor } -Token $T -Extras $extras
+    if (-not $Token) { $Token = Token-Do $LicitanteId }
+    return Invoke-Api POST "/lances" @{ leilaoId = $LeilaoId; licitanteId = $LicitanteId; valor = $Valor } -Token $Token -Extras $extras
 }
 
 # 30. Bloqueio sem token em /lances
@@ -453,8 +467,8 @@ Run-Step -Nome "36. Saga: primeiro lance abaixo do lance inicial (espera 400)" -
     return (Lance $script:licitanteAId 900)
 }
 
-# 37. Saga passo 2: licitante inexistente no usuarios-service
-Run-Step -Nome "37. Saga: licitante inexistente (espera 404)" -CodigoEsperado 404 -Acao {
+# 37. Regra 6 (autorizacao): A tenta dar lance em nome de um licitante inexistente
+Run-Step -Nome "37. Lance em nome de licitante inexistente (espera 403)" -CodigoEsperado 403 -Acao {
     return (Lance 99999999 1000)
 }
 
@@ -557,6 +571,56 @@ Run-Step -Nome "51. Historico do leilao com 3 lances (espera 200)" -CodigoEspera
 # 52. Reservas de credito sao internas: o Kong bloqueia o acesso externo
 Run-Step -Nome "52. Reserva de credito direto pelo Kong (espera 403)" -CodigoEsperado 403 -Acao {
     return (Invoke-Api POST "/licitantes/$($script:licitanteAId)/reservas" @{ valor = 10 } -Token $T)
+}
+
+# ------------------------------------------------------------------------------
+# Autorizacao: cada usuario so age em nome proprio
+# (Regra 6 do lances-service e Regra 7 do leiloes-service)
+# ------------------------------------------------------------------------------
+Write-Host ""
+Write-Host "------------------------------ AUTORIZACAO -------------------------------" -ForegroundColor Cyan
+
+# 53. Leiloeiro nao da lance
+Run-Step -Nome "53. Leiloeiro tenta dar lance (espera 403)" -CodigoEsperado 403 -Acao {
+    return (Lance $script:licitanteAId 5000 -Token $script:tokenLeiloeiro)
+}
+
+# 54. Licitante nao da lance em nome de outro (nem gasta o credito dele)
+Run-Step -Nome "54. Licitante A da lance em nome de B (espera 403)" -CodigoEsperado 403 -Acao {
+    $r = Lance $script:licitanteBId 5000 -Token $script:tokenA
+    if ((Credito-Reservado $script:licitanteBId) -ne 0) { return @{ StatusCode = 500 } }
+    return $r
+}
+
+# 55. Licitante nao cadastra leilao
+Run-Step -Nome "55. Licitante tenta cadastrar leilao (espera 403)" -CodigoEsperado 403 -Acao {
+    $body = Novo-Leilao -LeiloeiroId $script:leiloeiroId -Titulo "Leilao do licitante" -LanceInicial 1000 -Incremento 50 -Inicio $inicioOutroDia -Fim $fimOutroDia
+    return (Invoke-Api POST "/leiloes" ($body | ConvertFrom-Json) -Token $script:tokenA)
+}
+
+# 56. Outro leiloeiro nao mexe no leilao alheio
+Run-Step -Nome "56. Outro leiloeiro tenta cancelar o leilao (espera 403)" -CodigoEsperado 403 -Acao {
+    $bodyOutro = @{
+        nome = "Paulo Andrade"
+        email = "leiloeiro_2_$(Get-Random)@example.com"
+        senha = "senha123"
+        papel = "LEILOEIRO"
+        dadosPerfil = @{ registroProfissional = "JUCESC-$(Get-Random -Minimum 100000 -Maximum 999999)" }
+    }
+    $outro = Invoke-Api POST "/auth/registrar" $bodyOutro
+    if ($outro.StatusCode -ne 201) { return @{ StatusCode = 500 } }
+    $r = Invoke-Api PATCH "/leiloes/$($script:leilaoAoVivoId)/cancelar" -Token $outro.Json.token
+    # o leilao precisa continuar ABERTO
+    $l = Invoke-Api GET "/leiloes/$($script:leilaoAoVivoId)" -Token $T
+    if ($l.Json.status -ne "ABERTO") { return @{ StatusCode = 500 } }
+    return $r
+}
+
+# 57. Sem licitanteId no corpo, o lance e do licitante logado (perfilId do token)
+Run-Step -Nome "57. Lance de B sem licitanteId no corpo (espera 201)" -CodigoEsperado 201 -Acao {
+    $r = Invoke-Api POST "/lances" @{ leilaoId = $script:leilaoAoVivoId; valor = 2100 } -Token $script:tokenB
+    if ($r.StatusCode -eq 201 -and [int]$r.Json.licitante_id -ne $script:licitanteBId) { return @{ StatusCode = 500 } }
+    return $r
 }
 
 Write-Host "==========================================================================" -ForegroundColor Cyan
