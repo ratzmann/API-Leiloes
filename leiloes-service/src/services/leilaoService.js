@@ -135,9 +135,9 @@ async function garantirLeiloeiroExiste(leiloeiroId) {
     throw err;
   }
 
-  // sem USUARIOS_SERVICE_URL (servico rodando sozinho) nao tem como validar
+  // null = o usuarios-service respondeu 404 (o leiloeiro nao existe).
   // === compara valor E tipo (null === null e verdadeiro; undefined === null nao).
-  if (leiloeiro === null && process.env.USUARIOS_SERVICE_URL) {
+  if (leiloeiro === null) {
     throw new ErroDeValidacao('Leiloeiro nao encontrado no servico de usuarios.', 404);
   }
   return leiloeiro;
