@@ -21,6 +21,7 @@ jest.mock('../src/utils/jwt', () => ({
 const usuarioRepository = require('../src/repositories/usuarioRepository');
 const authService = require('../src/services/authService');
 const { hashSenha } = require('../src/utils/password');
+const { gerarToken } = require('../src/utils/jwt');
 
 describe('authService.validarRegistro', () => {
   test('rejeita nome muito curto', () => {
@@ -95,6 +96,18 @@ describe('authService.registrar', () => {
     expect(resultado.token).toBe('token-fake');
     expect(resultado.usuario.senha_hash).toBeUndefined();
     expect(usuarioRepository.atualizarPerfilId).toHaveBeenCalledWith(10, 99);
+  });
+
+  test('gera o token ja com o perfil criado no usuarios-service', async () => {
+    usuarioRepository.buscarPorEmail.mockResolvedValue(null);
+    usuarioRepository.criar.mockResolvedValue({ id: 10, nome: 'Ana Souza', email: 'a@a.com', papel: 'LICITANTE' });
+    usuarioRepository.atualizarPerfilId.mockResolvedValue();
+    global.fetch.mockResolvedValue({ ok: true, json: async () => ({ id: 99 }) });
+
+    await authService.registrar({ nome: 'Ana Souza', email: 'a@a.com', senha: '123456', papel: 'LICITANTE' });
+
+    // o token precisa ser gerado DEPOIS de o perfil existir, para levar o perfilId
+    expect(gerarToken).toHaveBeenCalledWith(expect.objectContaining({ id: 10, perfil_id: 99 }));
   });
 });
 

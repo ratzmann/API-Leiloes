@@ -32,7 +32,7 @@ const EXPIRES_IN = process.env.JWT_EXPIRES_IN || '2h';
 
 /**
  * Cria e assina um token para o usuario.
- * @param usuario  objeto com id, email e papel (vindo do banco)
+ * @param usuario  objeto com id, email, papel e perfil_id (vindo do banco)
  * @returns o token em texto (xxxxx.yyyyy.zzzzz)
  */
 function gerarToken(usuario) {
@@ -44,6 +44,12 @@ function gerarToken(usuario) {
       email: usuario.email,
       // O papel (LEILOEIRO/LICITANTE) viaja no token para os outros servicos saberem.
       papel: usuario.papel,
+      // perfilId = id do leiloeiro ou do licitante no usuarios-service.
+      // ATENCAO: e diferente do "sub"! O usuario 7 do auth-db pode ser o
+      // licitante 3 do usuarios-db. Os servicos de leiloes e lances usam o
+      // perfilId para saber "em nome de quem" a pessoa pode agir.
+      // (null se o perfil ainda nao foi criado.)
+      perfilId: usuario.perfil_id ?? null,
     },
     // 2o argumento: o segredo usado para calcular a assinatura.
     SECRET,

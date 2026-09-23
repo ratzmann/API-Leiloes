@@ -88,6 +88,9 @@ async function registrar({ nome, email, senha, papel, dadosPerfil }) {
     // Guarda no auth-db o id do perfil criado no outro servico (liga os dois).
     if (perfil && perfil.id) {
       await usuarioRepository.atualizarPerfilId(usuario.id, perfil.id);
+      // Atualiza tambem o objeto em memoria: o token gerado logo abaixo
+      // precisa levar o perfilId (usado nas regras de autorizacao).
+      usuario.perfil_id = perfil.id;
     }
   } catch (err) {
     // Nao derruba o cadastro de autenticacao caso o servico de dominio esteja
