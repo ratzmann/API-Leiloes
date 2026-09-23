@@ -13,11 +13,15 @@ const { ErroDeValidacao } = require('../utils/erros');
 
 /**
  * GET /licitantes  ->  lista todos.
- * Obs.: sem try/catch, diferente das demais funcoes (ponto de melhoria).
+ * Com try/catch como as demais: o Express 4 nao captura erros de funcoes async.
  */
 async function listar(req, res) {
-  const licitantes = await licitanteService.listar();
-  res.json(licitantes);
+  try {
+    const licitantes = await licitanteService.listar();
+    res.json(licitantes);
+  } catch (err) {
+    tratarErro(res, err);
+  }
 }
 
 /** GET /licitantes/:id */
