@@ -100,6 +100,14 @@ describe('licitanteService.buscarPorId', () => {
     licitanteRepository.buscarPorId.mockResolvedValue(null);
     await expect(licitanteService.buscarPorId(999)).rejects.toThrow('Licitante nao encontrado.');
   });
+
+  test('lanca 400 para id que nao e inteiro positivo, sem ir ao banco', async () => {
+    // NaN = Number('abc'), como chega do controller quando a URL e /.../abc
+    for (const id of [NaN, 1.5, 0, -1]) {
+      await expect(licitanteService.buscarPorId(id)).rejects.toMatchObject({ codigo: 400, message: 'ID invalido.' });
+    }
+    expect(licitanteRepository.buscarPorId).not.toHaveBeenCalled();
+  });
 });
 
 describe('licitanteService - autorizacao (so o proprio cadastro)', () => {

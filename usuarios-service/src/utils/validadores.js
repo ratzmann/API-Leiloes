@@ -62,4 +62,13 @@ function cpfValido(cpf) {
   return limpo === limpo.slice(0, 9) + String(digito1) + String(digito2);
 }
 
-module.exports = { emailValido, cpfValido };
+/**
+ * true se for um numero INTEIRO maior que zero (1, 2, 3...). Usado para os ids
+ * que chegam pela URL: "abc" ou "1.5" viram NaN ou fracao e sao recusados.
+ */
+function inteiroPositivo(valor) {
+  const numero = Number(valor);
+  return Number.isInteger(numero) && numero > 0;
+}
+
+module.exports = { emailValido, cpfValido, inteiroPositivo };

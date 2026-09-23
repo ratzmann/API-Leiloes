@@ -19,7 +19,7 @@
 
 const licitanteRepository = require('../repositories/licitanteRepository');
 const { ErroDeValidacao } = require('../utils/erros');
-const { emailValido, cpfValido } = require('../utils/validadores');
+const { emailValido, cpfValido, inteiroPositivo } = require('../utils/validadores');
 const { garantirProprioPerfil, visaoPara } = require('../utils/autorizacao');
 
 // O que QUALQUER usuario logado pode ver de um licitante. CPF, e-mail,
@@ -67,10 +67,14 @@ async function consultar(id, usuario) {
 }
 
 /**
- * Busca um licitante COMPLETO; 404 se nao existir. Uso interno do service
+ * Busca um licitante COMPLETO; 400 se o id nao for um inteiro positivo
+ * (ex.: /licitantes/abc) e 404 se nao existir. Uso interno do service
  * (consultar, atualizar, remover) - nao aplica a visibilidade.
  */
 async function buscarPorId(id) {
+  if (!inteiroPositivo(id)) {
+    throw new ErroDeValidacao('ID invalido.');
+  }
   const licitante = await licitanteRepository.buscarPorId(id);
   if (!licitante) {
     throw new ErroDeValidacao('Licitante nao encontrado.', 404);

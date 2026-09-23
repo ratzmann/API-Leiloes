@@ -93,6 +93,14 @@ describe('leiloeiroService.buscarPorId', () => {
     leiloeiroRepository.buscarPorId.mockResolvedValue(null);
     await expect(leiloeiroService.buscarPorId(999)).rejects.toThrow('Leiloeiro nao encontrado.');
   });
+
+  test('lanca 400 para id que nao e inteiro positivo, sem ir ao banco', async () => {
+    // NaN = Number('abc'), como chega do controller quando a URL e /.../abc
+    for (const id of [NaN, 1.5, 0, -1]) {
+      await expect(leiloeiroService.buscarPorId(id)).rejects.toMatchObject({ codigo: 400, message: 'ID invalido.' });
+    }
+    expect(leiloeiroRepository.buscarPorId).not.toHaveBeenCalled();
+  });
 });
 
 describe('leiloeiroService - autorizacao (so o proprio cadastro)', () => {
