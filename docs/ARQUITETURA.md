@@ -404,10 +404,10 @@ métrica ficar abaixo de 50%.
 | Serviço | Testes | Cobertura (linhas) |
 |---|---|---|
 | auth-service | 28 | 82% |
-| usuarios-service | 70 | 78% |
-| leiloes-service | 62 | 81% |
+| usuarios-service | 72 | 78% |
+| leiloes-service | 65 | 82% |
 | lances-service | 57 | 75% |
-| **Total** | **217** | |
+| **Total** | **222** | |
 
 Como rodar:
 
@@ -415,7 +415,7 @@ Como rodar:
 |---|---|---|
 | Unitários dos 4 serviços, com resumo | `powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1` | Não (usa Node local ou Docker) |
 | Unitários de um serviço | `cd <servico> && npm install && npm test` | Não |
-| Ponta a ponta (71 passos pelo Kong) | `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` | Sim |
+| Ponta a ponta (72 passos pelo Kong) | `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` | Sim |
 | Coleção Postman (62 requisições com conferência automática) | no Postman (Runner) ou `docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000` | Sim |
 | Manual | `testes/roteiro-de-testes.md` (curl, no Git Bash ou Linux) | Sim |
 
@@ -531,7 +531,7 @@ Duplicar esses arquivos de apoio em cada serviço é **intencional**
    `GET /lances/sagas/:id`.
 7. **Autorização** — seção 5: `lanceService.autorizarLicitante` e
    `leilaoService.garantirDono`; demonstrar um leiloeiro tentando dar lance (403).
-8. **Testes** — `testar-unitarios.ps1` (217 testes, cobertura ≥ 50% em todo o `src/`) e `testar-tudo.ps1` (71 passos).
+8. **Testes** — `testar-unitarios.ps1` (222 testes, cobertura ≥ 50% em todo o `src/`) e `testar-tudo.ps1` (72 passos).
 9. **Próximos passos** — seção 10.
 
 ---

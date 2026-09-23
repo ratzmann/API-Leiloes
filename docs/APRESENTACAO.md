@@ -24,7 +24,7 @@ Roteiro para os **15 minutos** do grupo, seguindo a divisão pedida no enunciado
 
 - [ ] Docker Desktop aberto e o sistema no ar: `docker compose up --build -d`
 - [ ] Testes unitários passando: `powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1`
-- [ ] Teste ponta a ponta passando: `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` (71/71)
+- [ ] Teste ponta a ponta passando: `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` (72/72)
 - [ ] Um terminal PowerShell aberto na raiz do projeto, já com o **bloco de preparação da demo** (abaixo) executado
 - [ ] Abas abertas no editor: `docker-compose.yml`, `kong/kong.yml`, `docs/ARQUITETURA.md` e os arquivos citados em cada bloco
 
@@ -184,9 +184,9 @@ Chamar GET "/licitantes/$($maria.perfil.id)/credito" $null $TM                  
 **Falar:**
 - **Testes unitários** (Jest) em cada serviço, com banco e rede trocados por
   mocks; testes de regras (services, Saga) e da camada HTTP (supertest).
-  Cobertura (linhas) sobre todo o `src/`: auth 82%, usuarios 78%, leiloes 81%,
-  lances 75% — o `npm test` falha se cair abaixo de 50%. São 217 testes.
-- **Teste ponta a ponta**: 71 passos reais pelo Kong.
+  Cobertura (linhas) sobre todo o `src/`: auth 82%, usuarios 78%, leiloes 82%,
+  lances 75% — o `npm test` falha se cair abaixo de 50%. São 222 testes.
+- **Teste ponta a ponta**: 72 passos reais pelo Kong.
 
 **Mostrar:** a saída do `testar-unitarios.ps1` (resumo com os 4 serviços).
 
