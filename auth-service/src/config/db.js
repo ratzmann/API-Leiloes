@@ -1,23 +1,22 @@
 // =============================================================================
-// config/db.js  -  CONEXAO com o banco de dados PostgreSQL
+// config/db.js  -  CONEXAO com o banco de dados PostgreSQL do servico
 // -----------------------------------------------------------------------------
-// Cria um "pool" (piscina) de conexoes com o Postgres. Em vez de abrir e fechar
-// uma conexao a cada consulta (lento), o pool mantem algumas conexoes abertas
-// e as "empresta" para quem precisar. Quem usa: os arquivos de repositories/.
+// Cria um "pool" (piscina) de conexoes: algumas conexoes ficam abertas e sao
+// "emprestadas" a cada consulta, o que e bem mais rapido do que abrir uma nova
+// a cada vez. Quem usa: repositories/ e db/migrar.js.
 //
-// Cada microsservico tem O PROPRIO banco (aqui: auth-db). Nenhum outro servico
-// acessa este banco - essa e uma regra basica de microsservicos.
-// (Este arquivo e identico nos 4 servicos de proposito: cada um e independente.)
+// Cada microsservico tem O PROPRIO banco (auth-db, usuarios-db, leiloes-db,
+// lances-db) e so ele acessa esse banco. Quem precisa de dados de outro servico
+// pede via HTTP (REST) - essa e uma regra basica de microsservicos.
+// (Arquivo identico nos 4 servicos: cada microsservico tem a sua copia.)
 // =============================================================================
 
-// 'pg' e a biblioteca do Node para falar com o Postgres.
-// As chaves { Pool } fazem "desestruturacao": pegamos so a propriedade Pool
-// de dentro do objeto exportado pela biblioteca.
+// Desestruturacao: pega so a classe Pool de dentro da biblioteca 'pg'.
 const { Pool } = require('pg');
 
 // Os dados de acesso vem de variaveis de ambiente (docker-compose.yml ou .env),
-// nunca escritos direto no codigo. Assim a mesma imagem roda em qualquer lugar
-// e a senha do banco nao fica exposta no repositorio.
+// nunca escritos no codigo: a mesma imagem roda em qualquer lugar e a senha do
+// banco nao fica exposta no repositorio. O DB_NAME diz qual banco e este.
 const pool = new Pool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
