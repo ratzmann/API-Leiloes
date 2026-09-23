@@ -60,7 +60,9 @@ beforeEach(() => {
   lanceRepository.registrarComTrava.mockImplementation(async (leilaoId, fn) => fn(tx));
 });
 
+/** A versao mais recente da saga gravada pelo sagaRepository (falso). */
 const ultimaSalva = () => salvas[salvas.length - 1];
+/** Os passos dessa saga como texto "passo:resultado", faceis de comparar. */
 const resultados = () => ultimaSalva().passos.map((p) => `${p.passo}:${p.resultado}`);
 
 describe('Saga de registro de lance: caminho feliz', () => {

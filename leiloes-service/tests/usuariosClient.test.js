@@ -8,7 +8,7 @@
 
 const usuariosClient = require('../src/clients/usuariosClient');
 
-// resposta falsa no formato que o fetch devolve (status + text())
+/** Resposta falsa no formato que o fetch devolve (status + text()). */
 const resposta = (status, corpo) => ({ status, text: async () => JSON.stringify(corpo) });
 
 beforeEach(() => {

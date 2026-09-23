@@ -25,10 +25,15 @@ const leilaoService = require('../src/services/leilaoService');
 
 const HORA = 60 * 60 * 1000;
 
+/** Data (texto ISO) daqui a `horas` horas: mantem os leiloes sempre no futuro. */
 function emHoras(horas) {
   return new Date(Date.now() + horas * HORA).toISOString();
 }
 
+/**
+ * Dados de um leilao que passa em todas as regras. `extra` troca campos
+ * especificos: leilaoValido({ quantidadeBois: 0 }) testa so essa regra.
+ */
 function leilaoValido(extra = {}) {
   return {
     leiloeiroId: 1,

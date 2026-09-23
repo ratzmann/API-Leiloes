@@ -9,7 +9,7 @@
 const usuariosClient = require('../src/clients/usuariosClient');
 const { ErroDeValidacao } = require('../src/utils/erros');
 
-// resposta falsa no formato que o fetch devolve (status + text())
+/** Resposta falsa no formato que o fetch devolve (status + text()). */
 const resposta = (status, corpo) => ({ status, text: async () => JSON.stringify(corpo) });
 const usuario = { id: 7, nome: 'Ana Souza', email: 'a@a.com' };
 

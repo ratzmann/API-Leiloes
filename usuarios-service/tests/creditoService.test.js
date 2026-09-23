@@ -21,12 +21,16 @@ const licitanteRepository = require('../src/repositories/licitanteRepository');
 const reservaRepository = require('../src/repositories/reservaRepository');
 const creditoService = require('../src/services/creditoService');
 
-// transacao falsa: roda a funcao com as operacoes mockadas
+/** Transacao falsa: o emTransacao mockado roda a funcao com as operacoes de `tx`. */
 function transacaoFalsa(tx) {
   reservaRepository.emTransacao.mockImplementation((fn) => fn(tx));
   return tx;
 }
 
+/**
+ * Cria uma transacao falsa com respostas padrao (limite de R$ 5000, nada
+ * reservado). `sobrescritas` troca so as operacoes que o teste quer mudar.
+ */
 function novaTx(sobrescritas = {}) {
   return transacaoFalsa({
     travarLicitante: jest.fn().mockResolvedValue({ id: 1, limite_credito: '5000.00' }),
