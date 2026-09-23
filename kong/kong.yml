@@ -62,6 +62,24 @@ services:
             config:
               status_code: 403
               message: Reservas de credito sao internas e so podem ser feitas pela Saga de lances.
+      # Criar perfil (POST /leiloeiros ou /licitantes) tambem e interno: quem
+      # faz isso e o auth-service, no registro, pela rede interna do Docker.
+      # De fora, o caminho certo e POST /auth/registrar.
+      # "methods: [POST]" faz a rota valer so para POST - GET, PUT e DELETE
+      # continuam indo para as rotas acima. O "$" no fim da expressao regular
+      # exige que o caminho TERMINE ali (nao pega /licitantes/1/credito etc.).
+      - name: criar-perfil-interno
+        methods:
+          - POST
+        paths:
+          - '~/leiloeiros$'
+          - '~/licitantes$'
+        strip_path: false
+        plugins:
+          - name: request-termination
+            config:
+              status_code: 403
+              message: Perfis sao criados pelo registro em POST /auth/registrar.
     # Plugin JWT no nivel do SERVICE: vale para todas as rotas acima.
     plugins:
       - name: jwt
