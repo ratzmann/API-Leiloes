@@ -56,20 +56,20 @@ async function cadastrar(req, res) {
   }
 }
 
-/** PUT /licitantes/:id  ->  atualiza nome, telefone e/ou limite de credito. */
+/** PUT /licitantes/:id  ->  o proprio licitante atualiza nome e/ou telefone. */
 async function atualizar(req, res) {
   try {
-    const licitante = await licitanteService.atualizar(Number(req.params.id), req.body);
+    const licitante = await licitanteService.atualizar(Number(req.params.id), req.body, req.usuarioAutenticado);
     res.json(licitante);
   } catch (err) {
     tratarErro(res, err);
   }
 }
 
-/** DELETE /licitantes/:id  ->  204 No Content quando remove. */
+/** DELETE /licitantes/:id  ->  o proprio licitante remove o cadastro (204). */
 async function remover(req, res) {
   try {
-    await licitanteService.remover(Number(req.params.id));
+    await licitanteService.remover(Number(req.params.id), req.usuarioAutenticado);
     res.status(204).send();
   } catch (err) {
     tratarErro(res, err);

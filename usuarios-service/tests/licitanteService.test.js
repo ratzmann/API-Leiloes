@@ -2,7 +2,8 @@
 // tests/licitanteService.test.js  -  testes das regras do licitante
 // -----------------------------------------------------------------------------
 // Cobre: CPF valido/invalido, limite de credito negativo, duplicidades (409)
-// e busca de licitante inexistente (404).
+// busca de licitante inexistente (404) e autorizacao (so o proprio cadastro,
+// sem alterar o proprio limite de credito).
 // COMO LER UM TESTE (Jest):
 //   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
 //   test('descricao', () => { ... })    um cenario (chamado tambem de it);
@@ -97,5 +98,54 @@ describe('licitanteService.buscarPorId', () => {
   test('lanca 404 quando nao encontrado', async () => {
     licitanteRepository.buscarPorId.mockResolvedValue(null);
     await expect(licitanteService.buscarPorId(999)).rejects.toThrow('Licitante nao encontrado.');
+  });
+});
+
+describe('licitanteService - autorizacao (so o proprio cadastro)', () => {
+  // payloads de token: o licitante 3 (dono do cadastro) e outras pessoas
+  const licitante3 = { sub: 30, papel: 'LICITANTE', perfilId: 3 };
+  const outroLicitante = { sub: 31, papel: 'LICITANTE', perfilId: 4 };
+  const leiloeiro3 = { sub: 32, papel: 'LEILOEIRO', perfilId: 3 };
+
+  beforeEach(() => {
+    licitanteRepository.buscarPorId.mockResolvedValue({ id: 3, nome: 'Maria Souza' });
+  });
+
+  test('o proprio licitante atualiza nome e telefone', async () => {
+    licitanteRepository.atualizar.mockResolvedValue({ id: 3, telefone: '47911112222' });
+
+    await licitanteService.atualizar(3, { telefone: '47911112222' }, licitante3);
+
+    expect(licitanteRepository.atualizar).toHaveBeenCalledWith(3, { telefone: '47911112222' });
+  });
+
+  test('401 sem usuario logado', async () => {
+    await expect(licitanteService.atualizar(3, { telefone: '1' })).rejects.toMatchObject({ codigo: 401 });
+  });
+
+  test('403 quando outro licitante tenta alterar o cadastro', async () => {
+    await expect(licitanteService.atualizar(3, { nome: 'Invasor' }, outroLicitante)).rejects.toMatchObject({
+      codigo: 403,
+      message: 'Voce so pode alterar o seu proprio cadastro.',
+    });
+    expect(licitanteRepository.atualizar).not.toHaveBeenCalled();
+  });
+
+  test('403 quando um leiloeiro com o mesmo perfilId tenta alterar (papel diferente)', async () => {
+    await expect(licitanteService.remover(3, leiloeiro3)).rejects.toMatchObject({ codigo: 403 });
+    expect(licitanteRepository.remover).not.toHaveBeenCalled();
+  });
+
+  test('403 quando o proprio licitante tenta aumentar o limite de credito', async () => {
+    await expect(licitanteService.atualizar(3, { limiteCredito: 1000000 }, licitante3)).rejects.toMatchObject({
+      codigo: 403,
+      message: 'O limite de credito nao pode ser alterado pelo proprio licitante.',
+    });
+    expect(licitanteRepository.atualizar).not.toHaveBeenCalled();
+  });
+
+  test('o proprio licitante remove o cadastro', async () => {
+    licitanteRepository.remover.mockResolvedValue(true);
+    await expect(licitanteService.remover(3, licitante3)).resolves.toBe(true);
   });
 });

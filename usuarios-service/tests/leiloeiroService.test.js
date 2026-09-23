@@ -2,7 +2,7 @@
 // tests/leiloeiroService.test.js  -  testes das regras do leiloeiro
 // -----------------------------------------------------------------------------
 // Cobre: validacao de nome/e-mail/registro profissional, duplicidades (409)
-// e busca de leiloeiro inexistente (404).
+// busca de leiloeiro inexistente (404) e autorizacao (so o proprio cadastro).
 // COMO LER UM TESTE (Jest):
 //   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
 //   test('descricao', () => { ... })    um cenario (chamado tambem de it);
@@ -91,5 +91,35 @@ describe('leiloeiroService.buscarPorId', () => {
   test('lanca 404 quando nao encontrado', async () => {
     leiloeiroRepository.buscarPorId.mockResolvedValue(null);
     await expect(leiloeiroService.buscarPorId(999)).rejects.toThrow('Leiloeiro nao encontrado.');
+  });
+});
+
+describe('leiloeiroService - autorizacao (so o proprio cadastro)', () => {
+  // payloads de token: o leiloeiro 7 (dono do cadastro) e outra pessoa
+  const leiloeiro7 = { sub: 70, papel: 'LEILOEIRO', perfilId: 7 };
+  const outroLeiloeiro = { sub: 71, papel: 'LEILOEIRO', perfilId: 8 };
+
+  beforeEach(() => {
+    leiloeiroRepository.buscarPorId.mockResolvedValue({ id: 7, nome: 'Carlos Pereira' });
+  });
+
+  test('o proprio leiloeiro atualiza o telefone', async () => {
+    leiloeiroRepository.atualizar.mockResolvedValue({ id: 7, telefone: '47911112222' });
+
+    await leiloeiroService.atualizar(7, { telefone: '47911112222' }, leiloeiro7);
+
+    expect(leiloeiroRepository.atualizar).toHaveBeenCalledWith(7, { telefone: '47911112222' });
+  });
+
+  test('403 quando outro leiloeiro tenta alterar ou remover o cadastro', async () => {
+    await expect(leiloeiroService.atualizar(7, { nome: 'Invasor' }, outroLeiloeiro)).rejects.toMatchObject({ codigo: 403 });
+    await expect(leiloeiroService.remover(7, outroLeiloeiro)).rejects.toMatchObject({ codigo: 403 });
+    expect(leiloeiroRepository.atualizar).not.toHaveBeenCalled();
+    expect(leiloeiroRepository.remover).not.toHaveBeenCalled();
+  });
+
+  test('cadastro inexistente continua 404 (existencia e conferida antes do dono)', async () => {
+    leiloeiroRepository.buscarPorId.mockResolvedValue(null);
+    await expect(leiloeiroService.remover(999, leiloeiro7)).rejects.toMatchObject({ codigo: 404 });
   });
 });

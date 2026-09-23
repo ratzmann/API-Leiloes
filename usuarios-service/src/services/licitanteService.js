@@ -12,6 +12,7 @@
 const licitanteRepository = require('../repositories/licitanteRepository');
 const { ErroDeValidacao } = require('../utils/erros');
 const { emailValido, cpfValido } = require('../utils/validadores');
+const { garantirProprioPerfil } = require('../utils/autorizacao');
 
 /**
  * Valida os dados do licitante. Lanca ErroDeValidacao (400) no primeiro
@@ -81,24 +82,35 @@ async function cadastrar({ usuarioId, nome, email, cpf, telefone, limiteCredito 
   });
 }
 
+// Regra de negocio 4: so o proprio licitante altera ou remove o seu cadastro.
+// Regra de negocio 5: o licitante NAO altera o proprio limite de credito
+// (senao bastaria aumentar o limite para dar lances sem lastro). O limite e
+// definido no cadastro; mudar depois exigiria um papel de administrador.
 /**
- * Atualiza nome, telefone e/ou limite. Cada campo so e validado se foi enviado.
- * Obs.: reduzir o limite abaixo do que ja esta reservado nao e bloqueado aqui.
+ * Atualiza nome e/ou telefone do proprio licitante.
+ * Ordem: existe? (404) -> e o dono? (403) -> tentou mudar o limite? (403)
+ * -> dados validos? (400).
+ * @param usuario  quem esta logado (payload do token)
  */
-async function atualizar(id, dados) {
+async function atualizar(id, dados, usuario) {
   await buscarPorId(id);
+  garantirProprioPerfil(usuario, 'LICITANTE', id);
+  if (dados.limiteCredito !== undefined) {
+    throw new ErroDeValidacao('O limite de credito nao pode ser alterado pelo proprio licitante.', 403);
+  }
   if (dados.nome && dados.nome.trim().length < 3) {
     throw new ErroDeValidacao('Nome deve ter ao menos 3 caracteres.');
-  }
-  if (dados.limiteCredito !== undefined && Number(dados.limiteCredito) < 0) {
-    throw new ErroDeValidacao('Limite de credito nao pode ser negativo.');
   }
   return licitanteRepository.atualizar(id, dados);
 }
 
-/** Remove o licitante (as reservas dele somem junto: ON DELETE CASCADE). */
-async function remover(id) {
+/**
+ * Remove o proprio cadastro (404 se nao existir; 403 se nao for o dono).
+ * As reservas dele somem junto: ON DELETE CASCADE.
+ */
+async function remover(id, usuario) {
   await buscarPorId(id);
+  garantirProprioPerfil(usuario, 'LICITANTE', id);
   return licitanteRepository.remover(id);
 }
 

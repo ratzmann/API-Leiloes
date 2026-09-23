@@ -64,10 +64,10 @@ async function cadastrar(req, res) {
   }
 }
 
-/** PUT /leiloeiros/:id  ->  atualiza nome e/ou telefone. */
+/** PUT /leiloeiros/:id  ->  o proprio leiloeiro atualiza nome e/ou telefone. */
 async function atualizar(req, res) {
   try {
-    const leiloeiro = await leiloeiroService.atualizar(Number(req.params.id), req.body);
+    const leiloeiro = await leiloeiroService.atualizar(Number(req.params.id), req.body, req.usuarioAutenticado);
     res.json(leiloeiro);
   } catch (err) {
     tratarErro(res, err);
@@ -80,7 +80,7 @@ async function atualizar(req, res) {
  */
 async function remover(req, res) {
   try {
-    await leiloeiroService.remover(Number(req.params.id));
+    await leiloeiroService.remover(Number(req.params.id), req.usuarioAutenticado);
     res.status(204).send();
   } catch (err) {
     tratarErro(res, err);

@@ -13,6 +13,7 @@
 const leiloeiroRepository = require('../repositories/leiloeiroRepository');
 const { ErroDeValidacao } = require('../utils/erros');
 const { emailValido } = require('../utils/validadores');
+const { garantirProprioPerfil } = require('../utils/autorizacao');
 
 // Formato do registro na junta comercial:
 //   [A-Za-z]{2,8}  -> de 2 a 8 letras (o orgao, ex.: JUCESC)
@@ -83,21 +84,26 @@ async function cadastrar({ usuarioId, nome, email, registroProfissional, telefon
   return leiloeiroRepository.criar({ usuarioId, nome, email, registroProfissional, telefone });
 }
 
+// Regra de negocio 4: so o proprio leiloeiro altera ou remove o seu cadastro.
 /**
- * Atualiza nome/telefone. Primeiro garante que o leiloeiro existe (404 se nao).
+ * Atualiza nome/telefone. Primeiro garante que o leiloeiro existe (404 se nao)
+ * e que quem esta logado e o dono do cadastro (403 se nao).
  * `dados.nome && ...`: so valida o nome SE ele foi enviado.
+ * @param usuario  quem esta logado (payload do token)
  */
-async function atualizar(id, dados) {
+async function atualizar(id, dados, usuario) {
   await buscarPorId(id);
+  garantirProprioPerfil(usuario, 'LEILOEIRO', id);
   if (dados.nome && dados.nome.trim().length < 3) {
     throw new ErroDeValidacao('Nome deve ter ao menos 3 caracteres.');
   }
   return leiloeiroRepository.atualizar(id, dados);
 }
 
-/** Remove o leiloeiro (404 se nao existir). */
-async function remover(id) {
+/** Remove o leiloeiro (404 se nao existir; 403 se nao for o proprio). */
+async function remover(id, usuario) {
   await buscarPorId(id);
+  garantirProprioPerfil(usuario, 'LEILOEIRO', id);
   return leiloeiroRepository.remover(id);
 }
 
