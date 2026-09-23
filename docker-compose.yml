@@ -113,7 +113,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # ---------------- Microsserviços ----------------
+  # ---------------- Microsservicos ----------------
   # Repare: NENHUM microsservico tem "ports:". Eles so sao acessiveis dentro da
   # rede leilao-net - quem vem de fora obrigatoriamente passa pelo Kong.
   auth-service:
@@ -231,7 +231,7 @@ services:
       - ./kong/kong.yml:/kong/kong.yml
     # ports: "porta_na_sua_maquina:porta_no_container". So o Kong tem isso.
     ports:
-      - "8000:8000"   # Proxy (entrada pública da API)
+      - "8000:8000"   # Proxy (entrada publica da API)
       - "8001:8001"   # Admin API (uso local/dev)
     depends_on:
       - auth-service

@@ -18,9 +18,9 @@ _format_version: "3.0"
 _transform: true
 
 # ---------------------------------------------------------------------------
-# Kong como API Gateway (padrão de microsserviços usado pelo grupo) + plugin
-# JWT no papel de "porteiro" da autenticação: valida o token emitido pelo
-# auth-service antes de deixar a requisição chegar nos serviços de domínio.
+# Kong como API Gateway (padrao de microsservicos usado pelo grupo) + plugin
+# JWT no papel de "porteiro" da autenticacao: valida o token emitido pelo
+# auth-service antes de deixar a requisicao chegar nos servicos de dominio.
 # ---------------------------------------------------------------------------
 
 services:
@@ -33,7 +33,7 @@ services:
         # strip_path: true -> remove o "/auth" antes de repassar:
         # /auth/login chega no auth-service como /login.
         strip_path: true
-    # Rotas de autenticação (login/registro) são públicas: sem plugin JWT.
+    # Rotas de autenticacao (login/registro) sao publicas: sem plugin JWT.
 
   - name: usuarios-service
     url: http://usuarios-service:3002
