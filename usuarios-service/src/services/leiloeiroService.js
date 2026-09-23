@@ -59,9 +59,11 @@ async function buscarPorId(id) {
   return leiloeiro;
 }
 
-// Regra de negocio 1: e-mail e registro profissional sao unicos.
-// Regra de negocio 2: registro profissional segue formato de orgao regulador.
-// Regra de negocio 3: nome minimo de 3 caracteres.
+// Regras de negocio do leiloeiro (mesma numeracao do README):
+//   1. nome (min. 3 letras), e-mail e registro profissional obrigatorios e validos -> validarDados
+//   2. e-mail unico
+//   3. registro profissional unico e no formato ORGAO-NUMERO (ex.: JUCESC-000123)
+//   4. so o proprio leiloeiro altera ou remove o cadastro -> atualizar / remover
 /**
  * Cadastra um leiloeiro depois de validar os dados e checar duplicidade.
  * 409 Conflict = ja existe alguem com este e-mail ou registro.

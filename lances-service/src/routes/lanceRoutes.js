@@ -10,7 +10,7 @@
 //   GET  /lances/leilao/:leilaoId         -> lances de um leilao (maior primeiro)
 //   GET  /lances/leilao/:leilaoId/maior   -> maior lance atual do leilao
 //
-// Quem pode dar lance (Regra 6, conferida no lanceService.autorizarLicitante):
+// Quem pode dar lance (Regra 7, conferida no lanceService.autorizarLicitante):
 // so um LICITANTE logado, e sempre em nome proprio (perfilId do token). As
 // rotas GET e o reprocessamento de sagas ficam abertas a usuarios logados.
 //

@@ -11,7 +11,8 @@
 //   1. a soma das reservas ativas nunca ultrapassa o limite;
 //   2. reservar e liberar sao IDEMPOTENTES: repetir a mesma operacao nao
 //      muda o resultado (importante porque, em rede, uma chamada pode ser
-//      repetida sem querer, por exemplo apos um timeout).
+//      repetida sem querer, por exemplo apos um timeout);
+//   3. leilao CANCELADO devolve o credito de todas as reservas dele.
 //
 // Quem chama: controllers/creditoController.js
 // Quem e chamado: repositories/licitanteRepository.js e reservaRepository.js
@@ -70,7 +71,7 @@ async function listarReservas(licitanteId) {
   return reservaRepository.listarPorLicitante(id);
 }
 
-// Regra: a soma das reservas nunca passa do limite de credito.
+// Regra de credito 1: a soma das reservas nunca passa do limite de credito.
 // Se vier a mesma referencia (id da saga) de novo, devolve a reserva que ja existe.
 /**
  * PASSO 2 DA SAGA: bloqueia `valor` no credito do licitante.
@@ -160,7 +161,7 @@ async function liberar(licitanteId, reservaId) {
   });
 }
 
-// Regra: leilao CANCELADO devolve o credito de todos que tinham reserva nele.
+// Regra de credito 3: leilao CANCELADO devolve o credito de todos que tinham reserva nele.
 /**
  * Libera, de uma vez, todas as reservas ativas de um leilao.
  * Chamado pelo leiloes-service quando um leilao e CANCELADO: sem isso, o

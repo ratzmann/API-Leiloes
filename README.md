@@ -129,6 +129,7 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 **Crédito**
 1. A soma das reservas ativas nunca ultrapassa o limite de crédito do licitante.
 2. Reserva e liberação são idempotentes.
+3. As reservas de um leilão **cancelado** são liberadas de uma vez (Regra 8 do leiloes-service).
 
 ### leiloes-service
 

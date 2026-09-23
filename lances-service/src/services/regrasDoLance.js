@@ -1,6 +1,8 @@
 // =============================================================================
 // services/regrasDoLance.js  -  REGRA DE VALOR do lance (funcao pura)
 // -----------------------------------------------------------------------------
+// Implementa as Regras 4 (valor minimo) e 5 (nao cobrir o proprio lance).
+//
 // Separada num arquivo proprio porque a Saga a usa DUAS vezes:
 //   1. no passo 1, para recusar cedo um lance baixo (antes de reservar credito);
 //   2. no passo 3, de novo, com o leilao travado - porque entre o passo 1 e o 3

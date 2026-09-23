@@ -126,7 +126,7 @@ async function executar({ leilaoId, licitanteId, valor, simularFalha = null }) {
   let superado = null;
 
   try {
-    // passo 1: o leilao existe e esta aceitando lance?
+    // passo 1: o leilao existe e esta aceitando lance? (Regra 3)
     const leilao = await leiloesClient.consultarDisponibilidade(leilaoId);
     if (!leilao) {
       throw new ErroDeValidacao('Leilao nao encontrado no leiloes-service.', 404);
@@ -148,7 +148,7 @@ async function executar({ leilaoId, licitanteId, valor, simularFalha = null }) {
     registrarPasso(saga, passoAtual, 'OK', `Leilao ${leilaoId} ${leilao.status}, aceitando lances.`);
     await sagaRepository.salvar(saga);
 
-    // passo 2: reserva o valor no credito do licitante
+    // passo 2: reserva o valor no credito do licitante (Regra 6)
     // A referencia `saga-<id>` torna a reserva IDEMPOTENTE: se esta chamada for
     // repetida, o usuarios-service devolve a mesma reserva em vez de criar outra.
     passoAtual = PASSOS.RESERVA;

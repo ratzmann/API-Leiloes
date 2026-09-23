@@ -403,7 +403,7 @@ function Credito-Reservado([int]$LicitanteId) {
     return [double]$r.Json.reservado
 }
 
-# cada licitante da lances com o PROPRIO token (Regra 6 do lances-service);
+# cada licitante da lances com o PROPRIO token (Regra 7 do lances-service);
 # por padrao, o lance de B usa o token de B e qualquer outro usa o token de A
 function Token-Do([int]$LicitanteId) {
     if ($LicitanteId -eq $script:licitanteBId) { return $script:tokenB }
@@ -467,7 +467,7 @@ Run-Step -Nome "36. Saga: primeiro lance abaixo do lance inicial (espera 400)" -
     return (Lance $script:licitanteAId 900)
 }
 
-# 37. Regra 6 (autorizacao): A tenta dar lance em nome de um licitante inexistente
+# 37. Regra 7 (autorizacao): A tenta dar lance em nome de um licitante inexistente
 Run-Step -Nome "37. Lance em nome de licitante inexistente (espera 403)" -CodigoEsperado 403 -Acao {
     return (Lance 99999999 1000)
 }
@@ -575,7 +575,7 @@ Run-Step -Nome "52. Reserva de credito direto pelo Kong (espera 403)" -CodigoEsp
 
 # ------------------------------------------------------------------------------
 # Autorizacao: cada usuario so age em nome proprio
-# (Regra 6 do lances-service, Regra 7 do leiloes-service e cadastros de usuarios)
+# (Regra 7 do lances-service, Regra 7 do leiloes-service e cadastros de usuarios)
 # ------------------------------------------------------------------------------
 Write-Host ""
 Write-Host "------------------------------ AUTORIZACAO -------------------------------" -ForegroundColor Cyan

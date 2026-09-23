@@ -110,13 +110,15 @@ function autorizarLicitante(usuario, licitanteIdInformado) {
   return Number(usuario.perfilId);
 }
 
-// Regra de negocio 1: leilaoId, licitanteId e valor obrigatorios e validos.
-// Regra de negocio 2: valor estritamente maior que zero.
-// Regra de negocio 3: primeiro lance >= lance inicial; depois, >= maior lance + incremento.
-// Regra de negocio 4: mesmo licitante nao pode cobrir seu proprio lance atual.
-// Regra de negocio 5: o licitante precisa ter credito pro valor do lance.
-// Regra de negocio 6: so um LICITANTE logado da lance, e so em nome proprio.
-// As regras 3 a 5 dependem do leiloes e do usuarios, por isso o registro passa pela saga.
+// Regras de negocio do lance (mesma numeracao do README):
+//   1. leilaoId, licitanteId e valor obrigatorios e validos      -> validarDados
+//   2. valor estritamente maior que zero                         -> validarDados
+//   3. o leilao existe e esta aceitando lances                   -> Saga, passo 1
+//   4. primeiro lance >= lance inicial; depois >= maior + incremento -> regrasDoLance
+//   5. ninguem cobre o proprio lance atual                       -> regrasDoLance
+//   6. o licitante precisa ter credito para o valor do lance     -> Saga, passo 2
+//   7. so um LICITANTE logado da lance, e em nome proprio        -> autorizarLicitante
+// As regras 3 a 6 dependem do leiloes e do usuarios, por isso o registro passa pela saga.
 /**
  * Registra um lance: autoriza, valida localmente e entrega para a Saga.
  * Os valores sao convertidos para Number aqui, uma unica vez, para a Saga
