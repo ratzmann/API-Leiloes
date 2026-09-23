@@ -699,6 +699,30 @@ Run-Step -Nome "68. Mesmo e-mail com CPF valido registra (espera 201)" -CodigoEs
     return $r
 }
 
+# ------------------------------------------------------------------------------
+# Visibilidade dos dados pessoais (LGPD): CPF, e-mail, telefone e limite so
+# aparecem para o proprio dono do cadastro
+# ------------------------------------------------------------------------------
+Write-Host ""
+Write-Host "--------------------- VISIBILIDADE DOS DADOS PESSOAIS ---------------------" -ForegroundColor Cyan
+
+# 69. A ve o proprio cadastro completo (com CPF)
+Run-Step -Nome "69. Licitante A consulta o proprio cadastro, com CPF (espera 200)" -CodigoEsperado 200 -Acao {
+    $r = Invoke-Api GET "/licitantes/$($script:licitanteAId)" -Token $script:tokenA
+    if ($r.StatusCode -eq 200 -and -not $r.Json.cpf) { return @{ StatusCode = 500 } }
+    return $r
+}
+
+# 70. A nao ve CPF, e-mail nem limite de B (nem na consulta, nem na lista)
+Run-Step -Nome "70. Licitante A nao ve CPF/e-mail/limite de B (espera 200)" -CodigoEsperado 200 -Acao {
+    $r = Invoke-Api GET "/licitantes/$($script:licitanteBId)" -Token $script:tokenA
+    if ($r.Json.cpf -or $r.Json.email -or $r.Json.limite_credito) { return @{ StatusCode = 500 } }
+    $lista = Invoke-Api GET "/licitantes" -Token $script:tokenA
+    $b = @($lista.Json | Where-Object { $_.id -eq $script:licitanteBId })[0]
+    if (-not $b -or $b.cpf -or $b.email) { return @{ StatusCode = 500 } }
+    return $r
+}
+
 Write-Host "==========================================================================" -ForegroundColor Cyan
 Write-Host "                           RESUMO DOS TESTES                             " -ForegroundColor Yellow
 Write-Host "   Passou: $script:TotalPass" -ForegroundColor Green
