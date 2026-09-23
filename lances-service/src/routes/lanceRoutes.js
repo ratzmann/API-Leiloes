@@ -10,6 +10,10 @@
 //   GET  /lances/leilao/:leilaoId         -> lances de um leilao (maior primeiro)
 //   GET  /lances/leilao/:leilaoId/maior   -> maior lance atual do leilao
 //
+// Quem pode dar lance (Regra 6, conferida no lanceService.autorizarLicitante):
+// so um LICITANTE logado, e sempre em nome proprio (perfilId do token). As
+// rotas GET e o reprocessamento de sagas ficam abertas a usuarios logados.
+//
 // ATENCAO A ORDEM: o Express testa as rotas de cima para baixo e usa a
 // PRIMEIRA que servir. Se '/:id' viesse antes de '/sagas', um GET /lances/sagas
 // seria entendido como "lance de id = 'sagas'".

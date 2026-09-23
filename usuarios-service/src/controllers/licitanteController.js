@@ -37,7 +37,8 @@ async function buscarPorId(req, res) {
 /**
  * POST /licitantes  ->  cadastra um licitante.
  * Corpo esperado: { usuarioId, nome, email, cpf, telefone, limiteCredito }
- * Normalmente chamado pelo auth-service durante o registro.
+ * Rota INTERNA: so o auth-service chama, durante o registro (pela rede do
+ * Docker, sem token). De fora, o Kong responde 403.
  */
 async function cadastrar(req, res) {
   try {

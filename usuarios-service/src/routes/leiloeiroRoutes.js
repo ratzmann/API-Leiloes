@@ -7,10 +7,18 @@
 // Este e o padrao "CRUD" (Create, Read, Update, Delete) em REST:
 //   GET    /leiloeiros      -> listar todos          (Read)
 //   GET    /leiloeiros/:id  -> buscar um             (Read)
-//   POST   /leiloeiros      -> cadastrar             (Create)
-//   PUT    /leiloeiros/:id  -> atualizar             (Update)
-//   DELETE /leiloeiros/:id  -> remover               (Delete)
+//   POST   /leiloeiros      -> cadastrar             (Create)  INTERNA
+//   PUT    /leiloeiros/:id  -> atualizar             (Update)  so o proprio
+//   DELETE /leiloeiros/:id  -> remover               (Delete)  so o proprio
 // O ":id" e um PARAMETRO DE ROTA: o valor real chega em req.params.id.
+//
+// Quem pode usar cada rota:
+//   - POST e INTERNO: so o auth-service cria perfis, no registro, pela rede do
+//     Docker. Vindo de fora, o Kong responde 403 (rota "criar-perfil-interno"
+//     no kong.yml); o caminho certo e POST /auth/registrar.
+//   - PUT e DELETE: so o PROPRIO leiloeiro (regra no leiloeiroService, via
+//     utils/autorizacao.js); outra pessoa recebe 403.
+//   - GET: qualquer usuario logado.
 // =============================================================================
 
 const { Router } = require('express');

@@ -4,7 +4,12 @@
 // Montado em app.js com o prefixo /licitantes.
 //
 // CRUD do licitante (mesmo padrao dos leiloeiros):
-//   GET /licitantes, GET /licitantes/:id, POST, PUT /:id, DELETE /:id
+//   GET /licitantes, GET /licitantes/:id  -> qualquer usuario logado
+//   POST /licitantes                      -> INTERNO (so o auth-service, no
+//                                            registro; o Kong devolve 403 de fora)
+//   PUT /:id, DELETE /:id                 -> so o PROPRIO licitante (403 para os
+//                                            demais), que tambem nao pode mudar o
+//                                            proprio limiteCredito
 //
 // Credito do licitante (usado pela Saga de lance do lances-service):
 //   GET  /licitantes/:id/credito                         -> limite, reservado e disponivel

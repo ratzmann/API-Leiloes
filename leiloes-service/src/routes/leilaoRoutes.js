@@ -14,6 +14,11 @@
 //
 // PUT x PATCH: por convencao REST, PUT envia o recurso (ou boa parte dele) e
 // PATCH faz uma alteracao pontual - aqui, so a mudanca de status.
+//
+// Quem pode usar cada rota (Regra 7, conferida no leilaoService):
+//   - GET: livres (o lances-service consulta a disponibilidade sem token);
+//   - POST: so um LEILOEIRO, e o leilao fica em nome dele (perfilId do token);
+//   - PUT, PATCH e DELETE: so o leiloeiro DONO do leilao (403 para os demais).
 // =============================================================================
 
 const { Router } = require('express');

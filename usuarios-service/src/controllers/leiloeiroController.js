@@ -43,7 +43,8 @@ async function buscarPorId(req, res) {
 
 /**
  * POST /leiloeiros  ->  cadastra um leiloeiro.
- * Normalmente quem chama e o auth-service, logo apos o registro do usuario.
+ * Rota INTERNA: so o auth-service chama, logo apos o registro do usuario
+ * (pela rede do Docker, sem token). De fora, o Kong responde 403.
  */
 async function cadastrar(req, res) {
   try {
