@@ -643,6 +643,42 @@ Run-Step -Nome "61. Licitante A tenta alterar o cadastro de B (espera 403)" -Cod
     return (Invoke-Api PUT "/licitantes/$($script:licitanteBId)" @{ nome = "Invasor" } -Token $script:tokenA)
 }
 
+# ------------------------------------------------------------------------------
+# Cancelamento de leilao (Regra 8 do leiloes-service): o credito reservado volta
+# ------------------------------------------------------------------------------
+Write-Host ""
+Write-Host "------------------------- CANCELAMENTO DE LEILAO -------------------------" -ForegroundColor Cyan
+
+# 62. Antes de cancelar: B tem credito preso no leilao ao vivo (lance do passo 57)
+Run-Step -Nome "62. Antes do cancelamento: B com R$ 2100 reservados (espera 200)" -CodigoEsperado 200 -Acao {
+    if ((Credito-Reservado $script:licitanteBId) -ne 2100) { return @{ StatusCode = 500 } }
+    return @{ StatusCode = 200 }
+}
+
+# 63. O leiloeiro dono cancela o leilao
+Run-Step -Nome "63. Leiloeiro cancela o leilao ao vivo (espera 200, CANCELADO)" -CodigoEsperado 200 -Acao {
+    $r = Invoke-Api PATCH "/leiloes/$($script:leilaoAoVivoId)/cancelar" -Token $script:tokenLeiloeiro
+    if ($r.StatusCode -eq 200 -and $r.Json.status -ne "CANCELADO") { return @{ StatusCode = 500 } }
+    return $r
+}
+
+# 64. O credito de quem estava ganhando foi devolvido
+Run-Step -Nome "64. Credito de B devolvido: R$ 0 reservados (espera 200)" -CodigoEsperado 200 -Acao {
+    if ((Credito-Reservado $script:licitanteBId) -ne 0) { return @{ StatusCode = 500 } }
+    if ((Credito-Reservado $script:licitanteAId) -ne 0) { return @{ StatusCode = 500 } }
+    return @{ StatusCode = 200 }
+}
+
+# 65. Leilao cancelado nao aceita mais lances
+Run-Step -Nome "65. Lance em leilao CANCELADO (espera 409)" -CodigoEsperado 409 -Acao {
+    return (Lance $script:licitanteAId 3000)
+}
+
+# 66. A rota que libera o credito e interna: o Kong nem a conhece (404)
+Run-Step -Nome "66. Rota interna /reservas nao existe pelo Kong (espera 404)" -CodigoEsperado 404 -Acao {
+    return (Invoke-Api POST "/reservas/leilao/$($script:leilaoAoVivoId)/liberar" -Token $script:tokenLeiloeiro)
+}
+
 Write-Host "==========================================================================" -ForegroundColor Cyan
 Write-Host "                           RESUMO DOS TESTES                             " -ForegroundColor Yellow
 Write-Host "   Passou: $script:TotalPass" -ForegroundColor Green
