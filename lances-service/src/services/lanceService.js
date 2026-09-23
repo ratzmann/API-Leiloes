@@ -1,9 +1,35 @@
+// =============================================================================
+// services/lanceService.js  -  REGRAS DE NEGOCIO de lances (porta de entrada)
+// -----------------------------------------------------------------------------
+// Este service faz as validacoes "locais" (que nao dependem de ninguem) e,
+// para registrar um lance, DELEGA para a Saga (sagas/registrarLanceSaga.js),
+// porque as demais regras dependem de dados que estao em outros servicos.
+//
+// Regras de negocio do lance (mesma numeracao do README):
+//   1. leilaoId, licitanteId e valor obrigatorios e validos      -> validarDados
+//   2. valor estritamente maior que zero                         -> validarDados
+//   3. o leilao existe e esta aceitando lances                   -> Saga, passo 1
+//   4. primeiro lance >= lance inicial; depois >= maior + incremento -> regrasDoLance
+//   5. ninguem cobre o proprio lance atual                       -> regrasDoLance
+//   6. o licitante precisa ter credito para o valor do lance     -> Saga, passo 2
+//   7. so um LICITANTE logado da lance, e em nome proprio        -> autorizarLicitante
+//
+// Quem chama: controllers/lanceController.js
+// Quem e chamado: repositories/lanceRepository.js, repositories/sagaRepository.js,
+//                 sagas/registrarLanceSaga.js, utils/validadores.js
+// =============================================================================
+
 const lanceRepository = require('../repositories/lanceRepository');
 const sagaRepository = require('../repositories/sagaRepository');
 const registrarLanceSaga = require('../sagas/registrarLanceSaga');
 const { ErroDeValidacao } = require('../utils/erros');
 const { idValido, valorValido } = require('../utils/validadores');
 
+/**
+ * Regras 1 e 2: ids inteiros positivos e valor maior que zero.
+ * Sao conferidas ANTES de iniciar a Saga: se o dado for invalido, nem
+ * chegamos a criar uma saga ou chamar outro servico (400 Bad Request).
+ */
 function validarDados({ leilaoId, licitanteId, valor }) {
   if (!idValido(leilaoId)) {
     throw new ErroDeValidacao('leilaoId deve ser um numero inteiro positivo.');
@@ -16,10 +42,12 @@ function validarDados({ leilaoId, licitanteId, valor }) {
   }
 }
 
+/** Todos os lances. */
 async function listar() {
   return lanceRepository.listar();
 }
 
+/** Um lance pelo id: 400 se o id for invalido, 404 se nao existir. */
 async function buscarPorId(id) {
   if (!idValido(id)) {
     throw new ErroDeValidacao('ID invalido.');
@@ -31,6 +59,7 @@ async function buscarPorId(id) {
   return lance;
 }
 
+/** Lances de um leilao (lista vazia se nao houver nenhum). */
 async function buscarPorLeilao(leilaoId) {
   if (!idValido(leilaoId)) {
     throw new ErroDeValidacao('leilaoId invalido.');
@@ -38,6 +67,7 @@ async function buscarPorLeilao(leilaoId) {
   return lanceRepository.buscarPorLeilao(leilaoId);
 }
 
+/** Maior lance do leilao; 404 se o leilao ainda nao recebeu lances. */
 async function buscarMaiorPorLeilao(leilaoId) {
   if (!idValido(leilaoId)) {
     throw new ErroDeValidacao('leilaoId invalido.');
@@ -49,27 +79,74 @@ async function buscarMaiorPorLeilao(leilaoId) {
   return maior;
 }
 
-// Regra de negocio 1: leilaoId, licitanteId e valor obrigatorios e validos.
-// Regra de negocio 2: valor estritamente maior que zero.
-// Regra de negocio 3: primeiro lance >= lance inicial; depois, >= maior lance + incremento.
-// Regra de negocio 4: mesmo licitante nao pode cobrir seu proprio lance atual.
-// Regra de negocio 5: o licitante precisa ter credito pro valor do lance.
-// As regras 3 a 5 dependem do leiloes e do usuarios, por isso o registro passa pela saga.
-async function registrarLance({ leilaoId, licitanteId, valor, simularFalha = null }) {
+/**
+ * AUTORIZACAO: decide EM NOME DE QUEM o lance sera dado.
+ *
+ * Autenticacao x autorizacao:
+ *   - autenticacao = "quem e voce?"  -> o Kong confere o token JWT;
+ *   - autorizacao  = "voce PODE fazer isto?" -> esta funcao.
+ *
+ * Regras:
+ *   - sem usuario logado                              -> 401
+ *   - papel diferente de LICITANTE (ex.: leiloeiro)   -> 403
+ *   - token sem perfilId (perfil nao criado/token antigo) -> 403
+ *   - licitanteId informado diferente do proprio      -> 403 (ninguem da
+ *     lance em nome de outra pessoa nem gasta o credito dela)
+ *
+ * @param usuario              payload do token (req.usuarioAutenticado)
+ * @param licitanteIdInformado licitanteId do corpo (opcional)
+ * @returns o id do licitante logado (perfilId do token)
+ */
+function autorizarLicitante(usuario, licitanteIdInformado) {
+  if (!usuario) {
+    throw new ErroDeValidacao('Faca login para dar lances.', 401);
+  }
+  if (usuario.papel !== 'LICITANTE') {
+    throw new ErroDeValidacao('Apenas licitantes podem dar lances.', 403);
+  }
+  if (!idValido(usuario.perfilId)) {
+    throw new ErroDeValidacao(
+      'Seu usuario nao tem perfil de licitante vinculado. Faca login novamente.',
+      403
+    );
+  }
+  // O corpo pode trazer o licitanteId (compatibilidade), mas ele precisa ser o proprio.
+  // `!= null` cobre undefined e null ao mesmo tempo; '' (texto vazio) tambem e ignorado.
+  if (licitanteIdInformado != null && licitanteIdInformado !== ''
+      && Number(licitanteIdInformado) !== Number(usuario.perfilId)) {
+    throw new ErroDeValidacao('Voce so pode dar lances em seu proprio nome.', 403);
+  }
+  return Number(usuario.perfilId);
+}
+
+/**
+ * Registra um lance: autoriza, valida localmente e entrega para a Saga.
+ * Aqui ficam as Regras 1, 2 e 7; as Regras 3 a 6 dependem do leiloes e do
+ * usuarios, por isso o registro passa pela Saga.
+ * Os valores sao convertidos para Number aqui, uma unica vez, para a Saga
+ * trabalhar sempre com numeros.
+ * @param usuario       quem esta logado (payload do token)
+ * @param simularFalha  nome de um passo para falhar de proposito (demonstracao)
+ */
+async function registrarLance({ leilaoId, licitanteId: licitanteIdInformado, valor, usuario, simularFalha = null }) {
+  // Primeiro a autorizacao: o licitante do lance e SEMPRE quem esta logado.
+  const licitanteId = autorizarLicitante(usuario, licitanteIdInformado);
   validarDados({ leilaoId, licitanteId, valor });
 
   return registrarLanceSaga.executar({
     leilaoId: Number(leilaoId),
-    licitanteId: Number(licitanteId),
+    licitanteId,
     valor: Number(valor),
     simularFalha,
   });
 }
 
+/** Ultimas sagas executadas (auditoria). */
 async function listarSagas() {
   return sagaRepository.listar();
 }
 
+/** Uma saga com todos os passos; 404 se nao existir. */
 async function buscarSaga(id) {
   if (!idValido(id)) {
     throw new ErroDeValidacao('ID de saga invalido.');
@@ -81,6 +158,7 @@ async function buscarSaga(id) {
   return saga;
 }
 
+/** Reexecuta o passo 4 de uma saga CONCLUIDA_COM_PENDENCIA. */
 async function reprocessarSaga(id) {
   if (!idValido(id)) {
     throw new ErroDeValidacao('ID de saga invalido.');
@@ -98,4 +176,5 @@ module.exports = {
   buscarSaga,
   reprocessarSaga,
   validarDados,
+  autorizarLicitante,
 };

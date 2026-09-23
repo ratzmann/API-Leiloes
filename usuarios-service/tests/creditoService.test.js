@@ -1,15 +1,36 @@
+// =============================================================================
+// tests/creditoService.test.js  -  testes do credito (reservas da Saga)
+// -----------------------------------------------------------------------------
+// Cobre: consulta de credito, reserva com e sem saldo (409), idempotencia pela
+// referencia (mesma saga nao reserva duas vezes), liberacao repetida sem erro e
+// liberacao de todas as reservas de um leilao cancelado.
+// A transacao (emTransacao) e simulada pelo mock do reservaRepository.
+// COMO LER UM TESTE (Jest):
+//   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
+//   test('descricao', () => { ... })    um cenario (chamado tambem de it);
+//   expect(valor).toBe(esperado)        a VERIFICACAO: se nao bater, o teste falha;
+//   expect(() => f()).toThrow('msg')    confere que a funcao LANCA aquele erro;
+//   await expect(promessa).rejects...   o mesmo, para funcoes async.
+// jest.mock('caminho') troca o modulo real pelo MOCK (pasta __mocks__), entao
+// os testes rodam sem banco e sem rede. Rodar:  npm test  (dentro do servico).
+// =============================================================================
+
 jest.mock('../src/repositories/licitanteRepository');
 jest.mock('../src/repositories/reservaRepository');
 const licitanteRepository = require('../src/repositories/licitanteRepository');
 const reservaRepository = require('../src/repositories/reservaRepository');
 const creditoService = require('../src/services/creditoService');
 
-// transacao falsa: roda a funcao com as operacoes mockadas
+/** Transacao falsa: o emTransacao mockado roda a funcao com as operacoes de `tx`. */
 function transacaoFalsa(tx) {
   reservaRepository.emTransacao.mockImplementation((fn) => fn(tx));
   return tx;
 }
 
+/**
+ * Cria uma transacao falsa com respostas padrao (limite de R$ 5000, nada
+ * reservado). `sobrescritas` troca so as operacoes que o teste quer mudar.
+ */
 function novaTx(sobrescritas = {}) {
   return transacaoFalsa({
     travarLicitante: jest.fn().mockResolvedValue({ id: 1, limite_credito: '5000.00' }),
@@ -52,7 +73,7 @@ describe('creditoService.reservar', () => {
 
     expect(criada).toBe(true);
     expect(reserva.status).toBe('RESERVADA');
-    expect(tx.criar).toHaveBeenCalledWith({ licitanteId: 1, valor: 4000, referencia: 'saga-1' });
+    expect(tx.criar).toHaveBeenCalledWith({ licitanteId: 1, valor: 4000, referencia: 'saga-1', leilaoId: null });
   });
 
   test('recusa com 409 quando o valor passa do credito disponivel', async () => {
@@ -120,5 +141,31 @@ describe('creditoService.listarReservas', () => {
   test('lista as reservas do licitante', async () => {
     reservaRepository.listarPorLicitante.mockResolvedValue([{ id: 1 }]);
     await expect(creditoService.listarReservas(1)).resolves.toEqual([{ id: 1 }]);
+  });
+});
+
+describe('creditoService - reservas ligadas ao leilao (cancelamento)', () => {
+  test('a reserva guarda o leilaoId enviado pela Saga', async () => {
+    const tx = novaTx();
+    await creditoService.reservar(1, { valor: 100, referencia: 'saga-7', leilaoId: '4' });
+    expect(tx.criar).toHaveBeenCalledWith({ licitanteId: 1, valor: 100, referencia: 'saga-7', leilaoId: 4 });
+  });
+
+  test('leilaoId invalido e recusado (400) antes de abrir a transacao', async () => {
+    await expect(creditoService.reservar(1, { valor: 100, leilaoId: 'abc' })).rejects.toMatchObject({ codigo: 400 });
+    expect(reservaRepository.emTransacao).not.toHaveBeenCalled();
+  });
+
+  test('liberarPorLeilao devolve quantas reservas foram liberadas', async () => {
+    reservaRepository.liberarPorLeilao.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+    const resultado = await creditoService.liberarPorLeilao('4');
+    expect(resultado).toEqual({ leilaoId: 4, liberadas: 2, reservas: [{ id: 1 }, { id: 2 }] });
+    expect(reservaRepository.liberarPorLeilao).toHaveBeenCalledWith(4);
+  });
+
+  test('liberarPorLeilao e idempotente (0 liberadas na segunda vez) e valida o id', async () => {
+    reservaRepository.liberarPorLeilao.mockResolvedValue([]);
+    await expect(creditoService.liberarPorLeilao(4)).resolves.toMatchObject({ liberadas: 0 });
+    await expect(creditoService.liberarPorLeilao(0)).rejects.toMatchObject({ codigo: 400 });
   });
 });

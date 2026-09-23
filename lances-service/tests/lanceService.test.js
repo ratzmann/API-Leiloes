@@ -1,3 +1,18 @@
+// =============================================================================
+// tests/lanceService.test.js  -  testes do service de lances
+// -----------------------------------------------------------------------------
+// Cobre as validacoes locais (ids e valor) e confere que o registro de lance
+// e entregue a Saga (a propria Saga e mockada aqui).
+// COMO LER UM TESTE (Jest):
+//   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
+//   test('descricao', () => { ... })    um cenario (chamado tambem de it);
+//   expect(valor).toBe(esperado)        a VERIFICACAO: se nao bater, o teste falha;
+//   expect(() => f()).toThrow('msg')    confere que a funcao LANCA aquele erro;
+//   await expect(promessa).rejects...   o mesmo, para funcoes async.
+// jest.mock('caminho') troca o modulo real pelo MOCK (pasta __mocks__), entao
+// os testes rodam sem banco e sem rede. Rodar:  npm test  (dentro do servico).
+// =============================================================================
+
 jest.mock('../src/repositories/lanceRepository');
 jest.mock('../src/repositories/sagaRepository');
 jest.mock('../src/sagas/registrarLanceSaga');
@@ -105,11 +120,56 @@ describe('lanceService.buscarMaiorPorLeilao', () => {
   });
 });
 
+// payload de token de um licitante logado (perfilId = id no usuarios-service)
+const licitante2 = { sub: 20, papel: 'LICITANTE', perfilId: 2 };
+
+describe('lanceService.autorizarLicitante', () => {
+  test('401 sem usuario logado', () => {
+    expect(() => lanceService.autorizarLicitante(undefined, 2)).toThrow(
+      expect.objectContaining({ codigo: 401 })
+    );
+  });
+
+  test('403 quando quem esta logado nao e licitante', () => {
+    const leiloeiro = { sub: 5, papel: 'LEILOEIRO', perfilId: 1 };
+    expect(() => lanceService.autorizarLicitante(leiloeiro, undefined)).toThrow(
+      expect.objectContaining({ codigo: 403, message: 'Apenas licitantes podem dar lances.' })
+    );
+  });
+
+  test('403 quando o token nao tem perfilId (token antigo ou perfil nao criado)', () => {
+    expect(() => lanceService.autorizarLicitante({ sub: 20, papel: 'LICITANTE' }, undefined)).toThrow(
+      expect.objectContaining({ codigo: 403 })
+    );
+  });
+
+  test('403 ao tentar dar lance em nome de outro licitante', () => {
+    expect(() => lanceService.autorizarLicitante(licitante2, 3)).toThrow(
+      expect.objectContaining({ codigo: 403, message: 'Voce so pode dar lances em seu proprio nome.' })
+    );
+  });
+
+  test('usa o perfilId do token quando o corpo nao informa licitanteId', () => {
+    expect(lanceService.autorizarLicitante(licitante2, undefined)).toBe(2);
+  });
+
+  test('aceita licitanteId igual ao proprio (mesmo vindo como texto)', () => {
+    expect(lanceService.autorizarLicitante(licitante2, '2')).toBe(2);
+  });
+});
+
 describe('lanceService.registrarLance', () => {
   test('valida os dados antes de iniciar a saga', async () => {
     await expect(
-      lanceService.registrarLance({ leilaoId: 1, licitanteId: 2, valor: -10 })
+      lanceService.registrarLance({ leilaoId: 1, licitanteId: 2, valor: -10, usuario: licitante2 })
     ).rejects.toThrow('Valor do lance deve ser um numero maior que zero.');
+    expect(registrarLanceSaga.executar).not.toHaveBeenCalled();
+  });
+
+  test('nao inicia a saga quando o usuario nao pode dar o lance', async () => {
+    await expect(
+      lanceService.registrarLance({ leilaoId: 1, licitanteId: 3, valor: 1000, usuario: licitante2 })
+    ).rejects.toThrow('Voce so pode dar lances em seu proprio nome.');
     expect(registrarLanceSaga.executar).not.toHaveBeenCalled();
   });
 
@@ -118,8 +178,8 @@ describe('lanceService.registrarLance', () => {
 
     const resultado = await lanceService.registrarLance({
       leilaoId: '1',
-      licitanteId: '2',
       valor: '1000',
+      usuario: licitante2,
       simularFalha: 'gravar-lance',
     });
 

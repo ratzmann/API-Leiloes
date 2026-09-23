@@ -22,9 +22,16 @@
   "jest": {
     "testEnvironment": "node",
     "collectCoverageFrom": [
-      "src/services/**/*.js",
-      "src/sagas/**/*.js",
-      "src/utils/**/*.js"
-    ]
+      "src/**/*.js",
+      "!src/**/__mocks__/**"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "statements": 50,
+        "branches": 50,
+        "functions": 50,
+        "lines": 50
+      }
+    }
   }
 }

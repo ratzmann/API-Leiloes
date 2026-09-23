@@ -2,6 +2,13 @@
 
 Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro de leilão (evento)**, **registro e consulta de lances** + **sistema de autenticação com Kong**.
 
+> 📘 **Explicação didática da arquitetura** (para quem está começando):
+> [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md). O código-fonte também está
+> comentado passo a passo.
+>
+> 🎤 **Roteiro da apresentação** (15 min, por aluno, com demos):
+> [`docs/APRESENTACAO.md`](docs/APRESENTACAO.md).
+
 ## Arquitetura
 
 ```
@@ -24,7 +31,7 @@ Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro
    sem passar pelo Kong, URL sempre vinda de variável de ambiente):
 
    auth-service     ──▶ usuarios-service   cria o perfil ao registrar
-   leiloes-service  ──▶ usuarios-service   valida o leiloeiro do leilão
+   leiloes-service  ──▶ usuarios-service   valida o leiloeiro; ao cancelar, libera o crédito
    lances-service   ──▶ leiloes-service    Saga passo 1: leilão aceita lances?
    lances-service   ──▶ usuarios-service   Saga passos 2 e 4: reserva e libera crédito
 ```
@@ -32,7 +39,10 @@ Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro
 - **auth-service**: cadastro de credenciais (e-mail/senha), login, emissão de
   JWT (HS256). Ao registrar um usuário, chama o `usuarios-service` via HTTP
   usando a variável de ambiente `USUARIOS_SERVICE_URL` para criar o perfil de
-  domínio (leiloeiro ou licitante).
+  domínio (leiloeiro ou licitante). Se o perfil for recusado (ex.: CPF
+  inválido → `400`, CPF já usado → `409`) ou o usuarios-service não responder
+  (`503`), o registro é **desfeito** (o usuário recém-criado é apagado) e o
+  erro volta ao cliente — nenhuma conta fica sem perfil.
 - **usuarios-service**: CRUD de **Leiloeiro** e **Licitante**, arquitetura em
   camadas (`routes → controllers → services → repositories → Postgres`).
   Também controla o **crédito do licitante**: reservas e liberações usadas
@@ -41,8 +51,8 @@ Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro
   lote, valores, período e ciclo de vida (`AGENDADO → ABERTO → ENCERRADO`).
   Mesma arquitetura em camadas, mais uma camada `clients/` para a comunicação
   REST com o `usuarios-service` (`USUARIOS_SERVICE_URL`), usada para validar o
-  leiloeiro responsável antes de gravar o leilão. Detalhes em
-  [`leiloes-service/README.md`](leiloes-service/README.md).
+  leiloeiro responsável antes de gravar o leilão. Todos os endpoints de todos
+  os serviços estão no [mapa de endpoints](docs/ARQUITETURA.md#13-mapa-de-endpoints).
 - **lances-service**: Registro e consulta de **Lances** de leilões, com histórico,
   validação de maior lance atual e regras anti-lance repetido. Segue a mesma
   arquitetura em camadas (`routes → controllers → services → repositories → Postgres`),
@@ -54,7 +64,8 @@ Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro
   token emitido pelo `auth-service` porque o `Consumer` `sistema-leilao`
   está configurado com o mesmo segredo HS256 (`JWT_SECRET`) usado para
   assinar os tokens. As rotas de reserva de crédito
-  (`/licitantes/:id/reservas`) são internas e o Kong as bloqueia com `403`.
+  (`/licitantes/:id/reservas`) e a criação de perfis (`POST /leiloeiros`,
+  `POST /licitantes`) são internas e o Kong as bloqueia com `403`.
 
 ## Padrões de microsserviços
 
@@ -105,15 +116,27 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 1. Nome, e-mail e registro profissional obrigatórios.
 2. E-mail único.
 3. Registro profissional (ex: `JUCESC-000123`) único e com formato validado.
+4. **Autorização**: só o próprio leiloeiro altera (`PUT`) ou remove (`DELETE`) o seu cadastro.
+5. **Privacidade (LGPD)**: e-mail e telefone só aparecem para o próprio leiloeiro;
+   os demais veem `id`, `nome` e o registro profissional (que é público).
 
 **Licitante**
 1. CPF validado (dígitos verificadores) e único.
 2. E-mail único.
 3. Limite de crédito nunca pode ser negativo.
+4. **Autorização**: só o próprio licitante altera ou remove o seu cadastro.
+5. O licitante **não** altera o próprio limite de crédito (`403`) — o limite é
+   definido no cadastro.
+6. **Privacidade (LGPD)**: CPF, e-mail, telefone e limite de crédito só aparecem
+   para o próprio licitante; os demais veem apenas `id` e `nome`.
+
+> Perfis são criados só pelo registro (`POST /auth/registrar`): o Kong
+> responde `403` a `POST /leiloeiros` e `POST /licitantes` vindos de fora.
 
 **Crédito**
 1. A soma das reservas ativas nunca ultrapassa o limite de crédito do licitante.
 2. Reserva e liberação são idempotentes.
+3. As reservas de um leilão **cancelado** são liberadas de uma vez (Regra 8 do leiloes-service).
 
 ### leiloes-service
 
@@ -128,6 +151,16 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 5. Ciclo de vida controlado: `AGENDADO → ABERTO → ENCERRADO`, com cancelamento
    permitido apenas enquanto não estiver encerrado.
 6. Edição e exclusão só enquanto o leilão está `AGENDADO`.
+7. **Autorização**: só um usuário com papel `LEILOEIRO` cadastra leilão, e
+   sempre em nome próprio (o `leiloeiroId` vem do token; se enviado no corpo,
+   precisa ser o próprio). Editar, mudar status e remover: só o **dono** do
+   leilão. Violações → `403` (sem login → `401`). As rotas `GET` continuam livres.
+8. **Cancelar devolve o crédito**: ao cancelar um leilão, o leiloes-service pede
+   ao usuarios-service (rota interna `POST /reservas/leilao/:id/liberar`) que
+   libere todas as reservas daquele leilão — ninguém mais pode vencê-lo. Se o
+   usuarios-service estiver fora, o leilão fica cancelado, a resposta é `503` e
+   basta repetir o cancelamento. Encerrar **não** libera: a reserva do vencedor
+   continua valendo.
 
 ### lances-service
 
@@ -138,6 +171,17 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 4. Primeiro lance ≥ lance inicial; os seguintes ≥ maior lance atual + incremento mínimo.
 5. Licitante não pode cobrir o seu próprio lance consecutivo se já detém o maior lance atual.
 6. O licitante precisa ter crédito disponível para o valor do lance (reservado no `usuarios-service`).
+7. **Autorização**: só um usuário com papel `LICITANTE` dá lance, e sempre em
+   nome próprio — o `licitanteId` vem do token; se enviado no corpo, precisa ser
+   o próprio. Assim ninguém dá lance nem gasta o crédito de outra pessoa (`403`).
+
+### Autorização pelo token
+
+O token JWT emitido pelo `auth-service` leva `sub` (id do **usuário** no
+auth-db), `papel` e `perfilId` (id do **leiloeiro/licitante** no
+usuarios-service). O Kong confere a assinatura; os serviços usam `papel` e
+`perfilId` para decidir **em nome de quem** a requisição pode agir. Tokens
+emitidos antes desta regra não têm `perfilId`: basta fazer login de novo.
 
 ## Como rodar
 
@@ -147,7 +191,8 @@ docker compose up --build
 
 Serviços:
 - Gateway (Kong): `http://localhost:8000`
-- Admin API do Kong (dev): `http://localhost:8001`
+- Admin API do Kong (dev): `http://localhost:8001` — só acessível na própria
+  máquina (publicada em `127.0.0.1`), porque permite alterar o gateway.
 
 > `auth-service`, `usuarios-service`, `leiloes-service` e `lances-service` **não** têm porta
 > publicada no host — só são acessíveis pela rede interna do Docker ou através
@@ -184,6 +229,7 @@ curl http://localhost:8000/licitantes \
 ```
 Sem o header `Authorization` (ou com token inválido), o Kong responde
 `401 Unauthorized` antes mesmo de a requisição chegar ao serviço interno.
+Cada licitante vê o próprio cadastro completo; dos outros, só `id` e `nome`.
 
 ### 4. Registrar um leiloeiro
 ```bash
@@ -199,12 +245,12 @@ curl -X POST http://localhost:8000/auth/registrar \
 ```
 
 ### 5. Cadastrar um leilão (rota protegida pelo Kong)
+As datas precisam estar **no futuro** — troque as do exemplo, se já passaram.
 ```bash
 curl -X POST http://localhost:8000/leiloes \
   -H "Authorization: Bearer <TOKEN_DO_LEILOEIRO>" \
   -H "Content-Type: application/json" \
   -d '{
-    "leiloeiroId": 1,
     "titulo": "Leilão de Nelore - Lote 12",
     "localEvento": "Parque de Exposições de Lages",
     "raca": "Nelore",
@@ -215,28 +261,30 @@ curl -X POST http://localhost:8000/leiloes \
     "dataFim": "2026-10-01T18:00:00Z"
   }'
 ```
-Depois, `PATCH /leiloes/1/abrir` coloca o pregão no ar e
-`GET /leiloes/1/disponibilidade` informa se ele está aceitando lances.
+O leilão é criado em nome do leiloeiro dono do token (o `leiloeiroId` pode ser
+omitido; se enviado, precisa ser o próprio). Depois, `PATCH /leiloes/1/abrir`
+(só o dono) coloca o pregão no ar e `GET /leiloes/1/disponibilidade` informa
+se ele está aceitando lances.
 
 ### 6. Registrar um lance (inicia a Saga)
-O leilão precisa estar `ABERTO` e dentro do período, e `licitanteId` é o id do
-**perfil** do licitante (campo `perfil.id` da resposta do registro).
+O leilão precisa estar `ABERTO` e dentro do período. Use o token do **próprio
+licitante**: o lance é sempre dado em nome de quem está logado (um leiloeiro,
+ou um licitante tentando agir por outro, recebe `403`).
 ```bash
 curl -X POST http://localhost:8000/lances \
-  -H "Authorization: Bearer <TOKEN_RECEBIDO>" \
+  -H "Authorization: Bearer <TOKEN_DO_LICITANTE>" \
   -H "Content-Type: application/json" \
   -d '{
     "leilaoId": 1,
-    "licitanteId": 1,
     "valor": 5000.00
   }'
 
 # a mesma chamada, forçando a compensação (crédito reservado é devolvido)
 curl -X POST http://localhost:8000/lances \
-  -H "Authorization: Bearer <TOKEN_RECEBIDO>" \
+  -H "Authorization: Bearer <TOKEN_DO_LICITANTE>" \
   -H "X-Simular-Falha: gravar-lance" \
   -H "Content-Type: application/json" \
-  -d '{ "leilaoId": 1, "licitanteId": 1, "valor": 5100.00 }'
+  -d '{ "leilaoId": 1, "valor": 5100.00 }'
 
 # acompanhar a saga (o sagaId vem na resposta)
 curl http://localhost:8000/lances/sagas/<SAGA_ID> \
@@ -256,23 +304,58 @@ curl http://localhost:8000/lances/leilao/1/maior \
 
 ## Testes automatizados
 
-```bash
-cd auth-service && npm install && npm test
-cd usuarios-service && npm install && npm test
-cd leiloes-service && npm install && npm test
-cd lances-service && npm install && npm test
+Testes unitários dos 4 serviços de uma vez, com resumo (usa o Node.js local
+ou, se não houver, um container Docker — não precisa subir o sistema):
+```powershell
+powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1
 ```
+Ou um serviço por vez: `cd <servico> && npm install && npm test`.
 
-Todos usam Jest com repositórios (e clients HTTP) mockados, testando as regras
-de negócio em `services/` (e a Saga em `sagas/`), e reportam cobertura
-(`--coverage`), ficando acima dos 50% exigidos.
+Todos usam Jest, com repositórios e clients HTTP mockados. Há dois tipos de
+teste em cada serviço: as **regras de negócio** (`services/` e a Saga em
+`sagas/`) e a **camada HTTP** (`tests/rotas.test.js`, com supertest). A
+cobertura é medida sobre **todo o `src/`** e o `npm test` falha se ficar abaixo
+de 50%:
+
+| Serviço | Testes | Cobertura (linhas) |
+|---|---|---|
+| auth-service | 28 | 82% |
+| usuarios-service | 70 | 78% |
+| leiloes-service | 62 | 81% |
+| lances-service | 57 | 75% |
+
+Os testes unitários também cobrem os clients HTTP (`tests/usuariosClient.test.js`,
+com o `fetch` simulado).
 
 Ponta a ponta, com a stack no ar (PowerShell):
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
 ```
-52 passos pelo Kong: autenticação, usuários, leilões e a Saga de lances —
-caminho feliz, recusas, compensação, pendência e reprocessamento.
+71 passos pelo Kong: autenticação, usuários, leilões, a Saga de lances —
+caminho feliz, recusas, compensação, pendência e reprocessamento —, a
+autorização (ninguém age em nome de outra pessoa nem altera o cadastro alheio),
+o cancelamento de leilão devolvendo o crédito reservado, o registro desfeito
+quando o perfil é recusado, a privacidade dos dados pessoais e o formato dos
+erros.
+
+Testes manuais (com a stack no ar): o passo a passo com `curl` em
+[`testes/roteiro-de-testes.md`](testes/roteiro-de-testes.md) (Git Bash ou Linux) e a coleção
+[`testes/leilao-microservicos.postman_collection.json`](testes/leilao-microservicos.postman_collection.json)
+(importar no Postman e rodar inteira, na ordem, pelo Runner). A coleção tem 62
+requisições que conferem sozinhas o status esperado e gera dados novos a cada
+execução. Também roda pelo terminal, com o [newman](https://github.com/postmanlabs/newman):
+
+```powershell
+docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000
+```
+
+## Formato dos erros
+
+Toda resposta de erro da API tem o formato `{ "erro": "mensagem" }` (nos erros
+da Saga, também `sagaId`). Nos serviços isso é feito por um único middleware
+(`middlewares/tratarErros.js`); no Kong, pelo template `kong/erro.json` e pelo
+campo `body` das rotas bloqueadas. Exceção: o `401` do plugin JWT do Kong
+continua como `{ "message": "Unauthorized" }` (não configurável na versão gratuita).
 
 ## Variáveis de ambiente
 
@@ -280,8 +363,21 @@ Cada serviço tem um `.env.example`. No `docker-compose.yml` os valores já
 vêm definidos; para rodar um serviço fora do Docker, copie o `.env.example`
 para `.env` e ajuste `DB_HOST` etc.
 
+| Variável | Onde | Para quê |
+|---|---|---|
+| `PORT` | os 4 serviços | porta HTTP do serviço (3001 a 3003) |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | os 4 serviços | conexão com o banco do serviço |
+| `JWT_SECRET`, `JWT_ISSUER`, `JWT_EXPIRES_IN` | só o auth-service | assinar os tokens (iguais aos do `kong.yml`) |
+| `USUARIOS_SERVICE_URL`, `LEILOES_SERVICE_URL` | quem chama esses serviços | endereço interno (rede do Docker) |
+| `SERVICOS_TIMEOUT_MS` | auth, leiloes e lances | tempo máximo das chamadas entre serviços (padrão 3000) |
+| `SAGA_PERMITIR_FALHA_SIMULADA` | lances-service | libera o header `X-Simular-Falha` (só para demo) |
+| `SAGA_ESPERA_REPETICAO_MS` | lances-service | espera entre as tentativas do passo 4 da Saga (padrão 300) |
+
 ## Próximos passos (grupo)
 
 - Acompanhamento ao vivo dos lances (WebSockets ou Event-Driven).
-- Encerramento do pregão como Saga: ao encerrar, confirmar o crédito do
-  vencedor e liberar eventuais reservas remanescentes.
+- Encerramento do pregão como Saga: ao encerrar, registrar o vencedor e
+  confirmar (consumir) o crédito dele. O cancelamento já devolve o crédito.
+- Papel de administrador (ex.: ajustar limite de crédito), regra para remover
+  cadastros em uso e os demais itens da
+  [seção 10 do guia de arquitetura](docs/ARQUITETURA.md#10-pontos-de-atenção-e-próximos-passos).
