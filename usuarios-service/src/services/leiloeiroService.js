@@ -19,7 +19,12 @@
 const leiloeiroRepository = require('../repositories/leiloeiroRepository');
 const { ErroDeValidacao } = require('../utils/erros');
 const { emailValido } = require('../utils/validadores');
-const { garantirProprioPerfil } = require('../utils/autorizacao');
+const { garantirProprioPerfil, visaoPara } = require('../utils/autorizacao');
+
+// O que QUALQUER usuario logado pode ver de um leiloeiro. O registro
+// profissional e publico por natureza (identifica o leiloeiro oficial).
+// E-mail, telefone e usuario_id so aparecem para o proprio leiloeiro.
+const CAMPOS_PUBLICOS = ['id', 'nome', 'registro_profissional', 'criado_em'];
 
 // Formato do registro na junta comercial:
 //   [A-Za-z]{2,8}  -> de 2 a 8 letras (o orgao, ex.: JUCESC)
@@ -46,16 +51,30 @@ function validarDados({ nome, email, registroProfissional }) {
   }
 }
 
-/** Lista todos os leiloeiros (sem regra extra: so repassa ao repository). */
-async function listar() {
-  return leiloeiroRepository.listar();
+/**
+ * Lista todos os leiloeiros. Cada um aparece inteiro so para o proprio
+ * leiloeiro; para os demais, so os CAMPOS_PUBLICOS (visaoPara).
+ * @param usuario  quem esta logado (payload do token)
+ */
+async function listar(usuario) {
+  const leiloeiros = await leiloeiroRepository.listar();
+  return leiloeiros.map((leiloeiro) => visaoPara(leiloeiro, usuario, 'LEILOEIRO', CAMPOS_PUBLICOS));
 }
 
 /**
- * Busca um leiloeiro; se nao existir, lanca 404.
- * Tambem e reaproveitada por atualizar/remover para garantir que o registro existe.
- * O leiloes-service chama GET /leiloeiros/:id (que cai aqui) para validar o
- * leiloeiro antes de cadastrar um leilao.
+ * GET /leiloeiros/:id: busca um leiloeiro (404 se nao existir) e aplica a
+ * visibilidade - dados completos so para o proprio leiloeiro.
+ * O leiloes-service chama esta rota (sem token) para validar o leiloeiro antes
+ * de cadastrar um leilao: ele so precisa saber se existe, entao a visao publica basta.
+ */
+async function consultar(id, usuario) {
+  const leiloeiro = await buscarPorId(id);
+  return visaoPara(leiloeiro, usuario, 'LEILOEIRO', CAMPOS_PUBLICOS);
+}
+
+/**
+ * Busca um leiloeiro COMPLETO; se nao existir, lanca 404. Uso interno do
+ * service (consultar, atualizar, remover) - nao aplica a visibilidade.
  */
 async function buscarPorId(id) {
   const leiloeiro = await leiloeiroRepository.buscarPorId(id);
@@ -111,4 +130,4 @@ async function remover(id, usuario) {
   return leiloeiroRepository.remover(id);
 }
 
-module.exports = { listar, buscarPorId, cadastrar, atualizar, remover, validarDados };
+module.exports = { listar, consultar, buscarPorId, cadastrar, atualizar, remover, validarDados };

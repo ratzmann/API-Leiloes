@@ -2,7 +2,8 @@
 // tests/leiloeiroService.test.js  -  testes das regras do leiloeiro
 // -----------------------------------------------------------------------------
 // Cobre: validacao de nome/e-mail/registro profissional, duplicidades (409)
-// busca de leiloeiro inexistente (404) e autorizacao (so o proprio cadastro).
+// busca de leiloeiro inexistente (404), autorizacao (so o proprio cadastro) e
+// visibilidade (e-mail e telefone so para o proprio leiloeiro).
 // COMO LER UM TESTE (Jest):
 //   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
 //   test('descricao', () => { ... })    um cenario (chamado tambem de it);
@@ -121,5 +122,20 @@ describe('leiloeiroService - autorizacao (so o proprio cadastro)', () => {
   test('cadastro inexistente continua 404 (existencia e conferida antes do dono)', async () => {
     leiloeiroRepository.buscarPorId.mockResolvedValue(null);
     await expect(leiloeiroService.remover(999, leiloeiro7)).rejects.toMatchObject({ codigo: 404 });
+  });
+});
+
+describe('leiloeiroService - visibilidade dos dados pessoais (LGPD)', () => {
+  const carlos = { id: 7, nome: 'Carlos', email: 'c@c.com', telefone: '47999', registro_profissional: 'JUCESC-000123', usuario_id: 70, criado_em: '2026-01-01' };
+
+  test('outras pessoas veem nome e registro profissional, mas nao e-mail nem telefone', async () => {
+    leiloeiroRepository.listar.mockResolvedValue([carlos]);
+    const [visto] = await leiloeiroService.listar({ sub: 1, papel: 'LICITANTE', perfilId: 7 });
+    expect(visto).toEqual({ id: 7, nome: 'Carlos', registro_profissional: 'JUCESC-000123', criado_em: '2026-01-01' });
+  });
+
+  test('o proprio leiloeiro ve o cadastro completo', async () => {
+    leiloeiroRepository.buscarPorId.mockResolvedValue(carlos);
+    await expect(leiloeiroService.consultar(7, { sub: 70, papel: 'LEILOEIRO', perfilId: 7 })).resolves.toEqual(carlos);
   });
 });

@@ -3,7 +3,8 @@
 // -----------------------------------------------------------------------------
 // Cobre: CPF valido/invalido, limite de credito negativo, duplicidades (409)
 // busca de licitante inexistente (404) e autorizacao (so o proprio cadastro,
-// sem alterar o proprio limite de credito).
+// sem alterar o proprio limite de credito) e visibilidade (CPF e dados
+// pessoais so para o proprio licitante - LGPD).
 // COMO LER UM TESTE (Jest):
 //   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
 //   test('descricao', () => { ... })    um cenario (chamado tambem de it);
@@ -147,5 +148,35 @@ describe('licitanteService - autorizacao (so o proprio cadastro)', () => {
   test('o proprio licitante remove o cadastro', async () => {
     licitanteRepository.remover.mockResolvedValue(true);
     await expect(licitanteService.remover(3, licitante3)).resolves.toBe(true);
+  });
+});
+
+describe('licitanteService - visibilidade dos dados pessoais (LGPD)', () => {
+  const maria = { id: 3, nome: 'Maria Souza', email: 'm@m.com', cpf: '52998224725', telefone: '47999', limite_credito: '5000.00', usuario_id: 30, criado_em: '2026-01-01' };
+  const joao = { id: 4, nome: 'Joao Lima', email: 'j@j.com', cpf: '39053344705', telefone: '47888', limite_credito: '3000.00', usuario_id: 40, criado_em: '2026-01-02' };
+  const tokenMaria = { sub: 30, papel: 'LICITANTE', perfilId: 3 };
+
+  test('na lista, cada licitante ve os proprios dados e so id/nome dos outros', async () => {
+    licitanteRepository.listar.mockResolvedValue([maria, joao]);
+
+    const lista = await licitanteService.listar(tokenMaria);
+
+    expect(lista[0]).toEqual(maria);
+    expect(lista[1]).toEqual({ id: 4, nome: 'Joao Lima', criado_em: '2026-01-02' });
+    expect(lista[1]).not.toHaveProperty('cpf');
+  });
+
+  test('consultar outro licitante (ou sem login) nao mostra CPF, e-mail nem limite', async () => {
+    licitanteRepository.buscarPorId.mockResolvedValue(joao);
+
+    for (const usuario of [tokenMaria, undefined, { sub: 9, papel: 'LEILOEIRO', perfilId: 4 }]) {
+      const visto = await licitanteService.consultar(4, usuario);
+      expect(Object.keys(visto).sort()).toEqual(['criado_em', 'id', 'nome']);
+    }
+  });
+
+  test('o proprio licitante ve o cadastro completo', async () => {
+    licitanteRepository.buscarPorId.mockResolvedValue(maria);
+    await expect(licitanteService.consultar(3, tokenMaria)).resolves.toEqual(maria);
   });
 });

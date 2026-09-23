@@ -19,7 +19,12 @@
 const licitanteRepository = require('../repositories/licitanteRepository');
 const { ErroDeValidacao } = require('../utils/erros');
 const { emailValido, cpfValido } = require('../utils/validadores');
-const { garantirProprioPerfil } = require('../utils/autorizacao');
+const { garantirProprioPerfil, visaoPara } = require('../utils/autorizacao');
+
+// O que QUALQUER usuario logado pode ver de um licitante. CPF, e-mail,
+// telefone, limite de credito e usuario_id sao dados pessoais (LGPD): so
+// aparecem para o proprio licitante.
+const CAMPOS_PUBLICOS = ['id', 'nome', 'criado_em'];
 
 /**
  * Valida os dados do licitante. Lanca ErroDeValidacao (400) no primeiro
@@ -41,12 +46,29 @@ function validarDados({ nome, email, cpf, limiteCredito }) {
   }
 }
 
-/** Lista todos os licitantes. */
-async function listar() {
-  return licitanteRepository.listar();
+/**
+ * Lista todos os licitantes. Cada um aparece inteiro so para o proprio
+ * licitante; para os demais, so os CAMPOS_PUBLICOS (visaoPara).
+ * @param usuario  quem esta logado (payload do token)
+ */
+async function listar(usuario) {
+  const licitantes = await licitanteRepository.listar();
+  return licitantes.map((licitante) => visaoPara(licitante, usuario, 'LICITANTE', CAMPOS_PUBLICOS));
 }
 
-/** Busca um licitante; 404 se nao existir. Reaproveitada por atualizar/remover. */
+/**
+ * GET /licitantes/:id: busca um licitante (404 se nao existir) e aplica a
+ * visibilidade - CPF e demais dados pessoais so para o proprio licitante.
+ */
+async function consultar(id, usuario) {
+  const licitante = await buscarPorId(id);
+  return visaoPara(licitante, usuario, 'LICITANTE', CAMPOS_PUBLICOS);
+}
+
+/**
+ * Busca um licitante COMPLETO; 404 se nao existir. Uso interno do service
+ * (consultar, atualizar, remover) - nao aplica a visibilidade.
+ */
 async function buscarPorId(id) {
   const licitante = await licitanteRepository.buscarPorId(id);
   if (!licitante) {
@@ -117,4 +139,4 @@ async function remover(id, usuario) {
   return licitanteRepository.remover(id);
 }
 
-module.exports = { listar, buscarPorId, cadastrar, atualizar, remover, validarDados };
+module.exports = { listar, consultar, buscarPorId, cadastrar, atualizar, remover, validarDados };

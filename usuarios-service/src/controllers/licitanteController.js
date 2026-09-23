@@ -12,22 +12,22 @@ const licitanteService = require('../services/licitanteService');
 const { ErroDeValidacao } = require('../utils/erros');
 
 /**
- * GET /licitantes  ->  lista todos.
+ * GET /licitantes  ->  lista todos (CPF e demais dados pessoais so do proprio).
  * Com try/catch como as demais: o Express 4 nao captura erros de funcoes async.
  */
 async function listar(req, res) {
   try {
-    const licitantes = await licitanteService.listar();
+    const licitantes = await licitanteService.listar(req.usuarioAutenticado);
     res.json(licitantes);
   } catch (err) {
     tratarErro(res, err);
   }
 }
 
-/** GET /licitantes/:id */
+/** GET /licitantes/:id  (CPF e demais dados pessoais so para o proprio licitante) */
 async function buscarPorId(req, res) {
   try {
-    const licitante = await licitanteService.buscarPorId(Number(req.params.id));
+    const licitante = await licitanteService.consultar(Number(req.params.id), req.usuarioAutenticado);
     res.json(licitante);
   } catch (err) {
     tratarErro(res, err);

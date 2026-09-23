@@ -14,14 +14,14 @@ const leiloeiroService = require('../services/leiloeiroService');
 const { ErroDeValidacao } = require('../utils/erros');
 
 /**
- * GET /leiloeiros  ->  lista todos os leiloeiros.
+ * GET /leiloeiros  ->  lista todos os leiloeiros (dados pessoais so do proprio).
  * O try/catch e importante mesmo aqui: o Express 4 NAO captura sozinho erros
  * de funcoes async. Sem ele, se o banco falhar, a requisicao ficaria sem
  * resposta; com ele, o cliente recebe um 500 com mensagem clara.
  */
 async function listar(req, res) {
   try {
-    const leiloeiros = await leiloeiroService.listar();
+    const leiloeiros = await leiloeiroService.listar(req.usuarioAutenticado);
     res.json(leiloeiros);
   } catch (err) {
     tratarErro(res, err);
@@ -29,12 +29,12 @@ async function listar(req, res) {
 }
 
 /**
- * GET /leiloeiros/:id
+ * GET /leiloeiros/:id  (dados pessoais so para o proprio leiloeiro)
  * Number(...) converte o texto "5" da URL no numero 5.
  */
 async function buscarPorId(req, res) {
   try {
-    const leiloeiro = await leiloeiroService.buscarPorId(Number(req.params.id));
+    const leiloeiro = await leiloeiroService.consultar(Number(req.params.id), req.usuarioAutenticado);
     res.json(leiloeiro);
   } catch (err) {
     tratarErro(res, err);

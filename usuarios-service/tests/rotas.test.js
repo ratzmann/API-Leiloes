@@ -50,11 +50,12 @@ describe('app', () => {
 });
 
 describe('rotas /leiloeiros', () => {
-  test('GET /leiloeiros lista', async () => {
+  test('GET /leiloeiros lista e repassa quem esta logado (visibilidade)', async () => {
     leiloeiroService.listar.mockResolvedValue([{ id: 1 }]);
-    const res = await request(app).get('/leiloeiros');
+    const res = await request(app).get('/leiloeiros').set('Authorization', bearer);
     expect(res.status).toBe(200);
     expect(res.body).toEqual([{ id: 1 }]);
+    expect(leiloeiroService.listar).toHaveBeenCalledWith(expect.objectContaining(payloadLicitante));
   });
 
   test('GET /leiloeiros com falha no banco responde 500 (try/catch do listar)', async () => {
@@ -64,15 +65,15 @@ describe('rotas /leiloeiros', () => {
     expect(res.body.erro).toBe('Erro interno no servico de usuarios.');
   });
 
-  test('GET /leiloeiros/:id converte o id em numero', async () => {
-    leiloeiroService.buscarPorId.mockResolvedValue({ id: 5 });
-    const res = await request(app).get('/leiloeiros/5');
+  test('GET /leiloeiros/:id converte o id em numero e repassa quem esta logado', async () => {
+    leiloeiroService.consultar.mockResolvedValue({ id: 5 });
+    const res = await request(app).get('/leiloeiros/5').set('Authorization', bearer);
     expect(res.status).toBe(200);
-    expect(leiloeiroService.buscarPorId).toHaveBeenCalledWith(5);
+    expect(leiloeiroService.consultar).toHaveBeenCalledWith(5, expect.objectContaining(payloadLicitante));
   });
 
   test('GET /leiloeiros/:id inexistente devolve o 404 do service', async () => {
-    leiloeiroService.buscarPorId.mockRejectedValue(new ErroDeValidacao('Leiloeiro nao encontrado.', 404));
+    leiloeiroService.consultar.mockRejectedValue(new ErroDeValidacao('Leiloeiro nao encontrado.', 404));
     const res = await request(app).get('/leiloeiros/999');
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ erro: 'Leiloeiro nao encontrado.' });
@@ -130,10 +131,10 @@ describe('rotas /licitantes', () => {
   });
 
   test('GET /licitantes/:id', async () => {
-    licitanteService.buscarPorId.mockResolvedValue({ id: 3 });
-    const res = await request(app).get('/licitantes/3');
+    licitanteService.consultar.mockResolvedValue({ id: 3 });
+    const res = await request(app).get('/licitantes/3').set('Authorization', bearer);
     expect(res.status).toBe(200);
-    expect(licitanteService.buscarPorId).toHaveBeenCalledWith(3);
+    expect(licitanteService.consultar).toHaveBeenCalledWith(3, expect.objectContaining({ perfilId: 3 }));
   });
 
   test('POST /licitantes responde 201; dado invalido responde 400', async () => {
@@ -160,7 +161,7 @@ describe('rotas /licitantes', () => {
   test('erros de PUT/DELETE/GET por id viram resposta HTTP', async () => {
     licitanteService.atualizar.mockRejectedValue(new ErroDeValidacao('proibido', 403));
     licitanteService.remover.mockRejectedValue(new Error('bug'));
-    licitanteService.buscarPorId.mockRejectedValue(new ErroDeValidacao('Licitante nao encontrado.', 404));
+    licitanteService.consultar.mockRejectedValue(new ErroDeValidacao('Licitante nao encontrado.', 404));
 
     expect((await request(app).put('/licitantes/3').send({})).status).toBe(403);
     expect((await request(app).delete('/licitantes/3')).status).toBe(500);
