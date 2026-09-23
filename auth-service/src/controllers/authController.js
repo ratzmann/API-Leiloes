@@ -13,6 +13,7 @@
 // =============================================================================
 
 const authService = require('../services/authService');
+const { ErroDeValidacao } = require('../utils/erros');
 
 /**
  * POST /registrar  -  cadastra um novo usuario.
@@ -63,7 +64,7 @@ async function login(req, res) {
  */
 function tratarErro(res, err) {
   // instanceof pergunta: "este objeto foi criado a partir desta classe?"
-  if (err instanceof authService.ErroDeValidacao) {
+  if (err instanceof ErroDeValidacao) {
     // `return` encerra a funcao aqui, para nao executar as linhas de baixo.
     return res.status(err.codigo).json({ erro: err.message });
   }

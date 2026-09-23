@@ -17,31 +17,11 @@
 const usuarioRepository = require('../repositories/usuarioRepository');
 const { hashSenha, compararSenha } = require('../utils/password');
 const { gerarToken } = require('../utils/jwt');
+// Erro de regra de negocio com codigo HTTP (mesmo padrao dos outros servicos).
+const { ErroDeValidacao } = require('../utils/erros');
 
 // Lista dos papeis aceitos. Constantes em MAIUSCULAS indicam "valor fixo".
 const PAPEIS_VALIDOS = ['LEILOEIRO', 'LICITANTE'];
-
-/**
- * Erro "de negocio" que carrega junto o codigo HTTP que deve ser devolvido.
- *
- * `class ... extends Error` cria um TIPO NOVO de erro, herdando tudo do Error
- * padrao do JavaScript (mensagem, pilha de chamadas) e acrescentando `codigo`.
- * Assim o controller consegue diferenciar "erro esperado" (dado invalido) de
- * "erro inesperado" (bug) usando `instanceof ErroDeValidacao`.
- * Obs.: nos outros servicos esta classe fica em utils/erros.js; aqui ela foi
- * declarada dentro do proprio service.
- */
-class ErroDeValidacao extends Error {
-  // constructor roda quando alguem faz `new ErroDeValidacao(...)`.
-  // `codigo = 400` e um valor PADRAO: se ninguem informar, vale 400 (Bad Request).
-  constructor(mensagem, codigo = 400) {
-    // super(...) chama o constructor da classe "mae" (Error), que guarda a mensagem.
-    super(mensagem);
-    this.name = 'ErroDeValidacao';
-    // `this` e o proprio objeto que esta sendo criado.
-    this.codigo = codigo;
-  }
-}
 
 /**
  * Valida os dados de cadastro. Nao devolve nada: se algo estiver errado,
@@ -198,6 +178,5 @@ function sanitizar(usuario) {
   return resto;
 }
 
-// validarRegistro e ErroDeValidacao sao exportados tambem para os testes e
-// para o controller (que usa instanceof ErroDeValidacao).
-module.exports = { registrar, login, validarRegistro, ErroDeValidacao };
+// validarRegistro e exportado tambem para ser testado isoladamente.
+module.exports = { registrar, login, validarRegistro };
