@@ -5,6 +5,15 @@
 // para registrar um lance, DELEGA para a Saga (sagas/registrarLanceSaga.js),
 // porque as demais regras dependem de dados que estao em outros servicos.
 //
+// Regras de negocio do lance (mesma numeracao do README):
+//   1. leilaoId, licitanteId e valor obrigatorios e validos      -> validarDados
+//   2. valor estritamente maior que zero                         -> validarDados
+//   3. o leilao existe e esta aceitando lances                   -> Saga, passo 1
+//   4. primeiro lance >= lance inicial; depois >= maior + incremento -> regrasDoLance
+//   5. ninguem cobre o proprio lance atual                       -> regrasDoLance
+//   6. o licitante precisa ter credito para o valor do lance     -> Saga, passo 2
+//   7. so um LICITANTE logado da lance, e em nome proprio        -> autorizarLicitante
+//
 // Quem chama: controllers/lanceController.js
 // Quem e chamado: repositories/lanceRepository.js, repositories/sagaRepository.js,
 //                 sagas/registrarLanceSaga.js, utils/validadores.js
@@ -110,17 +119,10 @@ function autorizarLicitante(usuario, licitanteIdInformado) {
   return Number(usuario.perfilId);
 }
 
-// Regras de negocio do lance (mesma numeracao do README):
-//   1. leilaoId, licitanteId e valor obrigatorios e validos      -> validarDados
-//   2. valor estritamente maior que zero                         -> validarDados
-//   3. o leilao existe e esta aceitando lances                   -> Saga, passo 1
-//   4. primeiro lance >= lance inicial; depois >= maior + incremento -> regrasDoLance
-//   5. ninguem cobre o proprio lance atual                       -> regrasDoLance
-//   6. o licitante precisa ter credito para o valor do lance     -> Saga, passo 2
-//   7. so um LICITANTE logado da lance, e em nome proprio        -> autorizarLicitante
-// As regras 3 a 6 dependem do leiloes e do usuarios, por isso o registro passa pela saga.
 /**
  * Registra um lance: autoriza, valida localmente e entrega para a Saga.
+ * Aqui ficam as Regras 1, 2 e 7; as Regras 3 a 6 dependem do leiloes e do
+ * usuarios, por isso o registro passa pela Saga.
  * Os valores sao convertidos para Number aqui, uma unica vez, para a Saga
  * trabalhar sempre com numeros.
  * @param usuario       quem esta logado (payload do token)

@@ -83,7 +83,6 @@ function registrarPasso(saga, passo, resultado, detalhe) {
   saga.passos.push({ passo, resultado, detalhe, em: new Date().toISOString() });
 }
 
-// transforma qualquer erro em resposta HTTP, com o id da saga junto
 /**
  * Converte os varios tipos de erro num ErroDeValidacao com o codigo HTTP certo:
  *   ErroDeValidacao      -> mantem (ex.: 409 credito insuficiente)
@@ -269,7 +268,6 @@ async function liberarCreditoSuperado(saga, simularFalha = null) {
   return false;
 }
 
-// tenta de novo o passo 4 de uma saga que ficou pendente
 /**
  * Reprocessa o passo 4. So vale para sagas CONCLUIDA_COM_PENDENCIA (409 nas
  * demais). Como liberar e idempotente, repetir nao causa problema.

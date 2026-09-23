@@ -6,6 +6,12 @@
 // repository). Por isso da para testa-lo sozinho, com o repository "falso"
 // (mock) - veja tests/leiloeiroService.test.js.
 //
+// Regras de negocio do leiloeiro (mesma numeracao do README):
+//   1. nome (min. 3 letras), e-mail e registro profissional obrigatorios e validos -> validarDados
+//   2. e-mail unico                                                           -> cadastrar
+//   3. registro profissional unico e no formato ORGAO-NUMERO (ex.: JUCESC-000123) -> cadastrar
+//   4. so o proprio leiloeiro altera ou remove o cadastro                     -> atualizar / remover
+//
 // Quem chama: controllers/leiloeiroController.js
 // Quem e chamado: repositories/leiloeiroRepository.js, utils/validadores.js
 // =============================================================================
@@ -59,13 +65,9 @@ async function buscarPorId(id) {
   return leiloeiro;
 }
 
-// Regras de negocio do leiloeiro (mesma numeracao do README):
-//   1. nome (min. 3 letras), e-mail e registro profissional obrigatorios e validos -> validarDados
-//   2. e-mail unico
-//   3. registro profissional unico e no formato ORGAO-NUMERO (ex.: JUCESC-000123)
-//   4. so o proprio leiloeiro altera ou remove o cadastro -> atualizar / remover
 /**
- * Cadastra um leiloeiro depois de validar os dados e checar duplicidade.
+ * Regras 1 a 3. Cadastra um leiloeiro depois de validar os dados e
+ * checar duplicidade.
  * 409 Conflict = ja existe alguem com este e-mail ou registro.
  */
 async function cadastrar({ usuarioId, nome, email, registroProfissional, telefone }) {
@@ -86,8 +88,8 @@ async function cadastrar({ usuarioId, nome, email, registroProfissional, telefon
   return leiloeiroRepository.criar({ usuarioId, nome, email, registroProfissional, telefone });
 }
 
-// Regra de negocio 4: so o proprio leiloeiro altera ou remove o seu cadastro.
 /**
+ * Regra 4: so o proprio leiloeiro altera ou remove o seu cadastro.
  * Atualiza nome/telefone. Primeiro garante que o leiloeiro existe (404 se nao)
  * e que quem esta logado e o dono do cadastro (403 se nao).
  * `dados.nome && ...`: so valida o nome SE ele foi enviado.

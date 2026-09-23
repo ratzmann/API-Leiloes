@@ -36,8 +36,8 @@ const {
 // Um leilao precisa durar pelo menos meia hora.
 const DURACAO_MINIMA_MINUTOS = 30;
 
-// Regra 1: titulo, lote, valores e datas precisam fazer sentido
 /**
+ * Regra 1: titulo, lote, valores e datas precisam fazer sentido.
  * Valida os dados do leilao. Usada no cadastro e na edicao.
  * Lanca ErroDeValidacao (400) no primeiro problema encontrado.
  */
@@ -85,7 +85,7 @@ function validarDados({
   }
 }
 
-// Regra 2: nao da pra agendar leilao no passado
+/** Regra 2: nao da para agendar leilao no passado (400). */
 function validarDataFutura(dataInicio) {
   // new Date() sem argumentos = o momento atual.
   if (paraData(dataInicio) <= new Date()) {
@@ -107,8 +107,8 @@ async function buscarPorId(id) {
   return leilao;
 }
 
-// Regra 3: o leiloeiro tem que existir no usuarios-service
 /**
+ * Regra 3: o leiloeiro tem que existir no usuarios-service.
  * Pergunta ao usuarios-service se o leiloeiro existe (comunicacao REST).
  * Traducao dos resultados do client em respostas HTTP:
  *   - servico fora do ar (ServicoIndisponivel) -> 503;
@@ -143,8 +143,8 @@ async function garantirLeiloeiroExiste(leiloeiroId) {
   return leiloeiro;
 }
 
-// Regra 4: o mesmo leiloeiro nao pode ter dois leiloes no mesmo horario
 /**
+ * Regra 4: o mesmo leiloeiro nao pode ter dois leiloes no mesmo horario.
  * Busca os leiloes ATIVOS (AGENDADO/ABERTO) do leiloeiro e verifica se algum
  * se sobrepoe ao periodo informado. 409 Conflict se houver choque de agenda.
  * @param ignorarId  na edicao, o proprio leilao nao conta como conflito
@@ -165,8 +165,8 @@ async function garantirAgendaLivre(leiloeiroId, dataInicio, dataFim, ignorarId =
   }
 }
 
-// Regra 7: so um LEILOEIRO cadastra leilao, e so em nome proprio
 /**
+ * Regra 7: so um LEILOEIRO cadastra leilao, e so em nome proprio.
  * AUTORIZACAO do cadastro: decide EM NOME DE QUAL leiloeiro o leilao sera criado.
  *
  * Autenticacao x autorizacao:
@@ -204,8 +204,8 @@ function autorizarLeiloeiro(usuario, leiloeiroIdInformado) {
   return Number(usuario.perfilId);
 }
 
-// Regra 7 tambem: editar, mudar status e remover, so o DONO do leilao
 /**
+ * Regra 7 (tambem): editar, mudar status e remover, so o DONO do leilao.
  * Confere se quem esta logado e o leiloeiro responsavel pelo leilao.
  * Chamada DEPOIS de buscarPorId: assim, leilao inexistente continua 404.
  */
@@ -260,8 +260,8 @@ async function cadastrar(dados, usuario) {
   });
 }
 
-// Regra 6: so edita enquanto esta AGENDADO (depois de aberto ja tem lance)
 /**
+ * Regra 6: so edita enquanto esta AGENDADO (depois de aberto ja tem lance).
  * Edita um leilao. Como o cliente pode mandar so ALGUNS campos, montamos o
  * leilao "como ficaria" (campo novo ?? campo atual) e validamos o conjunto.
  */
@@ -309,8 +309,8 @@ async function atualizar(id, dados, usuario) {
   });
 }
 
-// Regra 5: AGENDADO -> ABERTO -> ENCERRADO; agendado ou aberto pode ser cancelado
 /**
+ * Regra 5: AGENDADO -> ABERTO -> ENCERRADO; agendado ou aberto pode ser cancelado.
  * Muda o status do leilao consultando a maquina de estados
  * (TRANSICOES_PERMITIDAS em utils/validadores.js).
  * 400 se o status nao existir; 409 se a transicao nao for permitida
@@ -350,8 +350,8 @@ async function alterarStatus(id, novoStatus, usuario) {
   return atualizado;
 }
 
-// Regra 8: leilao CANCELADO devolve o credito reservado pelos licitantes
 /**
+ * Regra 8: leilao CANCELADO devolve o credito reservado pelos licitantes.
  * Pede ao usuarios-service para liberar todas as reservas de credito do
  * leilao. Sem isso, o credito de quem estava ganhando ficaria bloqueado para
  * sempre, ja que ninguem mais pode vencer um leilao cancelado.
@@ -389,8 +389,8 @@ async function cancelar(id, usuario) {
   return alterarStatus(id, 'CANCELADO', usuario);
 }
 
-// consultado pelo lances-service no passo 1 da saga
 /**
+ * Consultado pelo lances-service no passo 1 da Saga.
  * Responde se o leilao esta aceitando lances AGORA: precisa estar ABERTO e
  * o momento atual precisa estar entre data_inicio e data_fim.
  * Tambem devolve lanceInicial e incrementoMinimo, que o lances-service usa
@@ -415,7 +415,7 @@ async function consultarDisponibilidade(id) {
   };
 }
 
-// Regra 6 tambem: so remove enquanto AGENDADO, depois disso tem que cancelar
+/** Regra 6 (tambem): so remove enquanto AGENDADO; depois disso, tem que cancelar (409). */
 async function remover(id, usuario) {
   const leilao = await buscarPorId(id);
   garantirDono(leilao, usuario);

@@ -11,9 +11,10 @@
 const { requisicao, urlBase, ServicoIndisponivel } = require('./http');
 const { ErroDeValidacao } = require('../utils/erros');
 
-// passo 2 da saga: reserva o valor no credito do licitante.
-// a referencia e o id da saga, entao repetir a chamada nao reserva duas vezes
 /**
+ * PASSO 2 DA SAGA (Regra 6): reserva o valor no credito do licitante.
+ * A referencia e o id da saga, entao repetir a chamada nao reserva duas vezes.
+ *
  * POST /licitantes/:id/reservas   corpo: { valor, referencia, leilaoId }
  * O leilaoId fica gravado na reserva: se o leilao for CANCELADO, o
  * usuarios-service libera todas as reservas dele de uma vez.
@@ -38,8 +39,8 @@ async function reservarCredito(licitanteId, valor, referencia, leilaoId) {
   throw new ServicoIndisponivel(`usuarios-service respondeu ${status} ao reservar credito.`);
 }
 
-// usado na compensacao do passo 2 e no passo 4 (liberar quem foi superado)
 /**
+ * Usado na COMPENSACAO do passo 2 e no PASSO 4 (liberar quem foi superado).
  * POST /licitantes/:id/reservas/:reservaId/liberar
  * Qualquer resposta diferente de 200 e tratada como falha (ServicoIndisponivel):
  * a Saga vai registrar a falha e, no passo 4, tentar de novo.

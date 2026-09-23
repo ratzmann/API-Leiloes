@@ -14,8 +14,6 @@
 // outro servico travar, o cadastro de leilao ficaria esperando para sempre.
 const TIMEOUT_MS = Number(process.env.USUARIOS_SERVICE_TIMEOUT_MS || 3000);
 
-// retorna o leiloeiro, null se nao existir,
-// ou ServicoIndisponivel se o usuarios-service nao responder
 /**
  * Faz GET {USUARIOS_SERVICE_URL}/leiloeiros/{id}.
  * Tres resultados possiveis:

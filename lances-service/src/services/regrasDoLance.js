@@ -19,10 +19,8 @@ const centavos = (valor) => Math.round(Number(valor) * 100);
 // Formata em reais: 5000 -> "R$ 5000.00".
 const brl = (valor) => `R$ ${Number(valor).toFixed(2)}`;
 
-// primeiro lance: pelo menos o lance inicial.
-// depois: maior lance + incremento minimo, e ninguem cobre o proprio lance.
 /**
- * Lanca ErroDeValidacao (400) se o valor nao for aceitavel; senao, nao faz nada.
+ * Regras 4 e 5. Lanca ErroDeValidacao (400) se o valor nao for aceitavel; senao, nao faz nada.
  *
  * Exemplo: lance inicial 5000, incremento 100.
  *   - sem lances ainda: aceita >= 5000;

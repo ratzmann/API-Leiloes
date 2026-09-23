@@ -127,7 +127,6 @@ async function cancelar(req, res) {
   }
 }
 
-// usado pelo lances-service antes de aceitar um lance
 /**
  * GET /leiloes/:id/disponibilidade
  * Esta rota e um exemplo de COMUNICACAO ENTRE MICROSSERVICOS: o lances-service

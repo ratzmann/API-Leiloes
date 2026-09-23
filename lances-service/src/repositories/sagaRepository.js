@@ -23,9 +23,8 @@ async function criar({ leilaoId, licitanteId, valor }) {
   return rows[0];
 }
 
-// grava o estado atual da saga
 /**
- * Atualiza todos os campos variaveis da saga de uma vez.
+ * Grava o estado atual da saga: atualiza todos os campos variaveis de uma vez.
  * JSON.stringify(saga.passos) converte a lista de passos em texto JSON para a
  * coluna JSONB. O `?? null` garante NULL no banco quando o campo nao existe.
  */

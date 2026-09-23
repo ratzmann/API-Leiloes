@@ -71,9 +71,10 @@ async function listarReservas(licitanteId) {
   return reservaRepository.listarPorLicitante(id);
 }
 
-// Regra de credito 1: a soma das reservas nunca passa do limite de credito.
-// Se vier a mesma referencia (id da saga) de novo, devolve a reserva que ja existe.
 /**
+ * Regras de credito 1 e 2: a soma das reservas nunca passa do limite, e a
+ * mesma referencia (id da saga) devolve a reserva que ja existe.
+ *
  * PASSO 2 DA SAGA: bloqueia `valor` no credito do licitante.
  *
  * Tudo acontece dentro de uma TRANSACAO (reservaRepository.emTransacao):
@@ -134,15 +135,13 @@ async function reservar(licitanteId, { valor, referencia, leilaoId }) {
   });
 }
 
-// libera a reserva (compensacao da saga ou quando o licitante e superado).
-// liberar de novo nao da erro
 /**
  * Muda a reserva de RESERVADA para LIBERADA (o valor volta ao disponivel).
  * Usado em dois momentos da Saga:
  *   - COMPENSACAO: o passo 3 (gravar lance) falhou, entao desfazemos o passo 2;
  *   - PASSO 4: um novo lance maior chegou, entao o licitante anterior recebe
  *     o credito de volta.
- * Se a reserva ja estiver LIBERADA, apenas a devolve (idempotente).
+ * Se a reserva ja estiver LIBERADA, apenas a devolve (idempotente - Regra de credito 2).
  */
 async function liberar(licitanteId, reservaId) {
   const idLicitante = validarId(licitanteId, 'licitanteId');
@@ -161,9 +160,8 @@ async function liberar(licitanteId, reservaId) {
   });
 }
 
-// Regra de credito 3: leilao CANCELADO devolve o credito de todos que tinham reserva nele.
 /**
- * Libera, de uma vez, todas as reservas ativas de um leilao.
+ * Regra de credito 3: libera, de uma vez, todas as reservas ativas de um leilao.
  * Chamado pelo leiloes-service quando um leilao e CANCELADO: sem isso, o
  * credito de quem estava ganhando ficaria bloqueado para sempre.
  * Idempotente: chamar de novo devolve `liberadas: 0` e nao muda nada.

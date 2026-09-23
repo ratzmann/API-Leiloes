@@ -43,9 +43,9 @@ async function buscarMaiorPorLeilao(leilaoId) {
   return rows[0] || null;
 }
 
-// passo 3 da saga: grava o lance com o leilao travado (advisory lock),
-// assim ninguem grava outro lance entre a checagem do valor e o INSERT
 /**
+ * PASSO 3 DA SAGA: grava o lance com o leilao TRAVADO (advisory lock).
+ *
  * O PROBLEMA (condicao de corrida): dois licitantes dao lance de 5100 ao mesmo
  * tempo no mesmo leilao. Os dois leem "maior lance = 5000", os dois passam na
  * validacao e os dois gravam - ficando dois "vencedores".

@@ -37,13 +37,13 @@ function urlBase(variavel) {
   return url;
 }
 
-// devolve { status, corpo } nos 2xx e 4xx (quem chama decide o que fazer);
-// erro de rede, timeout e 5xx viram ServicoIndisponivel
 /**
  * Faz uma requisicao HTTP com timeout.
  * @param servico  nome do servico (so para as mensagens de erro)
  * @param url      endereco completo
  * @param opcoes   { method, body } - por padrao GET sem corpo
+ * @returns { status, corpo } nas respostas 2xx e 4xx (quem chama decide o que
+ *          fazer); erro de rede, timeout e 5xx viram ServicoIndisponivel.
  *
  * Por que 4xx NAO vira erro aqui? Porque 4xx e uma resposta "de negocio"
  * (ex.: 409 credito insuficiente) e cada client sabe como interpreta-la.

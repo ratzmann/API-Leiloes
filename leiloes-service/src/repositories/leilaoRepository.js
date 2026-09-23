@@ -53,8 +53,8 @@ async function buscarPorId(id) {
   return rows[0] || null;
 }
 
-// leiloes que ainda ocupam a agenda do leiloeiro (agendados ou abertos)
 /**
+ * Leiloes que ainda ocupam a agenda do leiloeiro (AGENDADO ou ABERTO).
  * Usado pela Regra 4 (agenda livre).
  * O trecho "($2::int IS NULL OR id <> $2)" significa: se ignorarId for null,
  * a condicao e sempre verdadeira; senao, exclui o proprio leilao (<> = diferente).

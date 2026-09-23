@@ -14,11 +14,11 @@
 
 const pool = require('../config/db');
 
-// Roda fn numa transacao. O travarLicitante faz FOR UPDATE, entao duas
-// reservas ao mesmo tempo pro mesmo licitante nao passam do limite.
 /**
  * Abre uma transacao, entrega a `fn` um objeto `tx` com as operacoes de
  * banco, e ao final faz COMMIT (deu certo) ou ROLLBACK (deu erro).
+ * O travarLicitante faz FOR UPDATE: duas reservas ao mesmo tempo para o mesmo
+ * licitante nao conseguem, juntas, passar do limite.
  *
  * Por que `pool.connect()` e nao `pool.query()`? Uma transacao precisa que
  * TODOS os comandos usem a MESMA conexao. pool.query pode usar uma conexao

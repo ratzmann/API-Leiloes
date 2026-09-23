@@ -5,6 +5,13 @@
 // LIMITE DE CREDITO, que define quanto ela pode comprometer em lances
 // (o controle das reservas fica no creditoService).
 //
+// Regras de negocio do licitante (mesma numeracao do README):
+//   1. CPF valido (digitos verificadores) e unico          -> validarDados / cadastrar
+//   2. e-mail unico                                       -> cadastrar
+//   3. limite de credito nunca negativo                   -> validarDados
+//   4. so o proprio licitante altera ou remove o cadastro -> atualizar / remover
+//   5. o licitante NAO altera o proprio limite de credito -> atualizar
+//
 // Quem chama: controllers/licitanteController.js
 // Quem e chamado: repositories/licitanteRepository.js, utils/validadores.js
 // =============================================================================
@@ -48,13 +55,10 @@ async function buscarPorId(id) {
   return licitante;
 }
 
-// Regra de negocio 1: CPF valido (digitos verificadores) e unico.
-// Regra de negocio 2: e-mail unico.
-// Regra de negocio 3: limite de credito nunca pode ser negativo.
 /**
- * Cadastra um licitante. O CPF e "limpo" (so digitos) antes de validar e
- * de gravar, para que "529.982.247-25" e "52998224725" sejam o MESMO CPF
- * na checagem de duplicidade.
+ * Regras 1 a 3. Cadastra um licitante. O CPF e "limpo" (so digitos) antes
+ * de validar e de gravar, para que "529.982.247-25" e "52998224725" sejam o
+ * MESMO CPF na checagem de duplicidade.
  */
 async function cadastrar({ usuarioId, nome, email, cpf, telefone, limiteCredito }) {
   // (cpf || '') evita erro se o cpf vier vazio: usa texto vazio no lugar.
@@ -82,12 +86,11 @@ async function cadastrar({ usuarioId, nome, email, cpf, telefone, limiteCredito 
   });
 }
 
-// Regra de negocio 4: so o proprio licitante altera ou remove o seu cadastro.
-// Regra de negocio 5: o licitante NAO altera o proprio limite de credito
-// (senao bastaria aumentar o limite para dar lances sem lastro). O limite e
-// definido no cadastro; mudar depois exigiria um papel de administrador.
 /**
- * Atualiza nome e/ou telefone do proprio licitante.
+ * Regras 4 e 5. Atualiza nome e/ou telefone do proprio licitante. Ele NAO
+ * altera o proprio limite de credito (senao bastaria aumentar o limite para dar
+ * lances sem lastro); o limite e definido no cadastro, e muda-lo depois
+ * exigiria um papel de administrador.
  * Ordem: existe? (404) -> e o dono? (403) -> tentou mudar o limite? (403)
  * -> dados validos? (400).
  * @param usuario  quem esta logado (payload do token)

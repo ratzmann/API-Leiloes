@@ -8,8 +8,8 @@
 
 const { requisicao, urlBase, ServicoIndisponivel } = require('./http');
 
-// passo 1 da saga: o leilao existe e esta aceitando lance? (null = nao existe)
 /**
+ * PASSO 1 DA SAGA (Regra 3): o leilao existe e esta aceitando lance?
  * @returns objeto { id, status, aceitandoLances, lanceInicial, incrementoMinimo, ... }
  *          ou null se o leilao nao existir (404).
  * Qualquer outro status inesperado vira ServicoIndisponivel.
