@@ -6,6 +6,7 @@
 // pronto para aceitar conexoes. Por isso tentamos varias vezes, esperando um
 // pouco entre as tentativas ("retry").
 // Quem chama: server.js, antes de abrir a porta HTTP.
+// (Arquivo identico nos 4 servicos: cada microsservico tem a sua copia.)
 // =============================================================================
 
 // fs (file system) = modulo nativo do Node para ler/escrever arquivos.
