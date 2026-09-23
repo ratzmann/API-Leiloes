@@ -4,6 +4,11 @@
 > O roteiro usa e-mails, CPF e ids `1` fixos, então funciona **uma vez, com os
 > bancos vazios**: se já tiver ensaiado, zere com `docker compose down -v`
 > antes do passo 1 (isso apaga todos os dados do sistema).
+>
+> **Do passo 3 em diante, use sempre o mesmo terminal:** os tokens ficam
+> guardados nas variáveis `$TOKEN_LICITANTE` e `$TOKEN_LEILOEIRO` e os passos
+> seguintes os usam sozinhos (não é preciso copiar e colar). Se fechar o
+> terminal, as variáveis se perdem.
 
 ## 1. Subir aplicação
 
@@ -19,8 +24,10 @@ curl http://localhost:8000/auth/health
 
 ## 3. Cadastrar usuário Licitante
 
+A resposta fica guardada em `RESP` e é mostrada na tela:
+
 ```bash
-curl -X POST http://localhost:8000/auth/registrar \
+RESP=$(curl -s -X POST http://localhost:8000/auth/registrar \
   -H "Content-Type: application/json" \
   -d '{
     "nome": "Maria Silva",
@@ -28,15 +35,21 @@ curl -X POST http://localhost:8000/auth/registrar \
     "senha": "senha123",
     "papel": "LICITANTE",
     "dadosPerfil": { "cpf": "52998224725", "limiteCredito": 5000 }
-  }'
+  }'); echo "$RESP"
 ```
 
-TOKEN_LICITANTE: [Copiar token retornado aqui]
+Guardar o token da Maria na variável `TOKEN_LICITANTE`. O `sed` procura o
+trecho `"token":"..."` na resposta e fica só com o valor:
+
+```bash
+TOKEN_LICITANTE=$(echo "$RESP" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+echo "TOKEN_LICITANTE=$TOKEN_LICITANTE"
+```
 
 ## 4. Cadastrar usuário Leiloeiro
 
 ```bash
-curl -X POST http://localhost:8000/auth/registrar \
+RESP=$(curl -s -X POST http://localhost:8000/auth/registrar \
   -H "Content-Type: application/json" \
   -d '{
     "nome": "Carlos Pereira",
@@ -44,10 +57,19 @@ curl -X POST http://localhost:8000/auth/registrar \
     "senha": "senha123",
     "papel": "LEILOEIRO",
     "dadosPerfil": { "registroProfissional": "JUCESC-000123", "telefone": "47999998888" }
-  }'
+  }'); echo "$RESP"
 ```
 
-TOKEN_LEILOEIRO: [Copiar token retornado aqui]
+Guardar o token do Carlos na variável `TOKEN_LEILOEIRO`:
+
+```bash
+TOKEN_LEILOEIRO=$(echo "$RESP" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+echo "TOKEN_LEILOEIRO=$TOKEN_LEILOEIRO"
+```
+
+> Se algum token sair vazio, o cadastro não foi criado: veja a resposta
+> mostrada acima. Um `409` ("já existe") significa que a base não está vazia —
+> veja o aviso no topo deste arquivo.
 
 ## 5. Teste de Autenticação
 
@@ -97,11 +119,11 @@ curl -i http://localhost:8000/leiloeiros
 ```bash
 # Listar Licitantes
 curl http://localhost:8000/licitantes \
-  -H "Authorization: Bearer <TOKEN_LICITANTE>"
+  -H "Authorization: Bearer $TOKEN_LICITANTE"
 
 # Listar Leiloeiros
 curl http://localhost:8000/leiloeiros \
-  -H "Authorization: Bearer <TOKEN_LEILOEIRO>"
+  -H "Authorization: Bearer $TOKEN_LEILOEIRO"
 ```
 
 ### 7.2. Buscar por ID
@@ -109,11 +131,11 @@ curl http://localhost:8000/leiloeiros \
 ```bash
 # Buscar Licitante ID 1
 curl http://localhost:8000/licitantes/1 \
-  -H "Authorization: Bearer <TOKEN_LICITANTE>"
+  -H "Authorization: Bearer $TOKEN_LICITANTE"
 
 # Buscar Leiloeiro ID 1
 curl http://localhost:8000/leiloeiros/1 \
-  -H "Authorization: Bearer <TOKEN_LEILOEIRO>"
+  -H "Authorization: Bearer $TOKEN_LEILOEIRO"
 ```
 
 ## 8. Atualização de Dados
@@ -121,13 +143,13 @@ curl http://localhost:8000/leiloeiros/1 \
 ```bash
 # Atualizar Licitante
 curl -X PUT http://localhost:8000/licitantes/1 \
-  -H "Authorization: Bearer <TOKEN_LICITANTE>" \
+  -H "Authorization: Bearer $TOKEN_LICITANTE" \
   -H "Content-Type: application/json" \
   -d '{ "telefone": "47988887777" }'
 
 # Atualizar Leiloeiro
 curl -X PUT http://localhost:8000/leiloeiros/1 \
-  -H "Authorization: Bearer <TOKEN_LEILOEIRO>" \
+  -H "Authorization: Bearer $TOKEN_LEILOEIRO" \
   -H "Content-Type: application/json" \
   -d '{ "telefone": "47911112222" }'
 ```
@@ -168,7 +190,7 @@ curl -i -X POST http://localhost:8000/auth/registrar \
 
 ```bash
 curl http://localhost:8000/licitantes/1/credito \
-  -H "Authorization: Bearer <TOKEN_LICITANTE>"
+  -H "Authorization: Bearer $TOKEN_LICITANTE"
 ```
 
 Resposta esperada: `limite`, `reservado` e `disponivel` (ex.: 5000, 0 e 5000).
@@ -181,7 +203,7 @@ para quem está fora, **mesmo com um token válido**.
 
 ```bash
 curl -i http://localhost:8000/licitantes/1/reservas \
-  -H "Authorization: Bearer <TOKEN_LICITANTE>"
+  -H "Authorization: Bearer $TOKEN_LICITANTE"
 ```
 
 Resposta esperada: `403 Forbidden` com
@@ -198,5 +220,5 @@ Resposta esperada: `403 Forbidden` com
 ```bash
 # Apagar Leiloeiro ID 1
 curl -i -X DELETE http://localhost:8000/leiloeiros/1 \
-  -H "Authorization: Bearer <TOKEN_LEILOEIRO>"
+  -H "Authorization: Bearer $TOKEN_LEILOEIRO"
 ```
