@@ -229,6 +229,7 @@ curl http://localhost:8000/licitantes \
 ```
 Sem o header `Authorization` (ou com token inválido), o Kong responde
 `401 Unauthorized` antes mesmo de a requisição chegar ao serviço interno.
+Cada licitante vê o próprio cadastro completo; dos outros, só `id` e `nome`.
 
 ### 4. Registrar um leiloeiro
 ```bash
@@ -244,6 +245,7 @@ curl -X POST http://localhost:8000/auth/registrar \
 ```
 
 ### 5. Cadastrar um leilão (rota protegida pelo Kong)
+As datas precisam estar **no futuro** — troque as do exemplo, se já passaram.
 ```bash
 curl -X POST http://localhost:8000/leiloes \
   -H "Authorization: Bearer <TOKEN_DO_LEILOEIRO>" \
@@ -322,6 +324,9 @@ de 50%:
 | leiloes-service | 62 | 81% |
 | lances-service | 57 | 75% |
 
+Os testes unitários também cobrem os clients HTTP (`tests/usuariosClient.test.js`,
+com o `fetch` simulado).
+
 Ponta a ponta, com a stack no ar (PowerShell):
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
@@ -332,6 +337,11 @@ autorização (ninguém age em nome de outra pessoa nem altera o cadastro alheio
 o cancelamento de leilão devolvendo o crédito reservado, o registro desfeito
 quando o perfil é recusado, a privacidade dos dados pessoais e o formato dos
 erros.
+
+Testes manuais (com a stack no ar): o passo a passo com `curl` em
+[`testes/roteiro-de-testes.md`](testes/roteiro-de-testes.md) e a coleção
+[`testes/leilao-microservicos.postman_collection.json`](testes/leilao-microservicos.postman_collection.json)
+(importar no Postman).
 
 ## Formato dos erros
 
@@ -347,8 +357,19 @@ Cada serviço tem um `.env.example`. No `docker-compose.yml` os valores já
 vêm definidos; para rodar um serviço fora do Docker, copie o `.env.example`
 para `.env` e ajuste `DB_HOST` etc.
 
+| Variável | Onde | Para quê |
+|---|---|---|
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | os 4 serviços | conexão com o banco do serviço |
+| `JWT_SECRET`, `JWT_ISSUER`, `JWT_EXPIRES_IN` | só o auth-service | assinar os tokens (iguais aos do `kong.yml`) |
+| `USUARIOS_SERVICE_URL`, `LEILOES_SERVICE_URL` | quem chama esses serviços | endereço interno (rede do Docker) |
+| `SERVICOS_TIMEOUT_MS` | auth, leiloes e lances | tempo máximo das chamadas entre serviços (padrão 3000) |
+| `SAGA_PERMITIR_FALHA_SIMULADA` | lances-service | libera o header `X-Simular-Falha` (só para demo) |
+
 ## Próximos passos (grupo)
 
 - Acompanhamento ao vivo dos lances (WebSockets ou Event-Driven).
 - Encerramento do pregão como Saga: ao encerrar, registrar o vencedor e
   confirmar (consumir) o crédito dele. O cancelamento já devolve o crédito.
+- Papel de administrador (ex.: ajustar limite de crédito), regra para remover
+  cadastros em uso e os demais itens da
+  [seção 10 do guia de arquitetura](docs/ARQUITETURA.md#10-pontos-de-atenção-e-próximos-passos).
