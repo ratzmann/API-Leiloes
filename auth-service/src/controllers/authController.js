@@ -13,7 +13,6 @@
 // =============================================================================
 
 const authService = require('../services/authService');
-const { ErroDeValidacao } = require('../utils/erros');
 
 /**
  * POST /registrar  -  cadastra um novo usuario.
@@ -24,7 +23,7 @@ const { ErroDeValidacao } = require('../utils/erros');
  * @param req  objeto da REQUISICAO (o que o cliente mandou)
  * @param res  objeto da RESPOSTA (o que vamos devolver)
  */
-async function registrar(req, res) {
+async function registrar(req, res, next) {
   // try/catch: tenta executar o bloco "try"; se qualquer linha lancar um erro
   // (throw), a execucao pula direto para o "catch", que trata o problema.
   try {
@@ -36,42 +35,24 @@ async function registrar(req, res) {
     // 201 = "Created": o recurso foi criado com sucesso.
     res.status(201).json(resultado);
   } catch (err) {
-    tratarErro(res, err);
+    next(err);
   }
 }
 
 /**
  * POST /login  -  confere e-mail e senha e devolve um token JWT.
  */
-async function login(req, res) {
+async function login(req, res, next) {
   try {
     const { email, senha } = req.body;
     const resultado = await authService.login({ email, senha });
     // 200 = "OK": deu tudo certo.
     res.status(200).json(resultado);
   } catch (err) {
-    tratarErro(res, err);
+    next(err);
   }
 }
 
-/**
- * Converte um erro em resposta HTTP.
- *  - ErroDeValidacao (erro "esperado", de regra de negocio): usamos o codigo
- *    que veio junto no erro (400 dado invalido, 401 credencial errada,
- *    409 conflito/duplicado) e mostramos a mensagem ao cliente.
- *  - Qualquer outro erro (bug, banco fora do ar...): registramos no log e
- *    devolvemos 500 com uma mensagem generica, sem expor detalhes internos.
- */
-function tratarErro(res, err) {
-  // instanceof pergunta: "este objeto foi criado a partir desta classe?"
-  if (err instanceof ErroDeValidacao) {
-    // `return` encerra a funcao aqui, para nao executar as linhas de baixo.
-    return res.status(err.codigo).json({ erro: err.message });
-  }
-  // console.error escreve no log do container (docker logs auth-service).
-  console.error(err);
-  return res.status(500).json({ erro: 'Erro interno no servico de autenticacao.' });
-}
-
-// Exporta so o que as rotas precisam; tratarErro fica "privada" deste arquivo.
+// Exporta as funcoes que as rotas usam. Os erros sao respondidos pelo
+// middleware de erro (middlewares/tratarErros.js), via next(err).
 module.exports = { registrar, login };

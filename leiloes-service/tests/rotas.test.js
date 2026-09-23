@@ -142,3 +142,11 @@ describe('rotas de escrita repassam o usuario logado (Regra 7)', () => {
     expect(leilaoService.remover).toHaveBeenCalledWith(1, undefined);
   });
 });
+
+describe('middleware de erro (middlewares/tratarErros.js)', () => {
+  test('corpo que nao e JSON valido responde 400 no formato { erro }', async () => {
+    const res = await request(app).post('/leiloes').set('Content-Type', 'application/json').send('{isso nao e json');
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ erro: 'O corpo da requisicao nao e um JSON valido.' });
+  });
+});

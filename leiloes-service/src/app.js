@@ -8,6 +8,7 @@
 // =============================================================================
 
 const express = require('express');
+const criarTratadorDeErros = require('./middlewares/tratarErros');
 const extrairUsuario = require('./middlewares/extrairUsuario');
 const leilaoRoutes = require('./routes/leilaoRoutes');
 
@@ -24,5 +25,10 @@ app.use('/leiloes', leilaoRoutes);
 
 // Nenhuma rota atendeu: 404.
 app.use((req, res) => res.status(404).json({ erro: 'Rota nao encontrada.' }));
+
+// Middleware de ERRO (4 parametros): recebe o que os controllers passam em
+// next(err) e responde sempre no formato { erro } (ver middlewares/tratarErros.js).
+// Precisa vir DEPOIS das rotas.
+app.use(criarTratadorDeErros('leiloes'));
 
 module.exports = app;

@@ -14,6 +14,7 @@
 
 // Importa a biblioteca Express (instalada via npm, listada no package.json).
 const express = require('express');
+const criarTratadorDeErros = require('./middlewares/tratarErros');
 // Importa o "roteador" com as rotas deste servico (/registrar, /login, /health).
 const authRoutes = require('./routes/authRoutes');
 
@@ -33,6 +34,11 @@ app.use('/', authRoutes);
 // Status 404 = "Not Found" (recurso nao encontrado).
 // res.status(...).json(...) define o codigo HTTP e envia um objeto como JSON.
 app.use((req, res) => res.status(404).json({ erro: 'Rota nao encontrada.' }));
+
+// Middleware de ERRO (4 parametros): recebe o que os controllers passam em
+// next(err) e responde sempre no formato { erro } (ver middlewares/tratarErros.js).
+// Precisa vir DEPOIS das rotas.
+app.use(criarTratadorDeErros('autenticacao'));
 
 // module.exports define o que este arquivo "entrega" para quem fizer require.
 // O server.js importa este app para colocar no ar.

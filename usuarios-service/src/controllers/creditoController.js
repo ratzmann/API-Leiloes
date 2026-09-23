@@ -13,27 +13,26 @@
 // =============================================================================
 
 const creditoService = require('../services/creditoService');
-const { ErroDeValidacao } = require('../utils/erros');
 
 /**
  * GET /licitantes/:id/credito  ->  { licitanteId, limite, reservado, disponivel }
  * req.params.id e o ":id" da URL (sempre chega como TEXTO, ex.: "3").
  */
-async function consultar(req, res) {
+async function consultar(req, res, next) {
   try {
     // res.json(...) sem res.status(...) responde com 200 (OK) por padrao.
     res.json(await creditoService.consultarCredito(req.params.id));
   } catch (err) {
-    tratarErro(res, err);
+    next(err);
   }
 }
 
 /** GET /licitantes/:id/reservas  ->  lista de reservas do licitante. */
-async function listarReservas(req, res) {
+async function listarReservas(req, res, next) {
   try {
     res.json(await creditoService.listarReservas(req.params.id));
   } catch (err) {
-    tratarErro(res, err);
+    next(err);
   }
 }
 
@@ -45,14 +44,14 @@ async function listarReservas(req, res) {
  * devolve a reserva que ja existia em vez de criar outra. Por isso o status:
  *   201 Created -> reserva nova;   200 OK -> reserva que ja existia.
  */
-async function reservar(req, res) {
+async function reservar(req, res, next) {
   try {
     const { valor, referencia, leilaoId } = req.body;
     // O service devolve dois dados: a reserva e se ela foi criada agora.
     const { reserva, criada } = await creditoService.reservar(req.params.id, { valor, referencia, leilaoId });
     res.status(criada ? 201 : 200).json(reserva);
   } catch (err) {
-    tratarErro(res, err);
+    next(err);
   }
 }
 
@@ -61,11 +60,11 @@ async function reservar(req, res) {
  * Devolve o credito reservado (compensacao da Saga, ou quando alguem supera
  * o lance deste licitante).
  */
-async function liberar(req, res) {
+async function liberar(req, res, next) {
   try {
     res.json(await creditoService.liberar(req.params.id, req.params.reservaId));
   } catch (err) {
-    tratarErro(res, err);
+    next(err);
   }
 }
 
@@ -74,25 +73,12 @@ async function liberar(req, res) {
  * Chamada pelo leiloes-service ao CANCELAR um leilao: libera todo o credito
  * ainda reservado naquele leilao. Responde { leilaoId, liberadas, reservas }.
  */
-async function liberarPorLeilao(req, res) {
+async function liberarPorLeilao(req, res, next) {
   try {
     res.json(await creditoService.liberarPorLeilao(req.params.leilaoId));
   } catch (err) {
-    tratarErro(res, err);
+    next(err);
   }
-}
-
-/**
- * Converte erros em resposta HTTP.
- * ErroDeValidacao -> usa o codigo do erro (400, 404, 409);
- * qualquer outro  -> 500 com mensagem generica (detalhe so no log).
- */
-function tratarErro(res, err) {
-  if (err instanceof ErroDeValidacao) {
-    return res.status(err.codigo).json({ erro: err.message });
-  }
-  console.error(err);
-  return res.status(500).json({ erro: 'Erro interno no servico de usuarios.' });
 }
 
 module.exports = { consultar, listarReservas, reservar, liberar, liberarPorLeilao };

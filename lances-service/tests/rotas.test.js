@@ -142,3 +142,11 @@ describe('rotas de sagas', () => {
     expect((await request(app).get('/lances/sagas/99')).status).toBe(404);
   });
 });
+
+describe('middleware de erro (middlewares/tratarErros.js)', () => {
+  test('corpo que nao e JSON valido responde 400 no formato { erro }', async () => {
+    const res = await request(app).post('/lances').set('Content-Type', 'application/json').send('{isso nao e json');
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ erro: 'O corpo da requisicao nao e um JSON valido.' });
+  });
+});

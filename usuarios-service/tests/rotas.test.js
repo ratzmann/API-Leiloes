@@ -243,3 +243,11 @@ describe('middleware extrairUsuario', () => {
     expect(leiloeiroService.atualizar).toHaveBeenCalledWith(7, {}, null);
   });
 });
+
+describe('middleware de erro (middlewares/tratarErros.js)', () => {
+  test('corpo que nao e JSON valido responde 400 no formato { erro }', async () => {
+    const res = await request(app).post('/licitantes').set('Content-Type', 'application/json').send('{isso nao e json');
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ erro: 'O corpo da requisicao nao e um JSON valido.' });
+  });
+});
