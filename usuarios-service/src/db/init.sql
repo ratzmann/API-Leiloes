@@ -67,3 +67,12 @@ CREATE TABLE IF NOT EXISTS reservas_credito (
 
 -- Indice composto: acelera "somar as reservas RESERVADA do licitante X".
 CREATE INDEX IF NOT EXISTS idx_reservas_licitante_status ON reservas_credito(licitante_id, status);
+
+-- Leilao ao qual a reserva pertence (enviado pela Saga de lance). Permite
+-- liberar de uma vez todo o credito preso num leilao CANCELADO.
+-- ALTER TABLE ... ADD COLUMN IF NOT EXISTS: bancos que ja existiam ganham a
+-- coluna quando o servico sobe (db/migrar.js). Reservas antigas ficam com NULL.
+ALTER TABLE reservas_credito ADD COLUMN IF NOT EXISTS leilao_id INTEGER;
+
+-- Acelera "liberar as reservas RESERVADA do leilao X".
+CREATE INDEX IF NOT EXISTS idx_reservas_leilao_status ON reservas_credito(leilao_id, status);

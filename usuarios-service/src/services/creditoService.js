@@ -82,15 +82,20 @@ async function listarReservas(licitanteId) {
  * primeiro terminar - e nao ha risco de os dois "verem" o mesmo saldo e
  * juntos passarem do limite (problema classico de concorrencia).
  *
+ * O `leilaoId` (opcional) fica gravado na reserva: se o leilao for cancelado,
+ * todas as reservas dele sao liberadas de uma vez (liberarPorLeilao).
+ *
  * @returns { reserva, criada }  (criada = false quando a referencia ja existia)
  */
-async function reservar(licitanteId, { valor, referencia }) {
+async function reservar(licitanteId, { valor, referencia, leilaoId }) {
   const id = validarId(licitanteId, 'licitanteId');
   // Number.isFinite recusa NaN e Infinity. O ! na frente inverte o resultado:
   // "se NAO (for numero finito E maior que zero)".
   if (!(Number.isFinite(Number(valor)) && Number(valor) > 0)) {
     throw new ErroDeValidacao('Valor da reserva deve ser maior que zero.');
   }
+  // leilaoId e opcional; se vier, precisa ser um id valido.
+  const idLeilao = leilaoId == null ? null : validarId(leilaoId, 'leilaoId');
 
   // Passamos uma funcao para emTransacao. Ela recebe `tx`, um objeto com
   // operacoes de banco que rodam todas dentro da mesma transacao.
@@ -123,7 +128,7 @@ async function reservar(licitanteId, { valor, referencia }) {
       );
     }
 
-    const reserva = await tx.criar({ licitanteId: id, valor: Number(valor), referencia });
+    const reserva = await tx.criar({ licitanteId: id, valor: Number(valor), referencia, leilaoId: idLeilao });
     return { reserva, criada: true };
   });
 }
@@ -155,4 +160,19 @@ async function liberar(licitanteId, reservaId) {
   });
 }
 
-module.exports = { consultarCredito, listarReservas, reservar, liberar };
+// Regra: leilao CANCELADO devolve o credito de todos que tinham reserva nele.
+/**
+ * Libera, de uma vez, todas as reservas ativas de um leilao.
+ * Chamado pelo leiloes-service quando um leilao e CANCELADO: sem isso, o
+ * credito de quem estava ganhando ficaria bloqueado para sempre.
+ * Idempotente: chamar de novo devolve `liberadas: 0` e nao muda nada.
+ *
+ * @returns { leilaoId, liberadas, reservas }
+ */
+async function liberarPorLeilao(leilaoId) {
+  const id = validarId(leilaoId, 'leilaoId');
+  const reservas = await reservaRepository.liberarPorLeilao(id);
+  return { leilaoId: id, liberadas: reservas.length, reservas };
+}
+
+module.exports = { consultarCredito, listarReservas, reservar, liberar, liberarPorLeilao };

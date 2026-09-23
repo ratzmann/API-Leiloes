@@ -187,7 +187,7 @@ describe('rotas de credito (/licitantes/:id/credito e /reservas)', () => {
 
     expect(primeira.status).toBe(201);
     expect(repetida.status).toBe(200);
-    expect(creditoService.reservar).toHaveBeenCalledWith('3', { valor: 100, referencia: 'saga-1' });
+    expect(creditoService.reservar).toHaveBeenCalledWith('3', { valor: 100, referencia: 'saga-1', leilaoId: undefined });
   });
 
   test('POST reservas sem credito responde 409; POST liberar responde 200', async () => {
@@ -208,6 +208,29 @@ describe('rotas de credito (/licitantes/:id/credito e /reservas)', () => {
     expect((await request(app).get('/licitantes/3/credito')).status).toBe(500);
     expect((await request(app).get('/licitantes/3/reservas')).status).toBe(500);
     expect((await request(app).post('/licitantes/3/reservas/1/liberar')).status).toBe(500);
+  });
+});
+
+describe('rota interna /reservas (cancelamento de leilao)', () => {
+  test('POST /reservas/leilao/:leilaoId/liberar responde 200 com o resumo', async () => {
+    creditoService.liberarPorLeilao.mockResolvedValue({ leilaoId: 4, liberadas: 1, reservas: [] });
+    const res = await request(app).post('/reservas/leilao/4/liberar');
+    expect(res.status).toBe(200);
+    expect(res.body.liberadas).toBe(1);
+    expect(creditoService.liberarPorLeilao).toHaveBeenCalledWith('4');
+  });
+
+  test('id invalido responde 400; erro inesperado responde 500', async () => {
+    creditoService.liberarPorLeilao.mockRejectedValueOnce(new ErroDeValidacao('leilaoId deve ser um numero inteiro positivo.'));
+    expect((await request(app).post('/reservas/leilao/abc/liberar')).status).toBe(400);
+    creditoService.liberarPorLeilao.mockRejectedValueOnce(new Error('bug'));
+    expect((await request(app).post('/reservas/leilao/4/liberar')).status).toBe(500);
+  });
+
+  test('POST de reserva repassa o leilaoId do corpo', async () => {
+    creditoService.reservar.mockResolvedValue({ reserva: { id: 1 }, criada: true });
+    await request(app).post('/licitantes/3/reservas').send({ valor: 100, referencia: 'saga-1', leilaoId: 4 });
+    expect(creditoService.reservar).toHaveBeenCalledWith('3', { valor: 100, referencia: 'saga-1', leilaoId: 4 });
   });
 });
 

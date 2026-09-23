@@ -4,6 +4,7 @@
 // Este servico cuida de dois "cadastros de dominio":
 //   - LEILOEIROS  (quem conduz o leilao)          -> /leiloeiros
 //   - LICITANTES  (quem da lances), com o CREDITO -> /licitantes
+// e uma rota INTERNA de reservas (so para outros servicos) -> /reservas
 //
 // Ordem dos middlewares (a ordem importa! o Express executa de cima para baixo):
 //   1. express.json()   -> transforma o corpo JSON em req.body;
@@ -16,6 +17,7 @@ const express = require('express');
 const extrairUsuario = require('./middlewares/extrairUsuario');
 const leiloeiroRoutes = require('./routes/leiloeiroRoutes');
 const licitanteRoutes = require('./routes/licitanteRoutes');
+const reservaRoutes = require('./routes/reservaRoutes');
 
 const app = express();
 app.use(express.json());
@@ -27,6 +29,8 @@ app.get('/health', (req, res) => res.json({ status: 'ok', service: 'usuarios-ser
 // diante. Dentro do roteador os caminhos sao relativos (ex.: '/:id').
 app.use('/leiloeiros', leiloeiroRoutes);
 app.use('/licitantes', licitanteRoutes);
+// Interna: o Kong nao tem rota /reservas, entao so a rede do Docker alcanca.
+app.use('/reservas', reservaRoutes);
 
 // Nenhuma rota atendeu: 404.
 app.use((req, res) => res.status(404).json({ erro: 'Rota nao encontrada.' }));

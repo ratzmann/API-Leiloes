@@ -69,12 +69,13 @@ async function emTransacao(fn) {
       return rows[0] || null;
     },
     // Cria a reserva; o status comeca como RESERVADA (DEFAULT da tabela).
-    async criar({ licitanteId, valor, referencia }) {
+    // leilaoId (opcional) liga a reserva ao leilao, para o cancelamento.
+    async criar({ licitanteId, valor, referencia, leilaoId }) {
       const { rows } = await client.query(
-        `INSERT INTO reservas_credito (licitante_id, valor, referencia)
-         VALUES ($1, $2, $3)
+        `INSERT INTO reservas_credito (licitante_id, valor, referencia, leilao_id)
+         VALUES ($1, $2, $3, $4)
          RETURNING *`,
-        [licitanteId, valor, referencia || null]
+        [licitanteId, valor, referencia || null, leilaoId || null]
       );
       return rows[0];
     },
@@ -129,4 +130,22 @@ async function listarPorLicitante(licitanteId) {
   return rows;
 }
 
-module.exports = { emTransacao, somarReservado, listarPorLicitante };
+/**
+ * Libera TODAS as reservas ainda ativas (RESERVADA) de um leilao, num UPDATE
+ * so. Usado quando o leilao e CANCELADO: ninguem mais pode ganhar, entao o
+ * credito de todos volta a ficar disponivel.
+ * E idempotente: rodar de novo nao encontra mais reservas ativas e nao muda nada.
+ * @returns a lista de reservas liberadas agora (vazia se nao havia nenhuma)
+ */
+async function liberarPorLeilao(leilaoId) {
+  const { rows } = await pool.query(
+    `UPDATE reservas_credito
+        SET status = 'LIBERADA', liberado_em = NOW()
+      WHERE leilao_id = $1 AND status = 'RESERVADA'
+      RETURNING *`,
+    [leilaoId]
+  );
+  return rows;
+}
+
+module.exports = { emTransacao, somarReservado, listarPorLicitante, liberarPorLeilao };

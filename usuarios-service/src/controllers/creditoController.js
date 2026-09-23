@@ -1,12 +1,15 @@
 // =============================================================================
 // controllers/creditoController.js  -  CONTROLLER do credito do licitante
 // -----------------------------------------------------------------------------
-// Trata as rotas de credito (/licitantes/:id/credito e /reservas).
-// Estas rotas sao chamadas pela SAGA do lances-service (servico a servico),
-// e nao pelo usuario final - o Kong bloqueia /reservas vindas de fora.
+// Trata as rotas de credito (/licitantes/:id/credito e /reservas) e a rota
+// interna /reservas/leilao/:leilaoId/liberar (cancelamento de leilao).
+// As rotas de reserva sao chamadas por outros servicos (a SAGA do
+// lances-service e o leiloes-service), e nao pelo usuario final - o Kong
+// bloqueia /licitantes/:id/reservas e nem expoe /reservas.
 //
 // Lembrete do papel do controller: ler req -> chamar service -> responder res.
-// Quem chama: routes/licitanteRoutes.js | Quem e chamado: services/creditoService.js
+// Quem chama: routes/licitanteRoutes.js e routes/reservaRoutes.js
+// Quem e chamado: services/creditoService.js
 // =============================================================================
 
 const creditoService = require('../services/creditoService');
@@ -35,7 +38,7 @@ async function listarReservas(req, res) {
 }
 
 /**
- * POST /licitantes/:id/reservas   corpo: { valor, referencia }
+ * POST /licitantes/:id/reservas   corpo: { valor, referencia, leilaoId }
  * Bloqueia `valor` do credito do licitante (passo 2 da Saga de lance).
  *
  * IDEMPOTENCIA: se a mesma `referencia` (id da saga) chegar de novo, o service
@@ -44,9 +47,9 @@ async function listarReservas(req, res) {
  */
 async function reservar(req, res) {
   try {
-    const { valor, referencia } = req.body;
+    const { valor, referencia, leilaoId } = req.body;
     // O service devolve dois dados: a reserva e se ela foi criada agora.
-    const { reserva, criada } = await creditoService.reservar(req.params.id, { valor, referencia });
+    const { reserva, criada } = await creditoService.reservar(req.params.id, { valor, referencia, leilaoId });
     res.status(criada ? 201 : 200).json(reserva);
   } catch (err) {
     tratarErro(res, err);
@@ -67,6 +70,19 @@ async function liberar(req, res) {
 }
 
 /**
+ * POST /reservas/leilao/:leilaoId/liberar  (INTERNA)
+ * Chamada pelo leiloes-service ao CANCELAR um leilao: libera todo o credito
+ * ainda reservado naquele leilao. Responde { leilaoId, liberadas, reservas }.
+ */
+async function liberarPorLeilao(req, res) {
+  try {
+    res.json(await creditoService.liberarPorLeilao(req.params.leilaoId));
+  } catch (err) {
+    tratarErro(res, err);
+  }
+}
+
+/**
  * Converte erros em resposta HTTP.
  * ErroDeValidacao -> usa o codigo do erro (400, 404, 409);
  * qualquer outro  -> 500 com mensagem generica (detalhe so no log).
@@ -79,4 +95,4 @@ function tratarErro(res, err) {
   return res.status(500).json({ erro: 'Erro interno no servico de usuarios.' });
 }
 
-module.exports = { consultar, listarReservas, reservar, liberar };
+module.exports = { consultar, listarReservas, reservar, liberar, liberarPorLeilao };
