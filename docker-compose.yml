@@ -225,6 +225,8 @@ services:
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
       KONG_ADMIN_ERROR_LOG: /dev/stderr
+      # Dentro do container a Admin API escuta em todas as interfaces; quem
+      # restringe o acesso e o mapeamento de porta abaixo (so 127.0.0.1).
       KONG_ADMIN_LISTEN: 0.0.0.0:8001
     volumes:
       # Coloca o nosso kong.yml dentro do container.
@@ -232,7 +234,10 @@ services:
     # ports: "porta_na_sua_maquina:porta_no_container". So o Kong tem isso.
     ports:
       - "8000:8000"   # Proxy (entrada publica da API)
-      - "8001:8001"   # Admin API (uso local/dev)
+      # Admin API: permite ler E ALTERAR a configuracao do gateway (inclusive
+      # desligar a autenticacao). Por isso so fica acessivel na PROPRIA maquina
+      # ("127.0.0.1:"); outros computadores da rede nao conseguem acessa-la.
+      - "127.0.0.1:8001:8001"
     depends_on:
       - auth-service
       - usuarios-service
