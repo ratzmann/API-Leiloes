@@ -57,24 +57,19 @@ Arquitetura explicada para iniciantes: [`docs/ARQUITETURA.md`](docs/ARQUITETURA.
 
 ## Como validar
 
-```bash
-# testes unitarios (Jest, com repositorios e clients mockados)
-cd <servico> && npm install && npm test
-
-# sistema completo
-docker compose up --build
-```
-
 ```powershell
-# ponta a ponta pelo Kong (com a stack no ar)
+# testes unitarios dos 4 servicos (Node local ou Docker), com resumo;
+# cobertura medida sobre todo o src/, minimo de 50% (coverageThreshold)
+powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1
+
+# ponta a ponta pelo Kong (com a stack no ar: docker compose up --build)
 powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
 ```
 
-Sem Node instalado localmente, os testes podem rodar em container:
+Um servico so: `cd <servico> && npm install && npm test`.
+Novos testes: regras em `tests/<modulo>.test.js`; camada HTTP em `tests/rotas.test.js` (supertest, services mockados).
 
-```bash
-docker run --rm -v "$PWD/lances-service:/app" -w /app node:20-alpine sh -c "npm install && npm test"
-```
+Roteiro da apresentacao: [`docs/APRESENTACAO.md`](docs/APRESENTACAO.md).
 
 ## Git
 

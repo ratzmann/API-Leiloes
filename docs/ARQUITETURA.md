@@ -365,8 +365,13 @@ sequenceDiagram
 
 ## 9. Testes automatizados
 
-- Ferramenta: **Jest**. Cada serviço tem uma pasta `tests/`.
-- Os testes cobrem a camada **services/** (e a Saga), onde estão as regras.
+- Ferramenta: **Jest**. Cada serviço tem uma pasta `tests/`, com dois tipos de teste:
+  - **regras de negócio** (`tests/<service>.test.js`): testam os `services/`
+    (e a Saga), onde estão as regras;
+  - **camada HTTP** (`tests/rotas.test.js`): com o **supertest**, fazem
+    requisições de verdade ao `app` do Express e conferem se cada rota chama o
+    controller certo, repassa os dados certos e devolve o status HTTP certo
+    (200, 201, 204, 4xx, 500). Aqui os `services/` é que são mockados.
 - `repositories/` e `clients/` são trocados por **mocks** (pastas
   `__mocks__/`): funções falsas (`jest.fn()`) que o teste programa para
   devolver o que quiser — por exemplo, "o banco não encontrou nada" ou "o
@@ -383,17 +388,26 @@ describe('leilaoService.remover', () => {        // grupo
 });
 ```
 
-| Serviço | Testes |
-|---|---|
-| auth-service | 13 |
-| usuarios-service | 37 |
-| leiloes-service | 40 |
-| lances-service | 46 |
-| **Total** | **136** |
+A **cobertura** é medida sobre **todo o `src/`** (menos os mocks), e o
+`coverageThreshold` do `package.json` faz o `npm test` **falhar** se qualquer
+métrica ficar abaixo de 50%.
 
-Além disso, `testes/testar-tudo.ps1` faz um teste **ponta a ponta** (61 passos
-pelo Kong, com a stack no ar, incluindo a autorização) e há uma coleção Postman
-em `testes/`.
+| Serviço | Testes | Cobertura (linhas) |
+|---|---|---|
+| auth-service | 18 | 87% |
+| usuarios-service | 57 | 76% |
+| leiloes-service | 51 | 74% |
+| lances-service | 56 | 75% |
+| **Total** | **182** | |
+
+Como rodar:
+
+| O quê | Comando | Precisa do sistema no ar? |
+|---|---|---|
+| Unitários dos 4 serviços, com resumo | `powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1` | Não (usa Node local ou Docker) |
+| Unitários de um serviço | `cd <servico> && npm install && npm test` | Não |
+| Ponta a ponta (61 passos pelo Kong) | `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` | Sim |
+| Manual | `testes/roteiro-de-testes.md` (curl) e a coleção Postman | Sim |
 
 ---
 
@@ -470,6 +484,9 @@ Duplicar `config/db.js`, `utils/erros.js` e `extrairUsuario.js` em cada serviço
 
 ## 12. Roteiro sugerido para a apresentação
 
+> O roteiro **por aluno** (15 minutos, com demos prontas em PowerShell) está em
+> [`APRESENTACAO.md`](APRESENTACAO.md). Abaixo, a ordem temática para estudo.
+
 1. **Visão geral** — o desenho da seção 2 e a analogia do shopping.
 2. **`docker-compose.yml`** — os 9 containers, um banco por serviço, só o Kong com porta.
 3. **`kong/kong.yml`** — rotas, plugin JWT e o bloqueio 403 das reservas.
@@ -482,7 +499,7 @@ Duplicar `config/db.js`, `utils/erros.js` e `extrairUsuario.js` em cada serviço
    `GET /lances/sagas/:id`.
 7. **Autorização** — seção 5: `lanceService.autorizarLicitante` e
    `leilaoService.garantirDono`; demonstrar um leiloeiro tentando dar lance (403).
-8. **Testes** — `npm test` em um serviço e o `testar-tudo.ps1` (61 passos).
+8. **Testes** — `testar-unitarios.ps1` (182 testes, cobertura ≥ 50% em todo o `src/`) e `testar-tudo.ps1` (61 passos).
 9. **Próximos passos** — seção 10.
 
 ---

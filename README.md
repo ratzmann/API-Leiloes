@@ -5,6 +5,9 @@ Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro
 > 📘 **Explicação didática da arquitetura** (para quem está começando):
 > [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md). O código-fonte também está
 > comentado passo a passo.
+>
+> 🎤 **Roteiro da apresentação** (15 min, por aluno, com demos):
+> [`docs/APRESENTACAO.md`](docs/APRESENTACAO.md).
 
 ## Arquitetura
 
@@ -284,16 +287,25 @@ curl http://localhost:8000/lances/leilao/1/maior \
 
 ## Testes automatizados
 
-```bash
-cd auth-service && npm install && npm test
-cd usuarios-service && npm install && npm test
-cd leiloes-service && npm install && npm test
-cd lances-service && npm install && npm test
+Testes unitários dos 4 serviços de uma vez, com resumo (usa o Node.js local
+ou, se não houver, um container Docker — não precisa subir o sistema):
+```powershell
+powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1
 ```
+Ou um serviço por vez: `cd <servico> && npm install && npm test`.
 
-Todos usam Jest com repositórios (e clients HTTP) mockados, testando as regras
-de negócio em `services/` (e a Saga em `sagas/`), e reportam cobertura
-(`--coverage`), ficando acima dos 50% exigidos.
+Todos usam Jest, com repositórios e clients HTTP mockados. Há dois tipos de
+teste em cada serviço: as **regras de negócio** (`services/` e a Saga em
+`sagas/`) e a **camada HTTP** (`tests/rotas.test.js`, com supertest). A
+cobertura é medida sobre **todo o `src/`** e o `npm test` falha se ficar abaixo
+de 50%:
+
+| Serviço | Testes | Cobertura (linhas) |
+|---|---|---|
+| auth-service | 18 | 87% |
+| usuarios-service | 57 | 76% |
+| leiloes-service | 51 | 74% |
+| lances-service | 56 | 75% |
 
 Ponta a ponta, com a stack no ar (PowerShell):
 ```powershell
