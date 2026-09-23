@@ -140,7 +140,7 @@ routes/  →  controllers/  →  services/  →  repositories/  →  PostgreSQL
 | `utils/` | Validações e o tipo `ErroDeValidacao`. | A caixa de ferramentas. |
 | `config/db.js` | Conexão (pool) com o Postgres. | A chave do depósito. |
 | `db/init.sql` | Criação das tabelas. | A planta do depósito. |
-| `db/migrar.js` | Roda o `init.sql` ao subir, com novas tentativas (usuarios e lances). | Conferir o depósito ao abrir. |
+| `db/migrar.js` | Roda o `init.sql` ao subir, com novas tentativas (usuarios, leiloes e lances). | Conferir o depósito ao abrir. |
 
 **Por que separar assim?**
 
@@ -191,6 +191,8 @@ Um **JSON Web Token** é um "crachá digital" no formato `xxxxx.yyyyy.zzzzz`:
 | Cadastrar leilão | só `LEILOEIRO`, em nome próprio | `leilaoService.autorizarLeiloeiro` |
 | Editar, abrir, encerrar, cancelar, remover leilão | só o **dono** do leilão | `leilaoService.garantirDono` |
 | Dar lance | só `LICITANTE`, em nome próprio | `lanceService.autorizarLicitante` |
+| Alterar/remover cadastro de leiloeiro ou licitante | só o **próprio** (e o licitante não muda o próprio limite) | `usuarios-service/src/utils/autorizacao.js` |
+| Criar perfil (`POST /leiloeiros`, `/licitantes`) | só o auth-service, no registro | Kong bloqueia de fora (403) |
 
 Sem login → `401`; sem permissão → `403`. Assim ninguém cria leilão para outro
 leiloeiro, nem dá lance (e gasta o crédito) de outro licitante.
@@ -333,6 +335,7 @@ sequenceDiagram
 | Licitante: CPF válido pelos dígitos verificadores | `utils/validadores.js` → `cpfValido` |
 | Licitante: CPF e e-mail únicos; limite de crédito ≥ 0 | `services/licitanteService.js` |
 | Crédito: reservas nunca passam do limite; reserva/liberação idempotentes | `services/creditoService.js` |
+| Autorização: só o próprio altera/remove o cadastro; licitante não muda o próprio limite | `utils/autorizacao.js` + `atualizar`/`remover` dos services |
 
 ### leiloes-service (`services/leilaoService.js`)
 
@@ -382,12 +385,12 @@ describe('leilaoService.remover', () => {        // grupo
 | Serviço | Testes |
 |---|---|
 | auth-service | 13 |
-| usuarios-service | 28 |
+| usuarios-service | 37 |
 | leiloes-service | 40 |
 | lances-service | 46 |
-| **Total** | **127** |
+| **Total** | **136** |
 
-Além disso, `testes/testar-tudo.ps1` faz um teste **ponta a ponta** (57 passos
+Além disso, `testes/testar-tudo.ps1` faz um teste **ponta a ponta** (61 passos
 pelo Kong, com a stack no ar, incluindo a autorização) e há uma coleção Postman
 em `testes/`.
 
@@ -405,19 +408,24 @@ em `testes/`.
   as funções de controller.
 - **Autorização**: o token passou a levar `perfilId`; lances só em nome do
   licitante logado; leilões só em nome do leiloeiro logado e alterados só pelo dono.
-- `package-lock.json` do lances-service versionado.
+- **Cadastros de usuários**: `PUT`/`DELETE` de `/leiloeiros` e `/licitantes` só
+  pelo próprio dono (`utils/autorizacao.js`); o licitante não altera o próprio
+  limite de crédito; `POST` de perfis bloqueado no Kong (só o auth-service cria,
+  no registro, pela rede interna).
+- `package-lock.json` do lances-service versionado; pastas `coverage/` fora do
+  git; campo `version:` obsoleto removido do `docker-compose.yml`.
 
 Duplicar `config/db.js`, `utils/erros.js` e `extrairUsuario.js` em cada serviço
 é **intencional** (independência dos microsserviços).
 
 ### Próximos passos
 
-- **Autorização nos cadastros de usuários**: `PUT`/`DELETE` de `/leiloeiros` e
-  `/licitantes` ainda aceitam qualquer usuário logado. O `POST` dessas rotas é
-  chamado pelo auth-service sem token, então a regra precisa de um desenho
-  próprio (ex.: só o próprio perfil altera seus dados).
-- As pastas `coverage/` estão versionadas mesmo estando no `.gitignore`.
-- O `docker-compose.yml` usa `version: "3.9"`, que o Docker atual considera obsoleto (só gera aviso).
+- **Papel de administrador**: hoje ninguém altera o limite de crédito depois do
+  cadastro (o próprio licitante é barrado de propósito). Um papel `ADMIN`
+  permitiria ajustes controlados.
+- **Remoção de cadastros em uso**: remover um leiloeiro com leilões ativos, ou
+  um licitante com reservas de crédito, ainda é permitido. Uma regra de negócio
+  (ou "desativar" em vez de apagar) evitaria dados órfãos entre os serviços.
 
 **Evoluções (do README)**
 
@@ -473,5 +481,5 @@ Duplicar `config/db.js`, `utils/erros.js` e `extrairUsuario.js` em cada serviço
    `GET /lances/sagas/:id`.
 7. **Autorização** — seção 5: `lanceService.autorizarLicitante` e
    `leilaoService.garantirDono`; demonstrar um leiloeiro tentando dar lance (403).
-8. **Testes** — `npm test` em um serviço e o `testar-tudo.ps1` (57 passos).
+8. **Testes** — `npm test` em um serviço e o `testar-tudo.ps1` (61 passos).
 9. **Próximos passos** — seção 10.

@@ -58,7 +58,8 @@ Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro
   token emitido pelo `auth-service` porque o `Consumer` `sistema-leilao`
   está configurado com o mesmo segredo HS256 (`JWT_SECRET`) usado para
   assinar os tokens. As rotas de reserva de crédito
-  (`/licitantes/:id/reservas`) são internas e o Kong as bloqueia com `403`.
+  (`/licitantes/:id/reservas`) e a criação de perfis (`POST /leiloeiros`,
+  `POST /licitantes`) são internas e o Kong as bloqueia com `403`.
 
 ## Padrões de microsserviços
 
@@ -109,11 +110,18 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 1. Nome, e-mail e registro profissional obrigatórios.
 2. E-mail único.
 3. Registro profissional (ex: `JUCESC-000123`) único e com formato validado.
+4. **Autorização**: só o próprio leiloeiro altera (`PUT`) ou remove (`DELETE`) o seu cadastro.
 
 **Licitante**
 1. CPF validado (dígitos verificadores) e único.
 2. E-mail único.
 3. Limite de crédito nunca pode ser negativo.
+4. **Autorização**: só o próprio licitante altera ou remove o seu cadastro.
+5. O licitante **não** altera o próprio limite de crédito (`403`) — o limite é
+   definido no cadastro.
+
+> Perfis são criados só pelo registro (`POST /auth/registrar`): o Kong
+> responde `403` a `POST /leiloeiros` e `POST /licitantes` vindos de fora.
 
 **Crédito**
 1. A soma das reservas ativas nunca ultrapassa o limite de crédito do licitante.
@@ -291,9 +299,9 @@ Ponta a ponta, com a stack no ar (PowerShell):
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
 ```
-57 passos pelo Kong: autenticação, usuários, leilões, a Saga de lances —
+61 passos pelo Kong: autenticação, usuários, leilões, a Saga de lances —
 caminho feliz, recusas, compensação, pendência e reprocessamento — e a
-autorização (ninguém age em nome de outra pessoa).
+autorização (ninguém age em nome de outra pessoa nem altera o cadastro alheio).
 
 ## Variáveis de ambiente
 

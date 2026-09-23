@@ -22,6 +22,10 @@
       "value": ""
     },
     {
+      "key": "leiloeiro_id",
+      "value": ""
+    },
+    {
       "key": "leilao_id",
       "value": ""
     },
@@ -149,6 +153,7 @@
               "if (pm.response.code === 201) {",
               "  const body = pm.response.json();",
               "  pm.collectionVariables.set('token_leiloeiro', body.token);",
+              "  if (body.perfil) pm.collectionVariables.set('leiloeiro_id', body.perfil.id);",
               "}"
             ]
           }
@@ -213,11 +218,11 @@
             "value": "Bearer {{token_leiloeiro}}"
           }
         ],
-        "url": "{{base_url}}/leiloeiros/1"
+        "url": "{{base_url}}/leiloeiros/{{leiloeiro_id}}"
       }
     },
     {
-      "name": "11. Atualizar leiloeiro",
+      "name": "11. Atualizar o proprio cadastro de leiloeiro",
       "request": {
         "method": "PUT",
         "header": [
@@ -230,7 +235,7 @@
             "value": "application/json"
           }
         ],
-        "url": "{{base_url}}/leiloeiros/1",
+        "url": "{{base_url}}/leiloeiros/{{leiloeiro_id}}",
         "body": {
           "mode": "raw",
           "raw": "{ \"telefone\": \"47988887777\" }"
@@ -485,7 +490,7 @@
       }
     },
     {
-      "name": "26. Deletar leiloeiro",
+      "name": "26. Deletar o proprio cadastro de leiloeiro",
       "request": {
         "method": "DELETE",
         "header": [
@@ -494,7 +499,7 @@
             "value": "Bearer {{token_leiloeiro}}"
           }
         ],
-        "url": "{{base_url}}/leiloeiros/1"
+        "url": "{{base_url}}/leiloeiros/{{leiloeiro_id}}"
       }
     },
     {

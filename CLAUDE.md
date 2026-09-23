@@ -40,8 +40,10 @@ Arquitetura explicada para iniciantes: [`docs/ARQUITETURA.md`](docs/ARQUITETURA.
 - As rotas `/licitantes/:id/reservas` são internas (o Kong responde 403 para fora).
 - **Autorização** fica nos `services/`, usando `papel` e `perfilId` do token
   (`req.usuarioAutenticado`, repassado pelo controller): leilão só pelo leiloeiro
-  logado (e alterado só pelo dono); lance só pelo licitante logado, em nome próprio.
+  logado (e alterado só pelo dono); lance só pelo licitante logado, em nome próprio;
+  cadastro de leiloeiro/licitante alterado só pelo próprio (`usuarios-service/src/utils/autorizacao.js`).
   Sem login → 401; sem permissão → 403.
+- Rotas internas bloqueadas no Kong (403): reservas de crédito e `POST` de perfis.
 - Duplicação de pequenos arquivos entre serviços (`config/db.js`, `utils/erros.js`) é
   **intencional**: cada microsserviço é independente.
 

@@ -193,17 +193,24 @@ curl -i -X PATCH http://localhost:8000/leiloes/1/cancelar -H "Authorization: Bea
 ```
 
 ## 12. Ver, atualizar e apagar um registro
+
+Só o **próprio** leiloeiro altera ou apaga o seu cadastro: use o id do perfil
+dele (`perfil.id` da resposta do registro do passo 8) com o token dele. Com o id
+de outra pessoa a resposta é `403`. Criar perfis direto (`POST /leiloeiros`) é
+bloqueado pelo Kong (`403`) — o caminho é `POST /auth/registrar`.
 ```bash
 TOKEN_LEILOEIRO=... # token do passo 8
+LEILOEIRO_ID=...    # perfil.id do passo 8
 
-curl http://localhost:8000/leiloeiros/1 -H "Authorization: Bearer $TOKEN_LEILOEIRO"
+curl http://localhost:8000/leiloeiros/$LEILOEIRO_ID -H "Authorization: Bearer $TOKEN_LEILOEIRO"
 
-curl -X PUT http://localhost:8000/leiloeiros/1 \
+curl -X PUT http://localhost:8000/leiloeiros/$LEILOEIRO_ID \
   -H "Authorization: Bearer $TOKEN_LEILOEIRO" \
   -H "Content-Type: application/json" \
   -d '{ "telefone": "47988887777" }'
 
-curl -i -X DELETE http://localhost:8000/leiloeiros/1 \
+# (rode o DELETE so no fim: os passos seguintes usam este leiloeiro)
+curl -i -X DELETE http://localhost:8000/leiloeiros/$LEILOEIRO_ID \
   -H "Authorization: Bearer $TOKEN_LEILOEIRO"
 ```
 
@@ -215,7 +222,7 @@ o leilão no `leiloes-service`, reserva o crédito do licitante no
 Por isso o lance precisa de um **leilão real, aberto e dentro do período**, e
 de **licitantes reais com limite de crédito**.
 
-> Para rodar tudo isso automaticamente: `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` (passos 30 a 57).
+> Para rodar tudo isso automaticamente: `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` (passos 30 a 61).
 
 **Autorização:** o lance é sempre dado em nome de quem está logado. Por isso
 cada licitante usa o **próprio token** (`TOKEN_A`, `TOKEN_B`) e o
