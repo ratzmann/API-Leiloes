@@ -2,6 +2,10 @@
 
 Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro de leilão (evento)**, **registro e consulta de lances** + **sistema de autenticação com Kong**.
 
+> 📘 **Explicação didática da arquitetura** (para quem está começando):
+> [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md). O código-fonte também está
+> comentado passo a passo.
+
 ## Arquitetura
 
 ```

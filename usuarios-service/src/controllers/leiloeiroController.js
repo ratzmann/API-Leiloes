@@ -1,11 +1,32 @@
+// =============================================================================
+// controllers/leiloeiroController.js  -  CONTROLLER de leiloeiros
+// -----------------------------------------------------------------------------
+// Uma funcao para cada rota do CRUD de leiloeiros. Todas seguem o mesmo roteiro:
+//   1. pegar os dados da requisicao (req.params / req.body);
+//   2. chamar o service (que aplica as regras de negocio);
+//   3. responder com o status HTTP adequado;
+//   4. em caso de erro, delegar ao tratarErro.
+//
+// Quem chama: routes/leiloeiroRoutes.js | Quem e chamado: services/leiloeiroService.js
+// =============================================================================
+
 const leiloeiroService = require('../services/leiloeiroService');
 const { ErroDeValidacao } = require('../utils/erros');
 
+/**
+ * GET /leiloeiros  ->  lista todos os leiloeiros.
+ * Obs.: esta funcao nao tem try/catch (as demais tem). Se o banco falhar, o
+ * Express 4 nao captura erros de funcoes async sozinho - ponto de melhoria.
+ */
 async function listar(req, res) {
   const leiloeiros = await leiloeiroService.listar();
   res.json(leiloeiros);
 }
 
+/**
+ * GET /leiloeiros/:id
+ * Number(...) converte o texto "5" da URL no numero 5.
+ */
 async function buscarPorId(req, res) {
   try {
     const leiloeiro = await leiloeiroService.buscarPorId(Number(req.params.id));
@@ -15,8 +36,14 @@ async function buscarPorId(req, res) {
   }
 }
 
+/**
+ * POST /leiloeiros  ->  cadastra um leiloeiro.
+ * Normalmente quem chama e o auth-service, logo apos o registro do usuario.
+ */
 async function cadastrar(req, res) {
   try {
+    // Pegamos do corpo APENAS os campos esperados. Qualquer outro campo que o
+    // cliente mandar e ignorado (uma protecao simples contra dados indesejados).
     const { usuarioId, nome, email, registroProfissional, telefone } = req.body;
     const leiloeiro = await leiloeiroService.cadastrar({
       usuarioId,
@@ -25,12 +52,14 @@ async function cadastrar(req, res) {
       registroProfissional,
       telefone,
     });
+    // 201 Created: recurso criado.
     res.status(201).json(leiloeiro);
   } catch (err) {
     tratarErro(res, err);
   }
 }
 
+/** PUT /leiloeiros/:id  ->  atualiza nome e/ou telefone. */
 async function atualizar(req, res) {
   try {
     const leiloeiro = await leiloeiroService.atualizar(Number(req.params.id), req.body);
@@ -40,6 +69,10 @@ async function atualizar(req, res) {
   }
 }
 
+/**
+ * DELETE /leiloeiros/:id
+ * 204 No Content: deu certo e nao ha nada para devolver no corpo.
+ */
 async function remover(req, res) {
   try {
     await leiloeiroService.remover(Number(req.params.id));
@@ -49,6 +82,7 @@ async function remover(req, res) {
   }
 }
 
+/** Erro de negocio -> codigo do erro; erro inesperado -> 500. */
 function tratarErro(res, err) {
   if (err instanceof ErroDeValidacao) {
     return res.status(err.codigo).json({ erro: err.message });

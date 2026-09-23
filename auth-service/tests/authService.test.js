@@ -1,3 +1,18 @@
+// =============================================================================
+// tests/authService.test.js  -  testes das regras de cadastro e login
+// -----------------------------------------------------------------------------
+// Cobre: validacao do registro, e-mail duplicado (409), login com senha errada
+// (401) e login correto. O repository e o gerador de token sao mockados.
+// COMO LER UM TESTE (Jest):
+//   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
+//   test('descricao', () => { ... })    um cenario (chamado tambem de it);
+//   expect(valor).toBe(esperado)        a VERIFICACAO: se nao bater, o teste falha;
+//   expect(() => f()).toThrow('msg')    confere que a funcao LANCA aquele erro;
+//   await expect(promessa).rejects...   o mesmo, para funcoes async.
+// jest.mock('caminho') troca o modulo real pelo MOCK (pasta __mocks__), entao
+// os testes rodam sem banco e sem rede. Rodar:  npm test  (dentro do servico).
+// =============================================================================
+
 jest.mock('../src/repositories/usuarioRepository');
 jest.mock('../src/utils/jwt', () => ({
   gerarToken: jest.fn(() => 'token-fake'),

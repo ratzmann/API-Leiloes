@@ -1,3 +1,20 @@
+// =============================================================================
+// routes/licitanteRoutes.js  -  ROTAS de licitantes e do CREDITO (usuarios-service)
+// -----------------------------------------------------------------------------
+// Montado em app.js com o prefixo /licitantes.
+//
+// CRUD do licitante (mesmo padrao dos leiloeiros):
+//   GET /licitantes, GET /licitantes/:id, POST, PUT /:id, DELETE /:id
+//
+// Credito do licitante (usado pela Saga de lance do lances-service):
+//   GET  /licitantes/:id/credito                         -> limite, reservado e disponivel
+//   GET  /licitantes/:id/reservas                        -> historico de reservas
+//   POST /licitantes/:id/reservas                        -> bloqueia um valor (passo 2 da Saga)
+//   POST /licitantes/:id/reservas/:reservaId/liberar     -> devolve o valor (compensacao / passo 4)
+// As rotas de /reservas sao INTERNAS: o Kong devolve 403 se alguem de fora
+// tentar chama-las (ver a rota "reservas-credito-internas" no kong.yml).
+// =============================================================================
+
 const { Router } = require('express');
 const licitanteController = require('../controllers/licitanteController');
 const creditoController = require('../controllers/creditoController');
@@ -14,6 +31,7 @@ router.delete('/:id', licitanteController.remover);
 router.get('/:id/credito', creditoController.consultar);
 router.get('/:id/reservas', creditoController.listarReservas);
 router.post('/:id/reservas', creditoController.reservar);
+// Dois parametros de rota: req.params.id e req.params.reservaId.
 router.post('/:id/reservas/:reservaId/liberar', creditoController.liberar);
 
 module.exports = router;

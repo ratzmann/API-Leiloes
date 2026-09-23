@@ -1,6 +1,22 @@
+// =============================================================================
+// controllers/leilaoController.js  -  CONTROLLER do leilao
+// -----------------------------------------------------------------------------
+// Uma funcao por rota. Todas seguem o roteiro:
+//   ler req (params/query/body) -> chamar leilaoService -> responder res
+//   (e, se der erro, tratarErro converte em resposta HTTP).
+//
+// Tres lugares de onde os dados chegam na requisicao:
+//   req.params -> partes da URL declaradas com ":"  (ex.: /leiloes/:id)
+//   req.query  -> depois do "?" na URL              (ex.: ?status=ABERTO)
+//   req.body   -> corpo JSON (POST, PUT, PATCH)
+//
+// Quem chama: routes/leilaoRoutes.js | Quem e chamado: services/leilaoService.js
+// =============================================================================
+
 const leilaoService = require('../services/leilaoService');
 const { ErroDeValidacao } = require('../utils/erros');
 
+/** GET /leiloes?status=ABERTO&leiloeiroId=1  (os dois filtros sao opcionais) */
 async function listar(req, res) {
   try {
     const leiloes = await leilaoService.listar({
@@ -13,6 +29,7 @@ async function listar(req, res) {
   }
 }
 
+/** GET /leiloes/:id  (Number converte o texto da URL em numero) */
 async function buscarPorId(req, res) {
   try {
     const leilao = await leilaoService.buscarPorId(Number(req.params.id));
@@ -22,6 +39,10 @@ async function buscarPorId(req, res) {
   }
 }
 
+/**
+ * POST /leiloes  ->  201 Created com o leilao cadastrado.
+ * Desestrutura so os campos conhecidos do corpo e repassa ao service.
+ */
 async function cadastrar(req, res) {
   try {
     const {
@@ -55,6 +76,7 @@ async function cadastrar(req, res) {
   }
 }
 
+/** PUT /leiloes/:id  ->  edita campos de um leilao ainda AGENDADO. */
 async function atualizar(req, res) {
   try {
     const leilao = await leilaoService.atualizar(Number(req.params.id), req.body);
@@ -64,6 +86,7 @@ async function atualizar(req, res) {
   }
 }
 
+/** PATCH /leiloes/:id/status   corpo: { "status": "ABERTO" } */
 async function alterarStatus(req, res) {
   try {
     const leilao = await leilaoService.alterarStatus(Number(req.params.id), req.body.status);
@@ -73,6 +96,7 @@ async function alterarStatus(req, res) {
   }
 }
 
+/** PATCH /leiloes/:id/abrir  ->  AGENDADO -> ABERTO */
 async function abrir(req, res) {
   try {
     res.json(await leilaoService.abrir(Number(req.params.id)));
@@ -81,6 +105,7 @@ async function abrir(req, res) {
   }
 }
 
+/** PATCH /leiloes/:id/encerrar  ->  ABERTO -> ENCERRADO */
 async function encerrar(req, res) {
   try {
     res.json(await leilaoService.encerrar(Number(req.params.id)));
@@ -89,6 +114,7 @@ async function encerrar(req, res) {
   }
 }
 
+/** PATCH /leiloes/:id/cancelar  ->  AGENDADO ou ABERTO -> CANCELADO */
 async function cancelar(req, res) {
   try {
     res.json(await leilaoService.cancelar(Number(req.params.id)));
@@ -98,6 +124,11 @@ async function cancelar(req, res) {
 }
 
 // usado pelo lances-service antes de aceitar um lance
+/**
+ * GET /leiloes/:id/disponibilidade
+ * Esta rota e um exemplo de COMUNICACAO ENTRE MICROSSERVICOS: o lances-service
+ * a chama no passo 1 da Saga para saber se o leilao aceita lances.
+ */
 async function consultarDisponibilidade(req, res) {
   try {
     res.json(await leilaoService.consultarDisponibilidade(Number(req.params.id)));
@@ -106,6 +137,7 @@ async function consultarDisponibilidade(req, res) {
   }
 }
 
+/** DELETE /leiloes/:id  ->  204 No Content (so enquanto AGENDADO). */
 async function remover(req, res) {
   try {
     await leilaoService.remover(Number(req.params.id));
@@ -115,6 +147,7 @@ async function remover(req, res) {
   }
 }
 
+/** Erro de negocio -> codigo do erro (400/404/409/503); inesperado -> 500. */
 function tratarErro(res, err) {
   if (err instanceof ErroDeValidacao) {
     return res.status(err.codigo).json({ erro: err.message });

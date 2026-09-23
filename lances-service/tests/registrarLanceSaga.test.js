@@ -1,3 +1,21 @@
+// =============================================================================
+// tests/registrarLanceSaga.test.js  -  testes da SAGA de registro de lance
+// -----------------------------------------------------------------------------
+// Cobre o caminho feliz (CONCLUIDA), recusas no passo 1 e 2 (FALHOU), falha no
+// passo 3 com compensacao (COMPENSADA), falha da compensacao (FALHOU_COMPENSACAO),
+// passo 4 com pendencia (CONCLUIDA_COM_PENDENCIA) e o reprocessamento.
+// Clients HTTP e repositories sao mockados: simulamos cada servico respondendo
+// ou falhando sem precisar subir nada.
+// COMO LER UM TESTE (Jest):
+//   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
+//   test('descricao', () => { ... })    um cenario (chamado tambem de it);
+//   expect(valor).toBe(esperado)        a VERIFICACAO: se nao bater, o teste falha;
+//   expect(() => f()).toThrow('msg')    confere que a funcao LANCA aquele erro;
+//   await expect(promessa).rejects...   o mesmo, para funcoes async.
+// jest.mock('caminho') troca o modulo real pelo MOCK (pasta __mocks__), entao
+// os testes rodam sem banco e sem rede. Rodar:  npm test  (dentro do servico).
+// =============================================================================
+
 process.env.SAGA_ESPERA_REPETICAO_MS = '0';
 
 jest.mock('../src/repositories/lanceRepository');

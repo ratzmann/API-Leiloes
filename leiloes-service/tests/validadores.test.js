@@ -1,3 +1,18 @@
+// =============================================================================
+// tests/validadores.test.js  -  testes das funcoes de validacao
+// -----------------------------------------------------------------------------
+// Funcoes puras (datas, numeros, maquina de estados, sobreposicao de periodos):
+// nao precisam de mock nenhum.
+// COMO LER UM TESTE (Jest):
+//   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
+//   test('descricao', () => { ... })    um cenario (chamado tambem de it);
+//   expect(valor).toBe(esperado)        a VERIFICACAO: se nao bater, o teste falha;
+//   expect(() => f()).toThrow('msg')    confere que a funcao LANCA aquele erro;
+//   await expect(promessa).rejects...   o mesmo, para funcoes async.
+// jest.mock('caminho') troca o modulo real pelo MOCK (pasta __mocks__), entao
+// os testes rodam sem banco e sem rede. Rodar:  npm test  (dentro do servico).
+// =============================================================================
+
 const {
   dataValida,
   numeroPositivo,

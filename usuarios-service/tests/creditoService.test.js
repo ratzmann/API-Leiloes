@@ -1,3 +1,19 @@
+// =============================================================================
+// tests/creditoService.test.js  -  testes do credito (reservas da Saga)
+// -----------------------------------------------------------------------------
+// Cobre: consulta de credito, reserva com e sem saldo (409), idempotencia pela
+// referencia (mesma saga nao reserva duas vezes) e liberacao repetida sem erro.
+// A transacao (emTransacao) e simulada pelo mock do reservaRepository.
+// COMO LER UM TESTE (Jest):
+//   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
+//   test('descricao', () => { ... })    um cenario (chamado tambem de it);
+//   expect(valor).toBe(esperado)        a VERIFICACAO: se nao bater, o teste falha;
+//   expect(() => f()).toThrow('msg')    confere que a funcao LANCA aquele erro;
+//   await expect(promessa).rejects...   o mesmo, para funcoes async.
+// jest.mock('caminho') troca o modulo real pelo MOCK (pasta __mocks__), entao
+// os testes rodam sem banco e sem rede. Rodar:  npm test  (dentro do servico).
+// =============================================================================
+
 jest.mock('../src/repositories/licitanteRepository');
 jest.mock('../src/repositories/reservaRepository');
 const licitanteRepository = require('../src/repositories/licitanteRepository');

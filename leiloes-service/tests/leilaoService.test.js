@@ -1,3 +1,19 @@
+// =============================================================================
+// tests/leilaoService.test.js  -  testes das regras do leilao
+// -----------------------------------------------------------------------------
+// Cobre as regras 1 a 6: dados do evento, data futura, leiloeiro existente
+// (usuarios-service mockado, incluindo servico fora do ar -> 503), agenda livre,
+// transicoes de status e edicao/remocao so enquanto AGENDADO.
+// COMO LER UM TESTE (Jest):
+//   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
+//   test('descricao', () => { ... })    um cenario (chamado tambem de it);
+//   expect(valor).toBe(esperado)        a VERIFICACAO: se nao bater, o teste falha;
+//   expect(() => f()).toThrow('msg')    confere que a funcao LANCA aquele erro;
+//   await expect(promessa).rejects...   o mesmo, para funcoes async.
+// jest.mock('caminho') troca o modulo real pelo MOCK (pasta __mocks__), entao
+// os testes rodam sem banco e sem rede. Rodar:  npm test  (dentro do servico).
+// =============================================================================
+
 jest.mock('../src/repositories/leilaoRepository');
 jest.mock('../src/clients/usuariosClient');
 

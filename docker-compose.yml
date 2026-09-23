@@ -1,9 +1,30 @@
+# =============================================================================
+# docker-compose.yml  -  SOBE O SISTEMA INTEIRO com um comando:
+#     docker compose up --build
+# -----------------------------------------------------------------------------
+# Docker empacota cada programa num CONTAINER: uma "caixa" isolada com tudo que
+# ele precisa para rodar. O Docker Compose descreve VARIOS containers juntos,
+# como eles se conectam e em que ordem sobem.
+#
+# Aqui sobem 9 containers:
+#   - 4 bancos Postgres (um por microsservico - "database per service");
+#   - 4 microsservicos Node.js (auth, usuarios, leiloes, lances);
+#   - 1 Kong (API Gateway), o UNICO com porta aberta para fora.
+#
+# Formato YAML: a hierarquia e dada pela INDENTACAO (espacos), e "chave: valor".
+# Linhas com # sao comentarios.
+# =============================================================================
 version: "3.9"
 
+# Rede virtual privada. Todos os containers entram nela e se enxergam pelo
+# NOME (ex.: o auth-service acessa o banco em "auth-db", e nao num IP).
 networks:
   leilao-net:
     driver: bridge
 
+# Volumes = "HDs" do Docker. Guardam os dados dos bancos fora do container,
+# entao os dados sobrevivem mesmo se o container for recriado.
+# (Para zerar tudo: docker compose down -v)
 volumes:
   auth-db-data:
   usuarios-db-data:
@@ -13,17 +34,23 @@ volumes:
 services:
   # ---------------- Bancos de dados ----------------
   auth-db:
+    # Imagem pronta do Postgres versao 16 (alpine = versao enxuta do Linux).
     image: postgres:16-alpine
     container_name: auth-db
+    # Variaveis que a imagem do Postgres usa para criar usuario, senha e banco.
     environment:
       POSTGRES_USER: auth_user
       POSTGRES_PASSWORD: auth_pass
       POSTGRES_DB: auth_db
     volumes:
+      # Onde o Postgres guarda os dados -> volume nomeado (persistente).
       - auth-db-data:/var/lib/postgresql/data
+      # Copia o init.sql para a pasta que o Postgres executa na 1a subida.
       - ./auth-service/src/db/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - leilao-net
+    # HEALTHCHECK: comando que o Docker roda de tempos em tempos para saber se o
+    # banco ja aceita conexoes. Os servicos so sobem depois que ele ficar "healthy".
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
       interval: 5s
@@ -85,20 +112,30 @@ services:
       retries: 10
 
   # ---------------- Microsserviços ----------------
+  # Repare: NENHUM microsservico tem "ports:". Eles so sao acessiveis dentro da
+  # rede leilao-net - quem vem de fora obrigatoriamente passa pelo Kong.
   auth-service:
+    # build: constroi a imagem a partir do Dockerfile da pasta indicada.
     build: ./auth-service
     container_name: auth-service
+    # Variaveis de ambiente: chegam no codigo como process.env.NOME.
     environment:
       PORT: 3001
+      # "auth-db" e o nome do container do banco (resolvido pela rede do Docker).
       DB_HOST: auth-db
       DB_PORT: 5432
       DB_USER: auth_user
       DB_PASSWORD: auth_pass
       DB_NAME: auth_db
+      # ${JWT_SECRET:-padrao}: usa a variavel JWT_SECRET da maquina, se existir;
+      # senao, usa o valor depois de ":-". Precisa ser IGUAL ao secret do kong.yml.
       JWT_SECRET: ${JWT_SECRET:-super-segredo-trabalho-microsservicos}
+      # Precisa ser IGUAL a "key" do consumer no kong.yml.
       JWT_ISSUER: sistema-leilao-auth
       JWT_EXPIRES_IN: 2h
+      # Endereco interno do usuarios-service (para criar o perfil no registro).
       USUARIOS_SERVICE_URL: http://usuarios-service:3002
+    # depends_on: ordem de subida. Aqui: so sobe quando o banco estiver saudavel.
     depends_on:
       auth-db:
         condition: service_healthy
@@ -135,10 +172,12 @@ services:
       DB_NAME: leiloes_db
       JWT_SECRET: ${JWT_SECRET:-super-segredo-trabalho-microsservicos}
       JWT_ISSUER: sistema-leilao-auth
+      # Para validar o leiloeiro antes de cadastrar um leilao.
       USUARIOS_SERVICE_URL: http://usuarios-service:3002
     depends_on:
       leiloes-db:
         condition: service_healthy
+      # service_started: basta o container ter iniciado (nao espera ficar pronto).
       usuarios-service:
         condition: service_started
     networks:
@@ -148,6 +187,7 @@ services:
     build: ./lances-service
     container_name: lances-service
     environment:
+      # Mesma porta do leiloes-service, sem conflito: cada container e isolado.
       PORT: 3003
       DB_HOST: lances-db
       DB_PORT: 5432
@@ -172,19 +212,25 @@ services:
       - leilao-net
 
   # ---------------- API Gateway ----------------
+  # Kong: a "portaria" do sistema. Recebe TODAS as requisicoes externas,
+  # confere o token JWT e encaminha para o microsservico certo.
   kong:
     image: kong:3.6
     container_name: kong
     environment:
+      # Modo DB-less: o Kong nao usa banco; le toda a configuracao do kong.yml.
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /kong/kong.yml
+      # Logs vao para a saida padrao (aparecem em "docker logs kong").
       KONG_PROXY_ACCESS_LOG: /dev/stdout
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
       KONG_ADMIN_ERROR_LOG: /dev/stderr
       KONG_ADMIN_LISTEN: 0.0.0.0:8001
     volumes:
+      # Coloca o nosso kong.yml dentro do container.
       - ./kong/kong.yml:/kong/kong.yml
+    # ports: "porta_na_sua_maquina:porta_no_container". So o Kong tem isso.
     ports:
       - "8000:8000"   # Proxy (entrada pública da API)
       - "8001:8001"   # Admin API (uso local/dev)
