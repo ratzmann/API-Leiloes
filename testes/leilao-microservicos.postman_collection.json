@@ -1,20 +1,1889 @@
 {
   "info": {
     "name": "Leilão de Bois - Microsserviços",
-    "description": "Teste do fluxo de autenticação (Kong + JWT), do cadastro de leiloeiros/licitantes e do cadastro de leilões (eventos). Tudo passa pela porta 8000 (Kong). Autorizacao: cada usuario age so em nome proprio - o leilao e do leiloeiro dono do token e o lance e do licitante dono do token (token_licitante / token_licitante_b).",
+    "description": "Testes da API pelo Kong (porta 8000): autenticação e JWT, cadastros e privacidade (LGPD), ciclo de vida do leilão, lances com a Saga (compensação e reprocessamento), autorização e cancelamento devolvendo o crédito.\n\nRode a coleção INTEIRA e NA ORDEM (Runner do Postman ou newman): cada requisição guarda tokens e ids em variáveis que as seguintes usam. A requisição 1 gera e-mails, CPFs e registros novos, então a coleção pode ser repetida sem dar 409. Cada requisição confere sozinha o status esperado (aba Test Results).\n\nPelo terminal (PowerShell, na raiz do projeto), com o sistema no ar:\ndocker run --rm -v \"${PWD}/testes:/etc/newman\" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "item": [
+    {
+      "name": "1. Autenticacao e usuarios",
+      "item": [
+        {
+          "name": "1. Health do auth-service (e prepara os dados desta execucao)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/auth/health"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Prepara os dados DESTA execucao: e-mails, CPFs e registros mudam a cada",
+                  "// rodada, entao a colecao pode ser executada varias vezes sem dar 409.",
+                  "function gerarCpf() {",
+                  "  // 9 digitos aleatorios + os 2 digitos verificadores do CPF",
+                  "  const d = [];",
+                  "  for (let i = 0; i < 9; i++) d.push(Math.floor(Math.random() * 10));",
+                  "  for (let n = 9; n < 11; n++) {",
+                  "    let soma = 0;",
+                  "    for (let i = 0; i < n; i++) soma += d[i] * (n + 1 - i);",
+                  "    d.push((soma * 10) % 11 % 10);",
+                  "  }",
+                  "  return d.join('');",
+                  "}",
+                  "const sufixo = String(Date.now());",
+                  "pm.collectionVariables.set('sufixo', sufixo);",
+                  "pm.collectionVariables.set('cpf_maria', gerarCpf());",
+                  "pm.collectionVariables.set('cpf_joao', gerarCpf());",
+                  "pm.collectionVariables.set('cpf_extra', gerarCpf());",
+                  "pm.collectionVariables.set('registro', 'JUCESC-' + sufixo.slice(-6));",
+                  "pm.collectionVariables.set('registro_outro', 'JUCEPR-' + sufixo.slice(-6));",
+                  "// datas do leilao \"de amanha\" (14h as 17h, UTC)",
+                  "const amanha = new Date(Date.now() + 24 * 60 * 60 * 1000);",
+                  "amanha.setUTCHours(14, 0, 0, 0);",
+                  "pm.collectionVariables.set('data_inicio', amanha.toISOString());",
+                  "pm.collectionVariables.set('data_fim', new Date(amanha.getTime() + 3 * 60 * 60 * 1000).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status = ok', () => pm.expect(pm.response.json().status).to.eql(\"ok\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Rota protegida SEM token (espera 401 do Kong)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/licitantes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Registrar licitante Maria (limite R$ 5000)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/registrar",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Maria Souza\",\n  \"email\": \"maria_{{sufixo}}@example.com\",\n  \"senha\": \"senha123\",\n  \"papel\": \"LICITANTE\",\n  \"dadosPerfil\": {\n    \"cpf\": \"{{cpf_maria}}\",\n    \"limiteCredito\": 5000\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const b = pm.response.json();",
+                  "pm.test('devolve o token', () => pm.expect(b.token).to.be.a('string'));",
+                  "pm.collectionVariables.set('token_licitante', b.token);",
+                  "pm.collectionVariables.set('licitante_id', b.perfil.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Login da Maria",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"maria_{{sufixo}}@example.com\",\n  \"senha\": \"senha123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('devolve o token', () => pm.expect(pm.response.json().token).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Login com senha errada (espera 401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"maria_{{sufixo}}@example.com\",\n  \"senha\": \"errada\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Listar licitantes COM token (LGPD: CPF so no proprio cadastro)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              }
+            ],
+            "url": "{{base_url}}/licitantes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const lista = pm.response.json();",
+                  "const eu = lista.find((l) => l.id == pm.collectionVariables.get('licitante_id'));",
+                  "pm.test('Maria ve o proprio CPF', () => pm.expect(eu.cpf).to.eql(pm.collectionVariables.get('cpf_maria')));",
+                  "pm.test('dos outros, so id e nome', () => lista.filter((l) => l !== eu).forEach((l) => pm.expect(l).to.not.have.property('cpf')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. Cadastro duplicado - mesmo e-mail (espera 409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/registrar",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Maria Souza\",\n  \"email\": \"maria_{{sufixo}}@example.com\",\n  \"senha\": \"outrasenha\",\n  \"papel\": \"LICITANTE\",\n  \"dadosPerfil\": {\n    \"cpf\": \"{{cpf_extra}}\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8. Registro com CPF invalido (espera 400; o usuario e desfeito)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/registrar",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Teste Invalido\",\n  \"email\": \"invalido@example.com\",\n  \"senha\": \"senha123\",\n  \"papel\": \"LICITANTE\",\n  \"dadosPerfil\": {\n    \"cpf\": \"11111111111\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9. Registrar leiloeiro Carlos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/registrar",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Carlos Pereira\",\n  \"email\": \"carlos_{{sufixo}}@example.com\",\n  \"senha\": \"senha123\",\n  \"papel\": \"LEILOEIRO\",\n  \"dadosPerfil\": {\n    \"registroProfissional\": \"{{registro}}\",\n    \"telefone\": \"47999998888\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const b = pm.response.json();",
+                  "pm.collectionVariables.set('token_leiloeiro', b.token);",
+                  "pm.collectionVariables.set('leiloeiro_id', b.perfil.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. Buscar o proprio cadastro de leiloeiro",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              }
+            ],
+            "url": "{{base_url}}/leiloeiros/{{leiloeiro_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('o proprio ve o e-mail', () => pm.expect(pm.response.json().email).to.include('carlos_'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11. Atualizar o proprio cadastro de leiloeiro",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/leiloeiros/{{leiloeiro_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"telefone\": \"47988887777\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('telefone = 47988887777', () => pm.expect(pm.response.json().telefone).to.eql(\"47988887777\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12. Maria tentando alterar o cadastro do leiloeiro (espera 403)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/leiloeiros/{{leiloeiro_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"telefone\": \"00000000000\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13. Criar perfil direto, sem /auth/registrar (espera 403 do Kong)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/leiloeiros",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Atalho\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Leiloes e ciclo de vida",
+      "item": [
+        {
+          "name": "14. Leiloes SEM token (espera 401 do Kong)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/leiloes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "15. Cadastrar leilao para amanha (espera 201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/leiloes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Leilao de Nelore - Lote 12\",\n  \"descricao\": \"Bois nelore terminados a pasto, media de 18 arrobas.\",\n  \"localEvento\": \"Parque de Exposicoes de Lages\",\n  \"raca\": \"Nelore\",\n  \"quantidadeBois\": 40,\n  \"lanceInicial\": 5000,\n  \"incrementoMinimo\": 100,\n  \"dataInicio\": \"{{data_inicio}}\",\n  \"dataFim\": \"{{data_fim}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('status = AGENDADO', () => pm.expect(pm.response.json().status).to.eql(\"AGENDADO\"));",
+                  "pm.collectionVariables.set('leilao_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16. Leilao em nome de outro leiloeiro (espera 403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/leiloes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leiloeiroId\": 9999,\n  \"titulo\": \"Leilao sem dono\",\n  \"quantidadeBois\": 10,\n  \"lanceInicial\": 1000,\n  \"incrementoMinimo\": 50,\n  \"dataInicio\": \"{{data_inicio}}\",\n  \"dataFim\": \"{{data_fim}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "17. Leilao com data no passado (espera 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/leiloes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Leilao no passado\",\n  \"quantidadeBois\": 10,\n  \"lanceInicial\": 1000,\n  \"incrementoMinimo\": 50,\n  \"dataInicio\": \"2020-01-01T10:00:00Z\",\n  \"dataFim\": \"2020-01-01T14:00:00Z\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "18. Incremento maior que o lance inicial (espera 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/leiloes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Incremento absurdo\",\n  \"quantidadeBois\": 10,\n  \"lanceInicial\": 100,\n  \"incrementoMinimo\": 500,\n  \"dataInicio\": \"{{data_inicio}}\",\n  \"dataFim\": \"{{data_fim}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "19. Mesmo leiloeiro, mesmo horario (espera 409 - conflito de agenda)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/leiloes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Leilao concorrente\",\n  \"quantidadeBois\": 20,\n  \"lanceInicial\": 2000,\n  \"incrementoMinimo\": 50,\n  \"dataInicio\": \"{{data_inicio}}\",\n  \"dataFim\": \"{{data_fim}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "20. Listar os leiloes do leiloeiro",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              }
+            ],
+            "url": "{{base_url}}/leiloes?leiloeiroId={{leiloeiro_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('lista o leilao criado', () => pm.expect(pm.response.json().map((l) => l.id)).to.include(Number(pm.collectionVariables.get('leilao_id'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "21. Buscar leilao por id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              }
+            ],
+            "url": "{{base_url}}/leiloes/{{leilao_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "22. Editar leilao AGENDADO",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/leiloes/{{leilao_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Leilao de Nelore - Lote 12 (revisado)\",\n  \"quantidadeBois\": 45\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('quantidade_bois = 45', () => pm.expect(pm.response.json().quantidade_bois).to.eql(45));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "23. Encerrar leilao ainda AGENDADO (espera 409)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              }
+            ],
+            "url": "{{base_url}}/leiloes/{{leilao_id}}/encerrar"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "24. Abrir leilao (AGENDADO -> ABERTO)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              }
+            ],
+            "url": "{{base_url}}/leiloes/{{leilao_id}}/abrir"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status = ABERTO', () => pm.expect(pm.response.json().status).to.eql(\"ABERTO\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "25. Editar leilao ja ABERTO (espera 409)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/leiloes/{{leilao_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Nao deveria passar\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "26. Disponibilidade (so aceita lances a partir de amanha)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              }
+            ],
+            "url": "{{base_url}}/leiloes/{{leilao_id}}/disponibilidade"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('aceitandoLances = False', () => pm.expect(pm.response.json().aceitandoLances).to.eql(false));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "27. Encerrar leilao (ABERTO -> ENCERRADO)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              }
+            ],
+            "url": "{{base_url}}/leiloes/{{leilao_id}}/encerrar"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status = ENCERRADO', () => pm.expect(pm.response.json().status).to.eql(\"ENCERRADO\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "28. Cancelar leilao ja ENCERRADO (espera 409)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              }
+            ],
+            "url": "{{base_url}}/leiloes/{{leilao_id}}/cancelar"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Lances e Saga",
+      "item": [
+        {
+          "name": "29. Lances SEM token (espera 401 do Kong)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/lances"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "30. Registrar licitante Joao (limite R$ 3000)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/registrar",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Joao Lima\",\n  \"email\": \"joao_{{sufixo}}@example.com\",\n  \"senha\": \"senha123\",\n  \"papel\": \"LICITANTE\",\n  \"dadosPerfil\": {\n    \"cpf\": \"{{cpf_joao}}\",\n    \"limiteCredito\": 3000\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const b = pm.response.json();",
+                  "pm.collectionVariables.set('token_licitante_b', b.token);",
+                  "pm.collectionVariables.set('licitante_b_id', b.perfil.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "31. Cadastrar leilao ao vivo (comeca em 10 segundos)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/leiloes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Leilao ao vivo\",\n  \"quantidadeBois\": 10,\n  \"lanceInicial\": 1000,\n  \"incrementoMinimo\": 100,\n  \"dataInicio\": \"{{inicio_ao_vivo}}\",\n  \"dataFim\": \"{{fim_ao_vivo}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// a data de inicio precisa estar no futuro: daqui a 10 segundos",
+                  "pm.collectionVariables.set('inicio_ao_vivo', new Date(Date.now() + 10 * 1000).toISOString());",
+                  "pm.collectionVariables.set('fim_ao_vivo', new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('leilao_vivo_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "32. Abrir o leilao ao vivo",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              }
+            ],
+            "url": "{{base_url}}/leiloes/{{leilao_vivo_id}}/abrir"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status = ABERTO', () => pm.expect(pm.response.json().status).to.eql(\"ABERTO\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "33. Disponibilidade depois do inicio (espera o horario chegar)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              }
+            ],
+            "url": "{{base_url}}/leiloes/{{leilao_vivo_id}}/disponibilidade"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Espera ate o inicio do leilao (+2 s de folga): o Postman so envia a",
+                  "// requisicao depois que o setTimeout terminar.",
+                  "const espera = new Date(pm.collectionVariables.get('inicio_ao_vivo')).getTime() - Date.now() + 2000;",
+                  "setTimeout(() => {}, Math.max(espera, 0));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('aceitandoLances = True', () => pm.expect(pm.response.json().aceitandoLances).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "34. Lance em leilao inexistente (espera 404 - Saga passo 1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/lances",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leilaoId\": 99999999,\n  \"valor\": 1000\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "35. Lance abaixo do lance inicial (espera 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/lances",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leilaoId\": {{leilao_vivo_id}},\n  \"valor\": 900\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "36. Joao sem credito suficiente (espera 409 - Saga passo 2)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante_b}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/lances",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leilaoId\": {{leilao_vivo_id}},\n  \"valor\": 3500\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "37. Maria da o primeiro lance (espera 201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/lances",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leilaoId\": {{leilao_vivo_id}},\n  \"valor\": 1000\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('sagaStatus = CONCLUIDA', () => pm.expect(pm.response.json().sagaStatus).to.eql(\"CONCLUIDA\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "38. Credito da Maria: R$ 1000 reservados",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              }
+            ],
+            "url": "{{base_url}}/licitantes/{{licitante_id}}/credito"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('reservado = 1000', () => pm.expect(pm.response.json().reservado).to.eql(1000));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "39. Maria cobrindo o proprio lance (espera 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/lances",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leilaoId\": {{leilao_vivo_id}},\n  \"valor\": 1200\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "40. Joao abaixo do incremento minimo (espera 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante_b}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/lances",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leilaoId\": {{leilao_vivo_id}},\n  \"valor\": 1050\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "41. Joao supera com R$ 1500 (espera 201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante_b}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/lances",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leilaoId\": {{leilao_vivo_id}},\n  \"valor\": 1500\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('sagaStatus = CONCLUIDA', () => pm.expect(pm.response.json().sagaStatus).to.eql(\"CONCLUIDA\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "42. Credito da Maria liberado (Saga passo 4)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              }
+            ],
+            "url": "{{base_url}}/licitantes/{{licitante_id}}/credito"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('reservado = 0', () => pm.expect(pm.response.json().reservado).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "43. Compensacao: falha simulada ao gravar o lance (espera 500)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Simular-Falha",
+                "value": "gravar-lance"
+              }
+            ],
+            "url": "{{base_url}}/lances",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leilaoId\": {{leilao_vivo_id}},\n  \"valor\": 2000\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 500', () => pm.response.to.have.status(500));",
+                  "pm.collectionVariables.set('saga_id', pm.response.json().sagaId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "44. Saga compensada",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              }
+            ],
+            "url": "{{base_url}}/lances/sagas/{{saga_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status = COMPENSADA', () => pm.expect(pm.response.json().status).to.eql(\"COMPENSADA\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "45. Credito da Maria devolvido pela compensacao",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              }
+            ],
+            "url": "{{base_url}}/licitantes/{{licitante_id}}/credito"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('reservado = 0', () => pm.expect(pm.response.json().reservado).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "46. Pendencia: falha simulada ao liberar o credito do Joao (espera 201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Simular-Falha",
+                "value": "liberar-credito-superado"
+              }
+            ],
+            "url": "{{base_url}}/lances",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leilaoId\": {{leilao_vivo_id}},\n  \"valor\": 2000\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('sagaStatus = CONCLUIDA_COM_PENDENCIA', () => pm.expect(pm.response.json().sagaStatus).to.eql(\"CONCLUIDA_COM_PENDENCIA\"));",
+                  "pm.collectionVariables.set('saga_pendente_id', pm.response.json().sagaId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "47. Credito do Joao ainda preso (R$ 1500)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante_b}}"
+              }
+            ],
+            "url": "{{base_url}}/licitantes/{{licitante_b_id}}/credito"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('reservado = 1500', () => pm.expect(pm.response.json().reservado).to.eql(1500));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "48. Reprocessar a saga pendente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              }
+            ],
+            "url": "{{base_url}}/lances/sagas/{{saga_pendente_id}}/reprocessar"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status = CONCLUIDA', () => pm.expect(pm.response.json().status).to.eql(\"CONCLUIDA\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "49. Credito do Joao liberado",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante_b}}"
+              }
+            ],
+            "url": "{{base_url}}/licitantes/{{licitante_b_id}}/credito"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('reservado = 0', () => pm.expect(pm.response.json().reservado).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "50. Maior lance do leilao ao vivo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              }
+            ],
+            "url": "{{base_url}}/lances/leilao/{{leilao_vivo_id}}/maior"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('valor = 2000.00', () => pm.expect(pm.response.json().valor).to.eql(\"2000.00\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "51. Historico de lances do leilao ao vivo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              }
+            ],
+            "url": "{{base_url}}/lances/leilao/{{leilao_vivo_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('3 lances gravados', () => pm.expect(pm.response.json()).to.have.lengthOf(3));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "52. Reserva de credito pelo gateway (espera 403: rota interna)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/licitantes/{{licitante_id}}/reservas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"valor\": 10\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Autorizacao: ninguem age em nome de outra pessoa",
+      "item": [
+        {
+          "name": "53. Leiloeiro tentando dar lance (espera 403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/lances",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leilaoId\": {{leilao_vivo_id}},\n  \"valor\": 5000\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "54. Maria dando lance em nome do Joao (espera 403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/lances",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leilaoId\": {{leilao_vivo_id}},\n  \"valor\": 5000,\n  \"licitanteId\": {{licitante_b_id}}\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "55. Licitante cadastrando leilao (espera 403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/leiloes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Leilao da licitante\",\n  \"quantidadeBois\": 10,\n  \"lanceInicial\": 1000,\n  \"incrementoMinimo\": 100,\n  \"dataInicio\": \"{{data_inicio}}\",\n  \"dataFim\": \"{{data_fim}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "56. Registrar um segundo leiloeiro",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/registrar",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Outro Leiloeiro\",\n  \"email\": \"outro_{{sufixo}}@example.com\",\n  \"senha\": \"senha123\",\n  \"papel\": \"LEILOEIRO\",\n  \"dadosPerfil\": {\n    \"registroProfissional\": \"{{registro_outro}}\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('token_outro_leiloeiro', pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "57. Outro leiloeiro cancelando o leilao (espera 403)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_outro_leiloeiro}}"
+              }
+            ],
+            "url": "{{base_url}}/leiloes/{{leilao_vivo_id}}/cancelar"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Cancelamento e limpeza",
+      "item": [
+        {
+          "name": "58. Credito da Maria antes do cancelamento (R$ 2000, maior lance)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              }
+            ],
+            "url": "{{base_url}}/licitantes/{{licitante_id}}/credito"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('reservado = 2000', () => pm.expect(pm.response.json().reservado).to.eql(2000));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "59. Dono cancela o leilao ao vivo",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              }
+            ],
+            "url": "{{base_url}}/leiloes/{{leilao_vivo_id}}/cancelar"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status = CANCELADO', () => pm.expect(pm.response.json().status).to.eql(\"CANCELADO\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "60. Credito da Maria devolvido pelo cancelamento",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              }
+            ],
+            "url": "{{base_url}}/licitantes/{{licitante_id}}/credito"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('reservado = 0', () => pm.expect(pm.response.json().reservado).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "61. Leiloeiro apaga o proprio cadastro (espera 204)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              }
+            ],
+            "url": "{{base_url}}/leiloeiros/{{leiloeiro_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "62. Cadastro apagado nao existe mais (espera 404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_leiloeiro}}"
+              }
+            ],
+            "url": "{{base_url}}/leiloeiros/{{leiloeiro_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
   "variable": [
     {
       "key": "base_url",
       "value": "http://localhost:8000"
     },
     {
+      "key": "sufixo",
+      "value": ""
+    },
+    {
+      "key": "cpf_maria",
+      "value": ""
+    },
+    {
+      "key": "cpf_joao",
+      "value": ""
+    },
+    {
+      "key": "cpf_extra",
+      "value": ""
+    },
+    {
+      "key": "registro",
+      "value": ""
+    },
+    {
+      "key": "registro_outro",
+      "value": ""
+    },
+    {
+      "key": "data_inicio",
+      "value": ""
+    },
+    {
+      "key": "data_fim",
+      "value": ""
+    },
+    {
       "key": "token_licitante",
       "value": ""
     },
     {
+      "key": "licitante_id",
+      "value": ""
+    },
+    {
       "key": "token_licitante_b",
+      "value": ""
+    },
+    {
+      "key": "licitante_b_id",
       "value": ""
     },
     {
@@ -26,649 +1895,32 @@
       "value": ""
     },
     {
+      "key": "token_outro_leiloeiro",
+      "value": ""
+    },
+    {
       "key": "leilao_id",
       "value": ""
     },
     {
-      "key": "data_inicio",
+      "key": "inicio_ao_vivo",
       "value": ""
     },
     {
-      "key": "data_fim",
+      "key": "fim_ao_vivo",
       "value": ""
-    }
-  ],
-  "item": [
-    {
-      "name": "1. Health - auth-service",
-      "request": {
-        "method": "GET",
-        "url": "{{base_url}}/auth/health"
-      }
     },
     {
-      "name": "2. Rota protegida SEM token (espera 401)",
-      "request": {
-        "method": "GET",
-        "url": "{{base_url}}/licitantes"
-      }
+      "key": "leilao_vivo_id",
+      "value": ""
     },
     {
-      "name": "3. Registrar licitante",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "if (pm.response.code === 201) {",
-              "  const body = pm.response.json();",
-              "  pm.collectionVariables.set('token_licitante', body.token);",
-              "}"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/auth/registrar",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"nome\": \"Maria Souza\",\n  \"email\": \"maria@example.com\",\n  \"senha\": \"senha123\",\n  \"papel\": \"LICITANTE\",\n  \"dadosPerfil\": { \"cpf\": \"52998224725\", \"limiteCredito\": 5000 }\n}"
-        }
-      }
+      "key": "saga_id",
+      "value": ""
     },
     {
-      "name": "4. Login licitante",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "if (pm.response.code === 200) {",
-              "  const body = pm.response.json();",
-              "  pm.collectionVariables.set('token_licitante', body.token);",
-              "}"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/auth/login",
-        "body": {
-          "mode": "raw",
-          "raw": "{ \"email\": \"maria@example.com\", \"senha\": \"senha123\" }"
-        }
-      }
-    },
-    {
-      "name": "5. Login com senha errada (espera 401)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/auth/login",
-        "body": {
-          "mode": "raw",
-          "raw": "{ \"email\": \"maria@example.com\", \"senha\": \"errada\" }"
-        }
-      }
-    },
-    {
-      "name": "6. Listar licitantes COM token",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_licitante}}"
-          }
-        ],
-        "url": "{{base_url}}/licitantes"
-      }
-    },
-    {
-      "name": "7. Registrar leiloeiro",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "if (pm.response.code === 201) {",
-              "  const body = pm.response.json();",
-              "  pm.collectionVariables.set('token_leiloeiro', body.token);",
-              "  if (body.perfil) pm.collectionVariables.set('leiloeiro_id', body.perfil.id);",
-              "}"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/auth/registrar",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"nome\": \"Carlos Pereira\",\n  \"email\": \"carlos@example.com\",\n  \"senha\": \"senha123\",\n  \"papel\": \"LEILOEIRO\",\n  \"dadosPerfil\": { \"registroProfissional\": \"JUCESC-000123\", \"telefone\": \"47999998888\" }\n}"
-        }
-      }
-    },
-    {
-      "name": "8. Registro invalido - CPF invalido (espera 400)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/auth/registrar",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"nome\": \"Teste Invalido\",\n  \"email\": \"invalido@example.com\",\n  \"senha\": \"senha123\",\n  \"papel\": \"LICITANTE\",\n  \"dadosPerfil\": { \"cpf\": \"11111111111\" }\n}"
-        }
-      }
-    },
-    {
-      "name": "9. Cadastro duplicado - mesmo email (espera 409)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/auth/registrar",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"nome\": \"Maria Souza\",\n  \"email\": \"maria@example.com\",\n  \"senha\": \"outrasenha\",\n  \"papel\": \"LICITANTE\",\n  \"dadosPerfil\": { \"cpf\": \"11144477735\" }\n}"
-        }
-      }
-    },
-    {
-      "name": "10. Buscar leiloeiro por id",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          }
-        ],
-        "url": "{{base_url}}/leiloeiros/{{leiloeiro_id}}"
-      }
-    },
-    {
-      "name": "11. Atualizar o proprio cadastro de leiloeiro",
-      "request": {
-        "method": "PUT",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/leiloeiros/{{leiloeiro_id}}",
-        "body": {
-          "mode": "raw",
-          "raw": "{ \"telefone\": \"47988887777\" }"
-        }
-      }
-    },
-    {
-      "name": "12. Leiloes SEM token (espera 401 do Kong)",
-      "request": {
-        "method": "GET",
-        "url": "{{base_url}}/leiloes"
-      }
-    },
-    {
-      "name": "13. Cadastrar leilao (espera 201)",
-      "event": [
-        {
-          "listen": "prerequest",
-          "script": {
-            "exec": [
-              "const inicio = new Date(Date.now() + 24 * 60 * 60 * 1000);",
-              "const fim = new Date(inicio.getTime() + 3 * 60 * 60 * 1000);",
-              "pm.collectionVariables.set('data_inicio', inicio.toISOString());",
-              "pm.collectionVariables.set('data_fim', fim.toISOString());"
-            ]
-          }
-        },
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "if (pm.response.code === 201) {",
-              "  pm.collectionVariables.set(\"leilao_id\", pm.response.json().id);",
-              "}"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/leiloes",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"titulo\": \"Leilao de Nelore - Lote 12\",\n  \"descricao\": \"Bois nelore terminados a pasto, media de 18 arrobas.\",\n  \"localEvento\": \"Parque de Exposicoes de Lages\",\n  \"raca\": \"Nelore\",\n  \"quantidadeBois\": 40,\n  \"lanceInicial\": 5000,\n  \"incrementoMinimo\": 100,\n  \"dataInicio\": \"{{data_inicio}}\",\n  \"dataFim\": \"{{data_fim}}\"\n}"
-        }
-      }
-    },
-    {
-      "name": "14. Cadastrar leilao em nome de outro leiloeiro (espera 403)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/leiloes",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"leiloeiroId\": 9999,\n  \"titulo\": \"Leilao sem dono\",\n  \"quantidadeBois\": 10,\n  \"lanceInicial\": 1000,\n  \"incrementoMinimo\": 50,\n  \"dataInicio\": \"{{data_inicio}}\",\n  \"dataFim\": \"{{data_fim}}\"\n}"
-        }
-      }
-    },
-    {
-      "name": "15. Cadastrar leilao com data no passado (espera 400)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/leiloes",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"titulo\": \"Leilao no passado\",\n  \"quantidadeBois\": 10,\n  \"lanceInicial\": 1000,\n  \"incrementoMinimo\": 50,\n  \"dataInicio\": \"2020-01-01T10:00:00Z\",\n  \"dataFim\": \"2020-01-01T14:00:00Z\"\n}"
-        }
-      }
-    },
-    {
-      "name": "16. Cadastrar leilao no mesmo horario (espera 409 - conflito de agenda)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/leiloes",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"titulo\": \"Leilao concorrente\",\n  \"quantidadeBois\": 20,\n  \"lanceInicial\": 2000,\n  \"incrementoMinimo\": 50,\n  \"dataInicio\": \"{{data_inicio}}\",\n  \"dataFim\": \"{{data_fim}}\"\n}"
-        }
-      }
-    },
-    {
-      "name": "17. Listar leiloes COM token",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          }
-        ],
-        "url": "{{base_url}}/leiloes"
-      }
-    },
-    {
-      "name": "18. Buscar leilao por id",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          }
-        ],
-        "url": "{{base_url}}/leiloes/{{leilao_id}}"
-      }
-    },
-    {
-      "name": "19. Atualizar leilao AGENDADO",
-      "request": {
-        "method": "PUT",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/leiloes/{{leilao_id}}",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"titulo\": \"Leilao de Nelore - Lote 12 (revisado)\",\n  \"quantidadeBois\": 45\n}"
-        }
-      }
-    },
-    {
-      "name": "20. Encerrar leilao ainda AGENDADO (espera 409)",
-      "request": {
-        "method": "PATCH",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          }
-        ],
-        "url": "{{base_url}}/leiloes/{{leilao_id}}/encerrar"
-      }
-    },
-    {
-      "name": "21. Abrir leilao (AGENDADO -> ABERTO)",
-      "request": {
-        "method": "PATCH",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          }
-        ],
-        "url": "{{base_url}}/leiloes/{{leilao_id}}/abrir"
-      }
-    },
-    {
-      "name": "22. Editar leilao ja ABERTO (espera 409)",
-      "request": {
-        "method": "PUT",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/leiloes/{{leilao_id}}",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"titulo\": \"Nao deveria passar\"\n}"
-        }
-      }
-    },
-    {
-      "name": "23. Disponibilidade do leilao (consumido pelo servico de lances)",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          }
-        ],
-        "url": "{{base_url}}/leiloes/{{leilao_id}}/disponibilidade"
-      }
-    },
-    {
-      "name": "24. Encerrar leilao (ABERTO -> ENCERRADO)",
-      "request": {
-        "method": "PATCH",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          }
-        ],
-        "url": "{{base_url}}/leiloes/{{leilao_id}}/encerrar"
-      }
-    },
-    {
-      "name": "25. Cancelar leilao ja ENCERRADO (espera 409)",
-      "request": {
-        "method": "PATCH",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          }
-        ],
-        "url": "{{base_url}}/leiloes/{{leilao_id}}/cancelar"
-      }
-    },
-    {
-      "name": "26. Deletar o proprio cadastro de leiloeiro",
-      "request": {
-        "method": "DELETE",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          }
-        ],
-        "url": "{{base_url}}/leiloeiros/{{leiloeiro_id}}"
-      }
-    },
-    {
-      "name": "13. Lances - Rota protegida SEM token (espera 401)",
-      "request": {
-        "method": "GET",
-        "url": "{{base_url}}/lances"
-      }
-    },
-    {
-      "name": "Lances - Registrar licitante B (guarda token_licitante_b)",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "if (pm.response.code === 201) {",
-              "  const body = pm.response.json();",
-              "  pm.collectionVariables.set('token_licitante_b', body.token);",
-              "}"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/auth/registrar",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"nome\": \"Joao Lima\",\n  \"email\": \"joao@example.com\",\n  \"senha\": \"senha123\",\n  \"papel\": \"LICITANTE\",\n  \"dadosPerfil\": {\n    \"cpf\": \"39053344705\",\n    \"limiteCredito\": 3000\n  }\n}"
-        }
-      }
-    },
-    {
-      "name": "Lances - Leiloeiro tentando dar lance (espera 403)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_leiloeiro}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/lances",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"leilaoId\": 1,\n  \"valor\": 1000.00\n}"
-        }
-      }
-    },
-    {
-      "name": "14. Lances - Primeiro lance leilao 1 (espera 201)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_licitante}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/lances",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"leilaoId\": 1,\n  \"valor\": 1000.00\n}"
-        }
-      }
-    },
-    {
-      "name": "15. Lances - Mesmo licitante cobrindo proprio lance (espera 400)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_licitante}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/lances",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"leilaoId\": 1,\n  \"valor\": 1200.00\n}"
-        }
-      }
-    },
-    {
-      "name": "16. Lances - Outro licitante com valor menor ou igual (espera 400)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_licitante_b}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/lances",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"leilaoId\": 1,\n  \"valor\": 950.00\n}"
-        }
-      }
-    },
-    {
-      "name": "17. Lances - Outro licitante com valor superior (espera 201)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_licitante_b}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{base_url}}/lances",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"leilaoId\": 1,\n  \"valor\": 1350.00\n}"
-        }
-      }
-    },
-    {
-      "name": "18. Lances - Buscar maior lance do leilao 1 (espera 200)",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_licitante}}"
-          }
-        ],
-        "url": "{{base_url}}/lances/leilao/1/maior"
-      }
-    },
-    {
-      "name": "19. Lances - Listar historico de lances do leilao 1 (espera 200)",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token_licitante}}"
-          }
-        ],
-        "url": "{{base_url}}/lances/leilao/1"
-      }
+      "key": "saga_pendente_id",
+      "value": ""
     }
   ]
 }
