@@ -732,6 +732,16 @@ Run-Step -Nome "71. Erros do Kong no formato { erro } (404 e 403) (espera 200)" 
     return @{ StatusCode = 200 }
 }
 
+# 72. Id que nao e numero responde 400 "ID invalido." nos 3 servicos de dominio
+# (antes o texto chegava ao SQL e o Postgres devolvia erro -> 500)
+Run-Step -Nome "72. Id nao numerico (/leiloes/abc, /licitantes/abc, /lances/abc) (espera 400)" -CodigoEsperado 400 -Acao {
+    foreach ($rota in @("/leiloes/abc", "/licitantes/abc", "/lances/abc")) {
+        $r = Invoke-Api GET $rota -Token $script:tokenA
+        if ($r.StatusCode -ne 400) { return $r }
+    }
+    return Invoke-Api GET "/leiloes?leiloeiroId=abc" -Token $script:tokenA
+}
+
 Write-Host "==========================================================================" -ForegroundColor Cyan
 Write-Host "                           RESUMO DOS TESTES                             " -ForegroundColor Yellow
 Write-Host "   Passou: $script:TotalPass" -ForegroundColor Green
