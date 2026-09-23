@@ -89,7 +89,8 @@ $L = $leilao.id
 - Arquitetura em camadas: `routes → controllers → services → repositories`.
 
 **Mostrar no código:**
-- [`auth-service/src/services/authService.js`](../auth-service/src/services/authService.js) — `registrar` e `criarPerfilNoUsuariosService`
+- [`auth-service/src/services/authService.js`](../auth-service/src/services/authService.js) — `registrar` (com a compensação `desfazerCadastro`)
+- [`auth-service/src/clients/usuariosClient.js`](../auth-service/src/clients/usuariosClient.js) — `criarPerfil`, a chamada REST ao usuarios-service
 - [`auth-service/src/utils/jwt.js`](../auth-service/src/utils/jwt.js) — o conteúdo do token
 - [`usuarios-service/src/services/creditoService.js`](../usuarios-service/src/services/creditoService.js) — `reservar` (transação + `FOR UPDATE`)
 
