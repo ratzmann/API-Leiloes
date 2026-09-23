@@ -416,7 +416,8 @@ Como rodar:
 | Unitários dos 4 serviços, com resumo | `powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1` | Não (usa Node local ou Docker) |
 | Unitários de um serviço | `cd <servico> && npm install && npm test` | Não |
 | Ponta a ponta (71 passos pelo Kong) | `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` | Sim |
-| Manual | `testes/roteiro-de-testes.md` (curl) e a coleção Postman | Sim |
+| Coleção Postman (62 requisições com conferência automática) | no Postman (Runner) ou `docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000` | Sim |
+| Manual | `testes/roteiro-de-testes.md` (curl, no Git Bash ou Linux) | Sim |
 
 ---
 

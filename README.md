@@ -339,9 +339,15 @@ quando o perfil é recusado, a privacidade dos dados pessoais e o formato dos
 erros.
 
 Testes manuais (com a stack no ar): o passo a passo com `curl` em
-[`testes/roteiro-de-testes.md`](testes/roteiro-de-testes.md) e a coleção
+[`testes/roteiro-de-testes.md`](testes/roteiro-de-testes.md) (Git Bash ou Linux) e a coleção
 [`testes/leilao-microservicos.postman_collection.json`](testes/leilao-microservicos.postman_collection.json)
-(importar no Postman).
+(importar no Postman e rodar inteira, na ordem, pelo Runner). A coleção tem 62
+requisições que conferem sozinhas o status esperado e gera dados novos a cada
+execução. Também roda pelo terminal, com o [newman](https://github.com/postmanlabs/newman):
+
+```powershell
+docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000
+```
 
 ## Formato dos erros
 

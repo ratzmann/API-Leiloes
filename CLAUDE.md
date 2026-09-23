@@ -107,10 +107,15 @@ powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1
 
 # ponta a ponta pelo Kong (com a stack no ar: docker compose up --build -d)
 powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
+
+# colecao Postman pelo newman (com a stack no ar)
+docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000
 ```
 
-- Estado atual: 217 testes unitários (cobertura de linhas entre 75% e 82%) e 71 passos no
-  ponta a ponta, todos passando.
+- Estado atual: 217 testes unitários (cobertura de linhas entre 75% e 82%), 71 passos no
+  ponta a ponta e 62 requisições (92 conferências) na coleção Postman, todos passando.
+- A coleção e o roteiro manual (`testes/roteiro-de-testes.md`, bash) geram dados novos a
+  cada execução; ao mudar uma regra, atualize os dois junto com o `testar-tudo.ps1`.
 - Um serviço só: `cd <servico> && npm install && npm test`.
 - Onde ficam os testes novos:
   - regras: `tests/<modulo>.test.js`, com repositories e clients mockados (`__mocks__/`);
