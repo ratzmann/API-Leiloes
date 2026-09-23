@@ -575,7 +575,7 @@ Run-Step -Nome "52. Reserva de credito direto pelo Kong (espera 403)" -CodigoEsp
 
 # ------------------------------------------------------------------------------
 # Autorizacao: cada usuario so age em nome proprio
-# (Regra 6 do lances-service e Regra 7 do leiloes-service)
+# (Regra 6 do lances-service, Regra 7 do leiloes-service e cadastros de usuarios)
 # ------------------------------------------------------------------------------
 Write-Host ""
 Write-Host "------------------------------ AUTORIZACAO -------------------------------" -ForegroundColor Cyan
@@ -621,6 +621,26 @@ Run-Step -Nome "57. Lance de B sem licitanteId no corpo (espera 201)" -CodigoEsp
     $r = Invoke-Api POST "/lances" @{ leilaoId = $script:leilaoAoVivoId; valor = 2100 } -Token $script:tokenB
     if ($r.StatusCode -eq 201 -and [int]$r.Json.licitante_id -ne $script:licitanteBId) { return @{ StatusCode = 500 } }
     return $r
+}
+
+# 58. Criar perfil direto pelo gateway e bloqueado (so o auth-service cria, no registro)
+Run-Step -Nome "58. POST /licitantes direto pelo Kong (espera 403)" -CodigoEsperado 403 -Acao {
+    return (Invoke-Api POST "/licitantes" @{ nome = "Perfil Pirata"; email = "pirata@example.com"; cpf = (Novo-Cpf) } -Token $script:tokenA)
+}
+
+# 59. O proprio licitante atualiza o seu cadastro
+Run-Step -Nome "59. Licitante A atualiza o proprio telefone (espera 200)" -CodigoEsperado 200 -Acao {
+    return (Invoke-Api PUT "/licitantes/$($script:licitanteAId)" @{ telefone = "47911112222" } -Token $script:tokenA)
+}
+
+# 60. ...mas nao aumenta o proprio limite de credito
+Run-Step -Nome "60. Licitante A tenta aumentar o proprio limite (espera 403)" -CodigoEsperado 403 -Acao {
+    return (Invoke-Api PUT "/licitantes/$($script:licitanteAId)" @{ limiteCredito = 1000000 } -Token $script:tokenA)
+}
+
+# 61. Ninguem altera o cadastro de outra pessoa
+Run-Step -Nome "61. Licitante A tenta alterar o cadastro de B (espera 403)" -CodigoEsperado 403 -Acao {
+    return (Invoke-Api PUT "/licitantes/$($script:licitanteBId)" @{ nome = "Invasor" } -Token $script:tokenA)
 }
 
 Write-Host "==========================================================================" -ForegroundColor Cyan
