@@ -1,9 +1,10 @@
 // =============================================================================
 // tests/leilaoService.test.js  -  testes das regras do leilao
 // -----------------------------------------------------------------------------
-// Cobre as regras 1 a 6: dados do evento, data futura, leiloeiro existente
+// Cobre as regras 1 a 7: dados do evento, data futura, leiloeiro existente
 // (usuarios-service mockado, incluindo servico fora do ar -> 503), agenda livre,
-// transicoes de status e edicao/remocao so enquanto AGENDADO.
+// transicoes de status, edicao/remocao so enquanto AGENDADO e a Regra 7
+// (autorizacao: so o leiloeiro logado cadastra, e so o dono altera).
 // COMO LER UM TESTE (Jest):
 //   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
 //   test('descricao', () => { ... })    um cenario (chamado tambem de it);
@@ -41,6 +42,12 @@ function leilaoValido(extra = {}) {
     ...extra,
   };
 }
+
+// payloads de token: o leiloeiro 1 (dono dos leiloes dos testes), outro
+// leiloeiro e um licitante
+const leiloeiro1 = { sub: 10, papel: 'LEILOEIRO', perfilId: 1 };
+const leiloeiro2 = { sub: 11, papel: 'LEILOEIRO', perfilId: 2 };
+const licitante = { sub: 20, papel: 'LICITANTE', perfilId: 1 };
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -102,14 +109,14 @@ describe('leilaoService.validarDados', () => {
 describe('leilaoService.cadastrar', () => {
   test('rejeita leilao com data de inicio no passado', async () => {
     await expect(
-      leilaoService.cadastrar(leilaoValido({ dataInicio: emHoras(-5), dataFim: emHoras(2) }))
+      leilaoService.cadastrar(leilaoValido({ dataInicio: emHoras(-5), dataFim: emHoras(2) }), leiloeiro1)
     ).rejects.toThrow('Data de inicio deve estar no futuro.');
   });
 
   test('rejeita quando o leiloeiro nao existe no usuarios-service', async () => {
     usuariosClient.buscarLeiloeiro.mockResolvedValue(null);
 
-    await expect(leilaoService.cadastrar(leilaoValido())).rejects.toThrow(
+    await expect(leilaoService.cadastrar(leilaoValido(), leiloeiro1)).rejects.toThrow(
       'Leiloeiro nao encontrado no servico de usuarios.'
     );
     expect(leilaoRepository.criar).not.toHaveBeenCalled();
@@ -120,7 +127,7 @@ describe('leilaoService.cadastrar', () => {
       new usuariosClient.ServicoIndisponivel('timeout')
     );
 
-    await expect(leilaoService.cadastrar(leilaoValido())).rejects.toMatchObject({
+    await expect(leilaoService.cadastrar(leilaoValido(), leiloeiro1)).rejects.toMatchObject({
       codigo: 503,
     });
   });
@@ -130,7 +137,7 @@ describe('leilaoService.cadastrar', () => {
       { id: 7, data_inicio: emHoras(25), data_fim: emHoras(27) },
     ]);
 
-    await expect(leilaoService.cadastrar(leilaoValido())).rejects.toThrow(
+    await expect(leilaoService.cadastrar(leilaoValido(), leiloeiro1)).rejects.toThrow(
       /ja possui o leilao #7 agendado neste periodo/
     );
   });
@@ -141,17 +148,62 @@ describe('leilaoService.cadastrar', () => {
     ]);
     leilaoRepository.criar.mockResolvedValue({ id: 1, status: 'AGENDADO' });
 
-    const resultado = await leilaoService.cadastrar(leilaoValido());
+    const resultado = await leilaoService.cadastrar(leilaoValido(), leiloeiro1);
 
     expect(resultado.id).toBe(1);
     expect(resultado.status).toBe('AGENDADO');
     expect(leilaoRepository.criar).toHaveBeenCalledTimes(1);
   });
 
-  test('exige leiloeiroId', async () => {
-    await expect(leilaoService.cadastrar(leilaoValido({ leiloeiroId: null }))).rejects.toThrow(
-      'Informe o leiloeiroId responsavel pelo leilao.'
-    );
+  test('sem leiloeiroId no corpo, usa o leiloeiro logado (perfilId do token)', async () => {
+    leilaoRepository.criar.mockResolvedValue({ id: 1, status: 'AGENDADO' });
+
+    await leilaoService.cadastrar(leilaoValido({ leiloeiroId: null }), leiloeiro1);
+
+    expect(leilaoRepository.criar).toHaveBeenCalledWith(expect.objectContaining({ leiloeiroId: 1 }));
+  });
+});
+
+describe('leilaoService - autorizacao (Regra 7)', () => {
+  test('401 ao cadastrar sem usuario logado', async () => {
+    await expect(leilaoService.cadastrar(leilaoValido())).rejects.toMatchObject({ codigo: 401 });
+  });
+
+  test('403 quando um licitante tenta cadastrar leilao', async () => {
+    await expect(leilaoService.cadastrar(leilaoValido(), licitante)).rejects.toMatchObject({
+      codigo: 403,
+      message: 'Apenas leiloeiros podem cadastrar leiloes.',
+    });
+    expect(leilaoRepository.criar).not.toHaveBeenCalled();
+  });
+
+  test('403 ao cadastrar leilao em nome de outro leiloeiro', async () => {
+    await expect(leilaoService.cadastrar(leilaoValido({ leiloeiroId: 1 }), leiloeiro2)).rejects.toMatchObject({
+      codigo: 403,
+      message: 'Voce so pode cadastrar leiloes em seu proprio nome.',
+    });
+  });
+
+  test('403 quando outro leiloeiro tenta abrir o leilao', async () => {
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'AGENDADO', leiloeiro_id: 1 });
+
+    await expect(leilaoService.abrir(1, leiloeiro2)).rejects.toMatchObject({ codigo: 403 });
+    expect(leilaoRepository.atualizarStatus).not.toHaveBeenCalled();
+  });
+
+  test('403 quando outro leiloeiro tenta editar ou remover o leilao', async () => {
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'AGENDADO', leiloeiro_id: 1 });
+
+    await expect(leilaoService.atualizar(1, { titulo: 'Invasao' }, leiloeiro2)).rejects.toMatchObject({ codigo: 403 });
+    await expect(leilaoService.remover(1, leiloeiro2)).rejects.toMatchObject({ codigo: 403 });
+    expect(leilaoRepository.atualizar).not.toHaveBeenCalled();
+    expect(leilaoRepository.remover).not.toHaveBeenCalled();
+  });
+
+  test('leilao inexistente continua 404 (existencia e conferida antes do dono)', async () => {
+    leilaoRepository.buscarPorId.mockResolvedValue(null);
+
+    await expect(leilaoService.cancelar(999, leiloeiro2)).rejects.toMatchObject({ codigo: 404 });
   });
 });
 
@@ -164,39 +216,39 @@ describe('leilaoService.buscarPorId', () => {
 
 describe('leilaoService.alterarStatus', () => {
   test('permite AGENDADO -> ABERTO', async () => {
-    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'AGENDADO' });
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'AGENDADO', leiloeiro_id: 1 });
     leilaoRepository.atualizarStatus.mockResolvedValue({ id: 1, status: 'ABERTO' });
 
-    const resultado = await leilaoService.abrir(1);
+    const resultado = await leilaoService.abrir(1, leiloeiro1);
 
     expect(resultado.status).toBe('ABERTO');
     expect(leilaoRepository.atualizarStatus).toHaveBeenCalledWith(1, 'ABERTO');
   });
 
   test('recusa AGENDADO -> ENCERRADO', async () => {
-    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'AGENDADO' });
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'AGENDADO', leiloeiro_id: 1 });
 
-    await expect(leilaoService.encerrar(1)).rejects.toThrow(
+    await expect(leilaoService.encerrar(1, leiloeiro1)).rejects.toThrow(
       'Transicao de status invalida: AGENDADO -> ENCERRADO.'
     );
   });
 
   test('recusa qualquer mudanca em leilao ENCERRADO', async () => {
-    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'ENCERRADO' });
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'ENCERRADO', leiloeiro_id: 1 });
 
-    await expect(leilaoService.cancelar(1)).rejects.toThrow(/Transicao de status invalida/);
+    await expect(leilaoService.cancelar(1, leiloeiro1)).rejects.toThrow(/Transicao de status invalida/);
   });
 
   test('recusa status inexistente', async () => {
-    await expect(leilaoService.alterarStatus(1, 'PAUSADO')).rejects.toThrow(/Status invalido/);
+    await expect(leilaoService.alterarStatus(1, 'PAUSADO', leiloeiro1)).rejects.toThrow(/Status invalido/);
   });
 });
 
 describe('leilaoService.atualizar', () => {
   test('recusa edicao de leilao ja aberto', async () => {
-    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'ABERTO' });
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'ABERTO', leiloeiro_id: 1 });
 
-    await expect(leilaoService.atualizar(1, { titulo: 'Novo titulo' })).rejects.toThrow(
+    await expect(leilaoService.atualizar(1, { titulo: 'Novo titulo' }, leiloeiro1)).rejects.toThrow(
       'Leilao com status ABERTO nao pode mais ser editado.'
     );
   });
@@ -215,7 +267,7 @@ describe('leilaoService.atualizar', () => {
     });
     leilaoRepository.atualizar.mockResolvedValue({ id: 1, titulo: 'Leilao novo' });
 
-    const resultado = await leilaoService.atualizar(1, { titulo: 'Leilao novo' });
+    const resultado = await leilaoService.atualizar(1, { titulo: 'Leilao novo' }, leiloeiro1);
 
     expect(resultado.titulo).toBe('Leilao novo');
     expect(leilaoRepository.atualizar).toHaveBeenCalledTimes(1);
@@ -257,15 +309,15 @@ describe('leilaoService.consultarDisponibilidade', () => {
 
 describe('leilaoService.remover', () => {
   test('so remove leilao AGENDADO', async () => {
-    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'ABERTO' });
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'ABERTO', leiloeiro_id: 1 });
 
-    await expect(leilaoService.remover(1)).rejects.toThrow(/use o cancelamento/);
+    await expect(leilaoService.remover(1, leiloeiro1)).rejects.toThrow(/use o cancelamento/);
   });
 
   test('remove leilao AGENDADO', async () => {
-    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'AGENDADO' });
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'AGENDADO', leiloeiro_id: 1 });
     leilaoRepository.remover.mockResolvedValue(true);
 
-    await expect(leilaoService.remover(1)).resolves.toBe(true);
+    await expect(leilaoService.remover(1, leiloeiro1)).resolves.toBe(true);
   });
 });

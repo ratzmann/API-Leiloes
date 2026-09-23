@@ -8,6 +8,8 @@
 //   Regra 4 - o leiloeiro nao pode ter dois leiloes ativos no mesmo horario
 //   Regra 5 - ciclo de vida: AGENDADO -> ABERTO -> ENCERRADO (ou CANCELADO)
 //   Regra 6 - editar/remover so enquanto AGENDADO
+//   Regra 7 - autorizacao: so um LEILOEIRO cadastra (em nome proprio), e so o
+//             DONO do leilao edita, muda status ou remove
 //
 // Quem chama: controllers/leilaoController.js
 // Quem e chamado: repositories/leilaoRepository.js (banco),
@@ -161,14 +163,69 @@ async function garantirAgendaLivre(leiloeiroId, dataInicio, dataFim, ignorarId =
   }
 }
 
+// Regra 7: so um LEILOEIRO cadastra leilao, e so em nome proprio
 /**
- * Cadastra um leilao aplicando as regras 1 a 4, nesta ordem:
- * primeiro as validacoes baratas (sem rede/banco), depois as que consultam
- * outro servico e o banco. Se tudo passar, grava com status AGENDADO.
+ * AUTORIZACAO do cadastro: decide EM NOME DE QUAL leiloeiro o leilao sera criado.
+ *
+ * Autenticacao x autorizacao:
+ *   - autenticacao = "quem e voce?"  -> o Kong confere o token JWT;
+ *   - autorizacao  = "voce PODE fazer isto?" -> esta funcao.
+ *
+ *   - sem usuario logado                             -> 401
+ *   - papel diferente de LEILOEIRO                   -> 403
+ *   - token sem perfilId                             -> 403
+ *   - leiloeiroId informado diferente do proprio     -> 403
+ *
+ * @param usuario              payload do token (req.usuarioAutenticado)
+ * @param leiloeiroIdInformado leiloeiroId do corpo (opcional)
+ * @returns o id do leiloeiro logado (perfilId do token)
  */
-async function cadastrar(dados) {
+function autorizarLeiloeiro(usuario, leiloeiroIdInformado) {
+  if (!usuario) {
+    throw new ErroDeValidacao('Faca login para gerenciar leiloes.', 401);
+  }
+  if (usuario.papel !== 'LEILOEIRO') {
+    throw new ErroDeValidacao('Apenas leiloeiros podem cadastrar leiloes.', 403);
+  }
+  if (!inteiroPositivo(usuario.perfilId)) {
+    throw new ErroDeValidacao(
+      'Seu usuario nao tem perfil de leiloeiro vinculado. Faca login novamente.',
+      403
+    );
+  }
+  // O corpo pode trazer o leiloeiroId (compatibilidade), mas ele precisa ser o proprio.
+  // `!= null` cobre undefined e null ao mesmo tempo; '' (texto vazio) tambem e ignorado.
+  if (leiloeiroIdInformado != null && leiloeiroIdInformado !== ''
+      && Number(leiloeiroIdInformado) !== Number(usuario.perfilId)) {
+    throw new ErroDeValidacao('Voce so pode cadastrar leiloes em seu proprio nome.', 403);
+  }
+  return Number(usuario.perfilId);
+}
+
+// Regra 7 tambem: editar, mudar status e remover, so o DONO do leilao
+/**
+ * Confere se quem esta logado e o leiloeiro responsavel pelo leilao.
+ * Chamada DEPOIS de buscarPorId: assim, leilao inexistente continua 404.
+ */
+function garantirDono(leilao, usuario) {
+  if (!usuario) {
+    throw new ErroDeValidacao('Faca login para gerenciar leiloes.', 401);
+  }
+  if (usuario.papel !== 'LEILOEIRO' || Number(leilao.leiloeiro_id) !== Number(usuario.perfilId)) {
+    throw new ErroDeValidacao('Apenas o leiloeiro responsavel pode alterar este leilao.', 403);
+  }
+}
+
+/**
+ * Cadastra um leilao aplicando as regras, nesta ordem:
+ * autorizacao, validacoes baratas (sem rede/banco) e depois as que consultam
+ * outro servico e o banco. Se tudo passar, grava com status AGENDADO.
+ * @param usuario  quem esta logado (payload do token)
+ */
+async function cadastrar(dados, usuario) {
+  // O leiloeiro do leilao e SEMPRE quem esta logado.
+  const leiloeiroId = autorizarLeiloeiro(usuario, dados.leiloeiroId);
   const {
-    leiloeiroId,
     titulo,
     descricao,
     localEvento,
@@ -206,8 +263,9 @@ async function cadastrar(dados) {
  * Edita um leilao. Como o cliente pode mandar so ALGUNS campos, montamos o
  * leilao "como ficaria" (campo novo ?? campo atual) e validamos o conjunto.
  */
-async function atualizar(id, dados) {
+async function atualizar(id, dados, usuario) {
   const leilao = await buscarPorId(id);
+  garantirDono(leilao, usuario);
 
   if (leilao.status !== 'AGENDADO') {
     throw new ErroDeValidacao(
@@ -256,12 +314,13 @@ async function atualizar(id, dados) {
  * 400 se o status nao existir; 409 se a transicao nao for permitida
  * (ex.: tentar reabrir um leilao ENCERRADO).
  */
-async function alterarStatus(id, novoStatus) {
+async function alterarStatus(id, novoStatus, usuario) {
   if (!statusValido(novoStatus)) {
     throw new ErroDeValidacao('Status invalido. Use AGENDADO, ABERTO, ENCERRADO ou CANCELADO.');
   }
 
   const leilao = await buscarPorId(id);
+  garantirDono(leilao, usuario);
 
   if (!transicaoPermitida(leilao.status, novoStatus)) {
     throw new ErroDeValidacao(
@@ -275,16 +334,16 @@ async function alterarStatus(id, novoStatus) {
 
 // Atalhos: cada um reaproveita alterarStatus com um status fixo.
 // (Reaproveitar em vez de copiar codigo evita que as regras fiquem diferentes.)
-async function abrir(id) {
-  return alterarStatus(id, 'ABERTO');
+async function abrir(id, usuario) {
+  return alterarStatus(id, 'ABERTO', usuario);
 }
 
-async function encerrar(id) {
-  return alterarStatus(id, 'ENCERRADO');
+async function encerrar(id, usuario) {
+  return alterarStatus(id, 'ENCERRADO', usuario);
 }
 
-async function cancelar(id) {
-  return alterarStatus(id, 'CANCELADO');
+async function cancelar(id, usuario) {
+  return alterarStatus(id, 'CANCELADO', usuario);
 }
 
 // consultado pelo lances-service no passo 1 da saga
@@ -314,8 +373,9 @@ async function consultarDisponibilidade(id) {
 }
 
 // Regra 6 tambem: so remove enquanto AGENDADO, depois disso tem que cancelar
-async function remover(id) {
+async function remover(id, usuario) {
   const leilao = await buscarPorId(id);
+  garantirDono(leilao, usuario);
   if (leilao.status !== 'AGENDADO') {
     throw new ErroDeValidacao(
       'Somente leiloes ainda AGENDADOS podem ser removidos; use o cancelamento.',
@@ -339,6 +399,8 @@ module.exports = {
   remover,
   validarDados,
   validarDataFutura,
+  autorizarLeiloeiro,
+  garantirDono,
   garantirLeiloeiroExiste,
   garantirAgendaLivre,
 };
