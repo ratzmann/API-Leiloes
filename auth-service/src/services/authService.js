@@ -11,12 +11,14 @@
 // Quem chama: controllers/authController.js
 // Quem e chamado: repositories/usuarioRepository.js (banco),
 //                 utils/password.js (bcrypt), utils/jwt.js (token),
-//                 usuarios-service via HTTP (fetch).
+//                 clients/usuariosClient.js (usuarios-service via HTTP).
 // =============================================================================
 
 const usuarioRepository = require('../repositories/usuarioRepository');
 const { hashSenha, compararSenha } = require('../utils/password');
 const { gerarToken } = require('../utils/jwt');
+// Cliente HTTP do usuarios-service (cria o perfil de dominio no registro).
+const usuariosClient = require('../clients/usuariosClient');
 // Erro de regra de negocio com codigo HTTP (mesmo padrao dos outros servicos).
 const { ErroDeValidacao } = require('../utils/erros');
 
@@ -91,12 +93,19 @@ async function registrar({ nome, email, senha, papel, dadosPerfil }) {
   let perfil;
   try {
     // `dadosPerfil || {}`: se nao vier nada, usa um objeto vazio.
-    perfil = await criarPerfilNoUsuariosService(usuario, papel, dadosPerfil || {});
+    perfil = await usuariosClient.criarPerfil(usuario, papel, dadosPerfil || {});
   } catch (err) {
     // COMPENSACAO: o perfil nao foi criado, entao desfazemos o passo 3.
     console.error('Falha ao criar perfil no usuarios-service:', err.message);
     await desfazerCadastro(usuario.id);
-    // Repassa o erro (ja traduzido para 400, 409 ou 503) ao controller.
+    // Recusa de negocio (400 CPF invalido, 409 duplicado): repassa como veio.
+    // Servico fora do ar, timeout ou sem URL: vira 503 para o cliente.
+    if (err instanceof usuariosClient.ServicoIndisponivel) {
+      throw new ErroDeValidacao(
+        'Nao foi possivel criar o perfil agora (servico de usuarios indisponivel). Tente novamente.',
+        503
+      );
+    }
     throw err;
   }
 
@@ -111,71 +120,6 @@ async function registrar({ nome, email, senha, papel, dadosPerfil }) {
   const token = gerarToken(usuario);
   // sanitizar remove o senha_hash antes de responder ao cliente.
   return { usuario: sanitizar(usuario), perfil, token };
-}
-
-/**
- * COMUNICACAO ENTRE MICROSSERVICOS: faz um POST HTTP para o usuarios-service
- * criar o leiloeiro ou o licitante.
- *
- * A chamada vai direto pela rede interna do Docker (sem passar pelo Kong).
- * O endereco vem da variavel USUARIOS_SERVICE_URL (ex.: http://usuarios-service:3002),
- * definida no docker-compose.yml - o codigo nunca tem o endereco escrito.
- *
- * Erros (sempre ErroDeValidacao, para o controller responder direito):
- *   - 400 ou 409 do usuarios-service (ex.: CPF invalido, CPF ja cadastrado)
- *     -> o MESMO codigo e a mesma mensagem, para o cliente saber o que corrigir;
- *   - qualquer outra resposta, ou falha de rede -> 503 (tente de novo depois).
- *
- * @returns o perfil criado (objeto JSON) ou null se a URL nao estiver configurada.
- */
-async function criarPerfilNoUsuariosService(usuario, papel, dadosPerfil) {
-  const usuariosServiceUrl = process.env.USUARIOS_SERVICE_URL;
-  // Sem a variavel (servico rodando sozinho), simplesmente nao cria o perfil.
-  if (!usuariosServiceUrl) return null;
-
-  // Operador ternario: condicao ? valorSeVerdadeiro : valorSeFalso.
-  const rota = papel === 'LEILOEIRO' ? 'leiloeiros' : 'licitantes';
-  let resposta;
-  try {
-    // fetch() e a funcao nativa do Node 18+ para fazer requisicoes HTTP.
-    resposta = await fetch(`${usuariosServiceUrl}/${rota}`, {
-      method: 'POST',
-      // Avisa ao outro servico que o corpo enviado esta em formato JSON.
-      headers: { 'Content-Type': 'application/json' },
-      // JSON.stringify transforma o objeto JavaScript em texto JSON.
-      body: JSON.stringify({
-        usuarioId: usuario.id,
-        nome: usuario.nome,
-        email: usuario.email,
-        // "Spread" (...): copia todos os campos de dadosPerfil para este objeto
-        // (ex.: cpf e limiteCredito do licitante, registroProfissional do leiloeiro).
-        ...dadosPerfil,
-      }),
-    });
-  } catch (err) {
-    // Falha de rede: o usuarios-service nem respondeu.
-    throw new ErroDeValidacao(
-      'Nao foi possivel criar o perfil agora (servico de usuarios indisponivel). Tente novamente.',
-      503
-    );
-  }
-
-  // resposta.ok e verdadeiro para status 200-299 (sucesso).
-  if (resposta.ok) {
-    // Le o corpo da resposta e converte de JSON para objeto.
-    return resposta.json();
-  }
-
-  // Recusa de negocio (dado invalido ou duplicado): repassa codigo e mensagem.
-  if (resposta.status === 400 || resposta.status === 409) {
-    // .catch(() => ({})): se o corpo nao for JSON, usa um objeto vazio.
-    const corpo = await resposta.json().catch(() => ({}));
-    throw new ErroDeValidacao(corpo.erro || 'Dados do perfil recusados.', resposta.status);
-  }
-  throw new ErroDeValidacao(
-    `Nao foi possivel criar o perfil agora (servico de usuarios respondeu ${resposta.status}). Tente novamente.`,
-    503
-  );
 }
 
 /**

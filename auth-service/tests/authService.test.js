@@ -15,6 +15,7 @@
 // =============================================================================
 
 jest.mock('../src/repositories/usuarioRepository');
+jest.mock('../src/clients/usuariosClient');
 jest.mock('../src/utils/jwt', () => ({
   gerarToken: jest.fn(() => 'token-fake'),
 }));
@@ -23,6 +24,8 @@ const usuarioRepository = require('../src/repositories/usuarioRepository');
 const authService = require('../src/services/authService');
 const { hashSenha } = require('../src/utils/password');
 const { gerarToken } = require('../src/utils/jwt');
+const usuariosClient = require('../src/clients/usuariosClient');
+const { ErroDeValidacao } = require('../src/utils/erros');
 
 describe('authService.validarRegistro', () => {
   test('rejeita nome muito curto', () => {
@@ -57,11 +60,7 @@ describe('authService.validarRegistro', () => {
 });
 
 describe('authService.registrar', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    process.env.USUARIOS_SERVICE_URL = 'http://usuarios-service:3002';
-    global.fetch = jest.fn();
-  });
+  beforeEach(() => jest.clearAllMocks());
 
   test('lanca erro de conflito quando e-mail ja existe', async () => {
     usuarioRepository.buscarPorEmail.mockResolvedValue({ id: 1, email: 'a@a.com' });
@@ -81,10 +80,7 @@ describe('authService.registrar', () => {
       senha_hash: 'hash',
     });
     usuarioRepository.atualizarPerfilId.mockResolvedValue();
-    global.fetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: 99 }),
-    });
+    usuariosClient.criarPerfil.mockResolvedValue({ id: 99 });
 
     const resultado = await authService.registrar({
       nome: 'Ana Souza',
@@ -103,7 +99,7 @@ describe('authService.registrar', () => {
     usuarioRepository.buscarPorEmail.mockResolvedValue(null);
     usuarioRepository.criar.mockResolvedValue({ id: 10, nome: 'Ana Souza', email: 'a@a.com', papel: 'LICITANTE' });
     usuarioRepository.atualizarPerfilId.mockResolvedValue();
-    global.fetch.mockResolvedValue({ ok: true, json: async () => ({ id: 99 }) });
+    usuariosClient.criarPerfil.mockResolvedValue({ id: 99 });
 
     await authService.registrar({ nome: 'Ana Souza', email: 'a@a.com', senha: '123456', papel: 'LICITANTE' });
 
@@ -150,8 +146,6 @@ describe('authService.registrar - compensacao quando o perfil falha', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(console, 'error').mockImplementation(() => {});
-    process.env.USUARIOS_SERVICE_URL = 'http://usuarios-service:3002';
-    global.fetch = jest.fn();
     usuarioRepository.buscarPorEmail.mockResolvedValue(null);
     usuarioRepository.criar.mockResolvedValue({ id: 10, nome: 'Ana Souza', email: 'a@a.com', papel: 'LICITANTE' });
     usuarioRepository.remover.mockResolvedValue(true);
@@ -160,7 +154,7 @@ describe('authService.registrar - compensacao quando o perfil falha', () => {
   const dados = { nome: 'Ana Souza', email: 'a@a.com', senha: '123456', papel: 'LICITANTE', dadosPerfil: { cpf: '11111111111' } };
 
   test('CPF recusado (400): apaga o usuario criado e devolve o mesmo 400', async () => {
-    global.fetch.mockResolvedValue({ ok: false, status: 400, json: async () => ({ erro: 'CPF invalido.' }) });
+    usuariosClient.criarPerfil.mockRejectedValue(new ErroDeValidacao('CPF invalido.', 400));
 
     await expect(authService.registrar(dados)).rejects.toMatchObject({ codigo: 400, message: 'CPF invalido.' });
     expect(usuarioRepository.remover).toHaveBeenCalledWith(10);
@@ -168,31 +162,28 @@ describe('authService.registrar - compensacao quando o perfil falha', () => {
   });
 
   test('CPF ja cadastrado (409): apaga o usuario e devolve 409', async () => {
-    global.fetch.mockResolvedValue({ ok: false, status: 409, json: async () => ({ erro: 'Ja existe um licitante cadastrado com este CPF.' }) });
+    usuariosClient.criarPerfil.mockRejectedValue(new ErroDeValidacao('Ja existe um licitante cadastrado com este CPF.', 409));
 
     await expect(authService.registrar(dados)).rejects.toMatchObject({ codigo: 409 });
     expect(usuarioRepository.remover).toHaveBeenCalledWith(10);
   });
 
-  test('usuarios-service fora do ar (rede ou 5xx): apaga o usuario e devolve 503', async () => {
-    global.fetch.mockRejectedValueOnce(new TypeError('fetch failed'));
-    await expect(authService.registrar(dados)).rejects.toMatchObject({ codigo: 503 });
+  test('usuarios-service fora do ar (rede, timeout ou 5xx): apaga o usuario e devolve 503', async () => {
+    usuariosClient.criarPerfil.mockRejectedValue(new usuariosClient.ServicoIndisponivel('nao respondeu'));
 
-    global.fetch.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) });
     await expect(authService.registrar(dados)).rejects.toMatchObject({ codigo: 503 });
-
-    expect(usuarioRepository.remover).toHaveBeenCalledTimes(2);
+    expect(usuarioRepository.remover).toHaveBeenCalledWith(10);
   });
 
   test('se ate a remocao falhar, o erro original continua sendo devolvido', async () => {
-    global.fetch.mockResolvedValue({ ok: false, status: 400, json: async () => ({ erro: 'CPF invalido.' }) });
+    usuariosClient.criarPerfil.mockRejectedValue(new ErroDeValidacao('CPF invalido.', 400));
     usuarioRepository.remover.mockRejectedValue(new Error('banco fora do ar'));
 
     await expect(authService.registrar(dados)).rejects.toMatchObject({ codigo: 400 });
   });
 
   test('sem falha, nada e apagado', async () => {
-    global.fetch.mockResolvedValue({ ok: true, json: async () => ({ id: 99 }) });
+    usuariosClient.criarPerfil.mockResolvedValue({ id: 99 });
     await authService.registrar(dados);
     expect(usuarioRepository.remover).not.toHaveBeenCalled();
   });
