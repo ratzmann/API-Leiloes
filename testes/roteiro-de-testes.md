@@ -97,7 +97,8 @@ curl -i -X POST http://localhost:8000/auth/registrar \
 ## 9. Cadastrar um leilão (leiloes-service)
 
 Use o token do leiloeiro do passo 8 — a rota `/leiloes` também é protegida
-pelo Kong.
+pelo Kong. O leilão é criado **em nome do leiloeiro dono do token**: o campo
+`leiloeiroId` pode ser omitido (se enviado, precisa ser o próprio).
 
 ```bash
 TOKEN_LEILOEIRO=... # token do passo 8
@@ -113,7 +114,6 @@ curl -s -X POST http://localhost:8000/leiloes \
   -H "Authorization: Bearer $TOKEN_LEILOEIRO" \
   -H "Content-Type: application/json" \
   -d "{
-    \"leiloeiroId\": 1,
     \"titulo\": \"Leilão de Nelore - Lote 12\",
     \"descricao\": \"Bois nelore terminados a pasto, média de 18 arrobas.\",
     \"localEvento\": \"Parque de Exposições de Lages\",
@@ -130,7 +130,7 @@ Deve dar `201` com o leilão criado e `status: "AGENDADO"`.
 ## 10. Testar as regras de negócio do leilão (todos devem falhar)
 
 ```bash
-# leiloeiro que não existe -> 404 (o leiloes-service consultou o usuarios-service)
+# leilão em nome de OUTRO leiloeiro -> 403 (Regra 7: só em nome próprio)
 curl -i -X POST http://localhost:8000/leiloes \
   -H "Authorization: Bearer $TOKEN_LEILOEIRO" -H "Content-Type: application/json" \
   -d "{ \"leiloeiroId\": 9999, \"titulo\": \"Leilão sem dono\", \"quantidadeBois\": 10,
@@ -140,21 +140,21 @@ curl -i -X POST http://localhost:8000/leiloes \
 # data no passado -> 400
 curl -i -X POST http://localhost:8000/leiloes \
   -H "Authorization: Bearer $TOKEN_LEILOEIRO" -H "Content-Type: application/json" \
-  -d '{ "leiloeiroId": 1, "titulo": "Leilão no passado", "quantidadeBois": 10,
+  -d '{ "titulo": "Leilão no passado", "quantidadeBois": 10,
         "lanceInicial": 1000, "incrementoMinimo": 50,
         "dataInicio": "2020-01-01T10:00:00Z", "dataFim": "2020-01-01T14:00:00Z" }'
 
 # incremento maior que o lance inicial -> 400
 curl -i -X POST http://localhost:8000/leiloes \
   -H "Authorization: Bearer $TOKEN_LEILOEIRO" -H "Content-Type: application/json" \
-  -d "{ \"leiloeiroId\": 1, \"titulo\": \"Incremento absurdo\", \"quantidadeBois\": 10,
+  -d "{ \"titulo\": \"Incremento absurdo\", \"quantidadeBois\": 10,
         \"lanceInicial\": 100, \"incrementoMinimo\": 500,
         \"dataInicio\": \"$INICIO\", \"dataFim\": \"$FIM\" }"
 
 # mesmo leiloeiro, mesmo horário -> 409 (conflito de agenda)
 curl -i -X POST http://localhost:8000/leiloes \
   -H "Authorization: Bearer $TOKEN_LEILOEIRO" -H "Content-Type: application/json" \
-  -d "{ \"leiloeiroId\": 1, \"titulo\": \"Leilão concorrente\", \"quantidadeBois\": 20,
+  -d "{ \"titulo\": \"Leilão concorrente\", \"quantidadeBois\": 20,
         \"lanceInicial\": 2000, \"incrementoMinimo\": 50,
         \"dataInicio\": \"$INICIO\", \"dataFim\": \"$FIM\" }"
 ```
@@ -215,7 +215,12 @@ o leilão no `leiloes-service`, reserva o crédito do licitante no
 Por isso o lance precisa de um **leilão real, aberto e dentro do período**, e
 de **licitantes reais com limite de crédito**.
 
-> Para rodar tudo isso automaticamente: `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` (passos 30 a 52).
+> Para rodar tudo isso automaticamente: `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` (passos 30 a 57).
+
+**Autorização:** o lance é sempre dado em nome de quem está logado. Por isso
+cada licitante usa o **próprio token** (`TOKEN_A`, `TOKEN_B`) e o
+`licitanteId` não precisa ir no corpo. Um leiloeiro dando lance, ou um
+licitante tentando agir por outro, recebe `403`.
 
 ### 13.1 Testar rota protegida sem token (deve dar 401)
 ```bash
@@ -233,13 +238,16 @@ B=$(curl -s -X POST http://localhost:8000/auth/registrar -H "Content-Type: appli
        "dadosPerfil":{"cpf":"39053344705","limiteCredito":3000}}')
 LICITANTE_A=$(echo "$A" | node -pe "JSON.parse(require('fs').readFileSync(0)).perfil.id")
 LICITANTE_B=$(echo "$B" | node -pe "JSON.parse(require('fs').readFileSync(0)).perfil.id")
+# cada licitante da lances com o proprio token (ele leva o perfilId)
+TOKEN_A=$(echo "$A" | node -pe "JSON.parse(require('fs').readFileSync(0)).token")
+TOKEN_B=$(echo "$B" | node -pe "JSON.parse(require('fs').readFileSync(0)).token")
 
 # leilão que começa em 20 segundos (a data de início precisa estar no futuro)
 INICIO=$(date -u -d "+20 seconds" +%Y-%m-%dT%H:%M:%SZ)
 FIM=$(date -u -d "+2 hours" +%Y-%m-%dT%H:%M:%SZ)
 LEILAO=$(curl -s -X POST http://localhost:8000/leiloes \
   -H "Authorization: Bearer $TOKEN_LEILOEIRO" -H "Content-Type: application/json" \
-  -d "{\"leiloeiroId\":1,\"titulo\":\"Leilão ao vivo\",\"quantidadeBois\":10,
+  -d "{\"titulo\":\"Leilão ao vivo\",\"quantidadeBois\":10,
        \"lanceInicial\":1000,\"incrementoMinimo\":100,\"dataInicio\":\"$INICIO\",\"dataFim\":\"$FIM\"}" \
   | node -pe "JSON.parse(require('fs').readFileSync(0)).id")
 curl -s -X PATCH http://localhost:8000/leiloes/$LEILAO/abrir -H "Authorization: Bearer $TOKEN_LEILOEIRO"
@@ -251,36 +259,36 @@ curl -s http://localhost:8000/leiloes/$LEILAO/disponibilidade -H "Authorization:
 ### 13.3 Recusas antes de mexer no crédito
 ```bash
 # leilão inexistente -> 404 (Saga passo 1)
-curl -i -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_LEILOEIRO" \
-  -H "Content-Type: application/json" -d "{\"leilaoId\":99999999,\"licitanteId\":$LICITANTE_A,\"valor\":1000}"
+curl -i -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_A" \
+  -H "Content-Type: application/json" -d "{\"leilaoId\":99999999,\"valor\":1000}"
 
 # abaixo do lance inicial -> 400
-curl -i -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_LEILOEIRO" \
-  -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"licitanteId\":$LICITANTE_A,\"valor\":900}"
+curl -i -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_A" \
+  -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"valor\":900}"
 
 # crédito insuficiente (B tem R$ 3000) -> 409 (Saga passo 2)
-curl -i -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_LEILOEIRO" \
-  -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"licitanteId\":$LICITANTE_B,\"valor\":3500}"
+curl -i -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_B" \
+  -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"valor\":3500}"
 ```
 
 ### 13.4 Caminho feliz: A dá o lance, B supera, o crédito de A é liberado
 ```bash
-curl -s -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_LEILOEIRO" \
-  -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"licitanteId\":$LICITANTE_A,\"valor\":1000}"
+curl -s -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_A" \
+  -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"valor\":1000}"
 curl -s http://localhost:8000/licitantes/$LICITANTE_A/credito -H "Authorization: Bearer $TOKEN_LEILOEIRO"
 # reservado: 1000
 
-curl -s -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_LEILOEIRO" \
-  -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"licitanteId\":$LICITANTE_B,\"valor\":1500}"
+curl -s -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_B" \
+  -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"valor\":1500}"
 curl -s http://localhost:8000/licitantes/$LICITANTE_A/credito -H "Authorization: Bearer $TOKEN_LEILOEIRO"
 # reservado: 0  (passo 4 liberou o crédito de quem foi superado)
 ```
 
 ### 13.5 Compensação: falha ao gravar o lance devolve o crédito
 ```bash
-curl -s -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_LEILOEIRO" \
+curl -s -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_A" \
   -H "X-Simular-Falha: gravar-lance" \
-  -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"licitanteId\":$LICITANTE_A,\"valor\":2000}"
+  -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"valor\":2000}"
 # 500 com "sagaId"
 
 curl -s http://localhost:8000/lances/sagas/<SAGA_ID> -H "Authorization: Bearer $TOKEN_LEILOEIRO"
@@ -291,9 +299,9 @@ curl -s http://localhost:8000/licitantes/$LICITANTE_A/credito -H "Authorization:
 
 ### 13.6 Pendência e reprocessamento do passo repetível
 ```bash
-curl -s -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_LEILOEIRO" \
+curl -s -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_A" \
   -H "X-Simular-Falha: liberar-credito-superado" \
-  -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"licitanteId\":$LICITANTE_A,\"valor\":2000}"
+  -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"valor\":2000}"
 # 201 com "sagaStatus": "CONCLUIDA_COM_PENDENCIA" — o lance vale, mas o crédito de B ficou preso
 
 curl -s -X POST http://localhost:8000/lances/sagas/<SAGA_ID>/reprocessar -H "Authorization: Bearer $TOKEN_LEILOEIRO"
@@ -308,6 +316,26 @@ curl -s http://localhost:8000/lances/leilao/$LEILAO -H "Authorization: Bearer $T
 # reserva de crédito é interna: pelo gateway -> 403
 curl -i -X POST http://localhost:8000/licitantes/$LICITANTE_A/reservas \
   -H "Authorization: Bearer $TOKEN_LEILOEIRO" -H "Content-Type: application/json" -d '{"valor":10}'
+```
+
+### 13.8 Autorização: ninguém age em nome de outra pessoa (todos -> 403)
+```bash
+# leiloeiro tentando dar lance
+curl -i -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_LEILOEIRO" \
+  -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"valor\":5000}"
+
+# licitante A tentando dar lance em nome de B (e gastar o crédito dele)
+curl -i -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_A" \
+  -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"licitanteId\":$LICITANTE_B,\"valor\":5000}"
+
+# licitante tentando cadastrar leilão
+curl -i -X POST http://localhost:8000/leiloes -H "Authorization: Bearer $TOKEN_A" \
+  -H "Content-Type: application/json" \
+  -d "{\"titulo\":\"Leilão do licitante\",\"quantidadeBois\":10,\"lanceInicial\":1000,
+       \"incrementoMinimo\":100,\"dataInicio\":\"$INICIO\",\"dataFim\":\"$FIM\"}"
+
+# outro leiloeiro tentando cancelar o leilão (registre um segundo leiloeiro e use o token dele)
+curl -i -X PATCH http://localhost:8000/leiloes/$LEILAO/cancelar -H "Authorization: Bearer $TOKEN_OUTRO_LEILOEIRO"
 ```
 
 ## 14. Ver logs se algo der errado

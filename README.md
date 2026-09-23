@@ -132,6 +132,10 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 5. Ciclo de vida controlado: `AGENDADO → ABERTO → ENCERRADO`, com cancelamento
    permitido apenas enquanto não estiver encerrado.
 6. Edição e exclusão só enquanto o leilão está `AGENDADO`.
+7. **Autorização**: só um usuário com papel `LEILOEIRO` cadastra leilão, e
+   sempre em nome próprio (o `leiloeiroId` vem do token; se enviado no corpo,
+   precisa ser o próprio). Editar, mudar status e remover: só o **dono** do
+   leilão. Violações → `403` (sem login → `401`). As rotas `GET` continuam livres.
 
 ### lances-service
 
@@ -142,6 +146,17 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 4. Primeiro lance ≥ lance inicial; os seguintes ≥ maior lance atual + incremento mínimo.
 5. Licitante não pode cobrir o seu próprio lance consecutivo se já detém o maior lance atual.
 6. O licitante precisa ter crédito disponível para o valor do lance (reservado no `usuarios-service`).
+7. **Autorização**: só um usuário com papel `LICITANTE` dá lance, e sempre em
+   nome próprio — o `licitanteId` vem do token; se enviado no corpo, precisa ser
+   o próprio. Assim ninguém dá lance nem gasta o crédito de outra pessoa (`403`).
+
+### Autorização pelo token
+
+O token JWT emitido pelo `auth-service` leva `sub` (id do **usuário** no
+auth-db), `papel` e `perfilId` (id do **leiloeiro/licitante** no
+usuarios-service). O Kong confere a assinatura; os serviços usam `papel` e
+`perfilId` para decidir **em nome de quem** a requisição pode agir. Tokens
+emitidos antes desta regra não têm `perfilId`: basta fazer login de novo.
 
 ## Como rodar
 
@@ -208,7 +223,6 @@ curl -X POST http://localhost:8000/leiloes \
   -H "Authorization: Bearer <TOKEN_DO_LEILOEIRO>" \
   -H "Content-Type: application/json" \
   -d '{
-    "leiloeiroId": 1,
     "titulo": "Leilão de Nelore - Lote 12",
     "localEvento": "Parque de Exposições de Lages",
     "raca": "Nelore",
@@ -219,28 +233,30 @@ curl -X POST http://localhost:8000/leiloes \
     "dataFim": "2026-10-01T18:00:00Z"
   }'
 ```
-Depois, `PATCH /leiloes/1/abrir` coloca o pregão no ar e
-`GET /leiloes/1/disponibilidade` informa se ele está aceitando lances.
+O leilão é criado em nome do leiloeiro dono do token (o `leiloeiroId` pode ser
+omitido; se enviado, precisa ser o próprio). Depois, `PATCH /leiloes/1/abrir`
+(só o dono) coloca o pregão no ar e `GET /leiloes/1/disponibilidade` informa
+se ele está aceitando lances.
 
 ### 6. Registrar um lance (inicia a Saga)
-O leilão precisa estar `ABERTO` e dentro do período, e `licitanteId` é o id do
-**perfil** do licitante (campo `perfil.id` da resposta do registro).
+O leilão precisa estar `ABERTO` e dentro do período. Use o token do **próprio
+licitante**: o lance é sempre dado em nome de quem está logado (um leiloeiro,
+ou um licitante tentando agir por outro, recebe `403`).
 ```bash
 curl -X POST http://localhost:8000/lances \
-  -H "Authorization: Bearer <TOKEN_RECEBIDO>" \
+  -H "Authorization: Bearer <TOKEN_DO_LICITANTE>" \
   -H "Content-Type: application/json" \
   -d '{
     "leilaoId": 1,
-    "licitanteId": 1,
     "valor": 5000.00
   }'
 
 # a mesma chamada, forçando a compensação (crédito reservado é devolvido)
 curl -X POST http://localhost:8000/lances \
-  -H "Authorization: Bearer <TOKEN_RECEBIDO>" \
+  -H "Authorization: Bearer <TOKEN_DO_LICITANTE>" \
   -H "X-Simular-Falha: gravar-lance" \
   -H "Content-Type: application/json" \
-  -d '{ "leilaoId": 1, "licitanteId": 1, "valor": 5100.00 }'
+  -d '{ "leilaoId": 1, "valor": 5100.00 }'
 
 # acompanhar a saga (o sagaId vem na resposta)
 curl http://localhost:8000/lances/sagas/<SAGA_ID> \
@@ -275,8 +291,9 @@ Ponta a ponta, com a stack no ar (PowerShell):
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
 ```
-52 passos pelo Kong: autenticação, usuários, leilões e a Saga de lances —
-caminho feliz, recusas, compensação, pendência e reprocessamento.
+57 passos pelo Kong: autenticação, usuários, leilões, a Saga de lances —
+caminho feliz, recusas, compensação, pendência e reprocessamento — e a
+autorização (ninguém age em nome de outra pessoa).
 
 ## Variáveis de ambiente
 

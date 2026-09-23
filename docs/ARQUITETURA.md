@@ -160,7 +160,7 @@ Um **JSON Web Token** é um "crachá digital" no formato `xxxxx.yyyyy.zzzzz`:
 | Parte | Conteúdo |
 |---|---|
 | header | algoritmo (`HS256`) |
-| payload | dados: `sub` (id do usuário), `email`, `papel`, `iss` (emissor), `exp` (validade) |
+| payload | dados: `sub` (id do usuário no auth-db), `email`, `papel`, `perfilId` (id do leiloeiro/licitante no usuarios-service), `iss` (emissor), `exp` (validade) |
 | assinatura | calculada com um **segredo**; se alguém alterar o payload, ela deixa de bater |
 
 > O payload **não é criptografado**, só codificado — qualquer um consegue ler.
@@ -177,7 +177,30 @@ Um **JSON Web Token** é um "crachá digital" no formato `xxxxx.yyyyy.zzzzz`:
 5. Kong confere o token usando o MESMO segredo (consumer no kong.yml)
 6. Serviço recebe a requisição e apenas DECODIFICA o token
    (middlewares/extrairUsuario.js) para saber quem está logado
+7. O service decide se aquele usuário PODE fazer aquilo (autorização)
 ```
+
+### Autenticação × autorização
+
+- **Autenticação** — "quem é você?": o Kong confere se o token é autêntico.
+- **Autorização** — "você **pode** fazer isto?": decidido nos `services/`, usando
+  `papel` e `perfilId` do token.
+
+| Ação | Quem pode | Onde no código |
+|---|---|---|
+| Cadastrar leilão | só `LEILOEIRO`, em nome próprio | `leilaoService.autorizarLeiloeiro` |
+| Editar, abrir, encerrar, cancelar, remover leilão | só o **dono** do leilão | `leilaoService.garantirDono` |
+| Dar lance | só `LICITANTE`, em nome próprio | `lanceService.autorizarLicitante` |
+
+Sem login → `401`; sem permissão → `403`. Assim ninguém cria leilão para outro
+leiloeiro, nem dá lance (e gasta o crédito) de outro licitante.
+
+Por que dá para confiar num token só **decodificado**? Porque o Kong já
+conferiu a assinatura e os serviços não têm porta exposta — só se chega a eles
+pelo Kong ou pela rede interna do Docker.
+
+> `sub` ≠ `perfilId`: o usuário 7 do auth-db pode ser o licitante 3 do
+> usuarios-db. As regras de autorização usam o `perfilId`.
 
 Para funcionar, dois valores precisam ser **iguais** em dois lugares:
 
@@ -321,6 +344,7 @@ sequenceDiagram
 | 4. Leiloeiro sem dois leilões ativos no mesmo horário | `garantirAgendaLivre` |
 | 5. Ciclo de vida `AGENDADO → ABERTO → ENCERRADO` (+ `CANCELADO`) | `alterarStatus` + `utils/validadores.js` |
 | 6. Editar/remover só enquanto `AGENDADO` | `atualizar`, `remover` |
+| 7. Autorização: só o leiloeiro logado cadastra; só o dono altera | `autorizarLeiloeiro`, `garantirDono` |
 
 ### lances-service
 
@@ -331,6 +355,7 @@ sequenceDiagram
 | 4. 1º lance ≥ lance inicial; depois ≥ maior + incremento | `services/regrasDoLance.js` |
 | 5. Não cobrir o próprio lance | `services/regrasDoLance.js` |
 | 6. Crédito disponível | Saga passo 2 → usuarios-service |
+| 7. Autorização: só o licitante logado, em nome próprio | `services/lanceService.js` → `autorizarLicitante` |
 
 ---
 
@@ -348,56 +373,51 @@ Estrutura de um teste:
 ```js
 describe('leilaoService.remover', () => {        // grupo
   test('so remove leilao AGENDADO', async () => { // cenário
-    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'ABERTO' }); // prepara o mock
-    await expect(leilaoService.remover(1)).rejects.toThrow(/use o cancelamento/); // verifica
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'ABERTO', leiloeiro_id: 1 }); // prepara o mock
+    await expect(leilaoService.remover(1, leiloeiro1)).rejects.toThrow(/use o cancelamento/);   // verifica
   });
 });
 ```
 
 | Serviço | Testes |
 |---|---|
-| auth-service | 10 |
+| auth-service | 13 |
 | usuarios-service | 28 |
-| leiloes-service | 34 |
-| lances-service | 39 |
-| **Total** | **111** |
+| leiloes-service | 40 |
+| lances-service | 46 |
+| **Total** | **127** |
 
-Além disso, `testes/testar-tudo.ps1` faz um teste **ponta a ponta** (52 passos
-pelo Kong, com a stack no ar) e há uma coleção Postman em `testes/`.
+Além disso, `testes/testar-tudo.ps1` faz um teste **ponta a ponta** (57 passos
+pelo Kong, com a stack no ar, incluindo a autorização) e há uma coleção Postman
+em `testes/`.
 
 ---
 
 ## 10. Pontos de atenção e próximos passos
 
-Levantados na revisão do código (nada disso impede o funcionamento atual):
+### Já resolvido nesta revisão
 
-**Código sem uso (candidatos a remoção)**
+- **Código sem uso removido**: `verificarToken`, `usuarioRepository.buscarPorId`
+  (auth) e `lanceRepository.criar` (lances).
+- **Consistência entre serviços**: `ErroDeValidacao` em `utils/erros.js` nos 4
+  serviços; `db/migrar.js` rodando ao subir em usuarios, leiloes e lances;
+  `middlewares/extrairUsuario.js` idêntico nos 3 serviços; `try/catch` em todas
+  as funções de controller.
+- **Autorização**: o token passou a levar `perfilId`; lances só em nome do
+  licitante logado; leilões só em nome do leiloeiro logado e alterados só pelo dono.
+- `package-lock.json` do lances-service versionado.
 
-- `auth-service/src/utils/jwt.js` → `verificarToken` (quem valida é o Kong).
-- `auth-service/src/repositories/usuarioRepository.js` → `buscarPorId`.
-- `lances-service/src/repositories/lanceRepository.js` → `criar` (a Saga usa `registrarComTrava`).
+Duplicar `config/db.js`, `utils/erros.js` e `extrairUsuario.js` em cada serviço
+é **intencional** (independência dos microsserviços).
 
-**Consistência entre serviços**
+### Próximos passos
 
-- `middlewares/extrairUsuario.js` tem três variações (só nos comentários; a lógica é igual).
-- `auth-service` declara `ErroDeValidacao` dentro do service; os outros usam `utils/erros.js`.
-- `leiloes-service` não roda `db/migrar.js` ao subir (usuarios e lances rodam).
-- `listar` dos controllers de leiloeiro e licitante não tem `try/catch`.
-- Duplicar `config/db.js` e `utils/erros.js` em cada serviço é **intencional**
-  (independência dos microsserviços).
-
-**Comportamento a observar**
-
-- No `POST /lances`, se `licitanteId` não vier no corpo, o controller usa
-  `perfilId` ou `sub` do token — mas o token não tem `perfilId`, e `sub` é o id
-  do **usuário** (auth-db), não do **licitante** (usuarios-db). Por isso o
-  README orienta sempre enviar `licitanteId`.
-- O `docker-compose.yml` usa `version: "3.9"`, que o Docker atual considera obsoleto (só gera aviso).
-
-**Organização do repositório**
-
+- **Autorização nos cadastros de usuários**: `PUT`/`DELETE` de `/leiloeiros` e
+  `/licitantes` ainda aceitam qualquer usuário logado. O `POST` dessas rotas é
+  chamado pelo auth-service sem token, então a regra precisa de um desenho
+  próprio (ex.: só o próprio perfil altera seus dados).
 - As pastas `coverage/` estão versionadas mesmo estando no `.gitignore`.
-- `lances-service` não tinha `package-lock.json` versionado.
+- O `docker-compose.yml` usa `version: "3.9"`, que o Docker atual considera obsoleto (só gera aviso).
 
 **Evoluções (do README)**
 
@@ -451,5 +471,7 @@ Levantados na revisão do código (nada disso impede o funcionamento atual):
 6. **A Saga** — `lances-service/src/sagas/registrarLanceSaga.js` (o cabeçalho
    resume tudo) + demonstração com `X-Simular-Falha: gravar-lance` e
    `GET /lances/sagas/:id`.
-7. **Testes** — `npm test` em um serviço e o `testar-tudo.ps1`.
-8. **Próximos passos** — seção 10.
+7. **Autorização** — seção 5: `lanceService.autorizarLicitante` e
+   `leilaoService.garantirDono`; demonstrar um leiloeiro tentando dar lance (403).
+8. **Testes** — `npm test` em um serviço e o `testar-tudo.ps1` (57 passos).
+9. **Próximos passos** — seção 10.

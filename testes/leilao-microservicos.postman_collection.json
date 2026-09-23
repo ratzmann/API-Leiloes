@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Leilão de Bois - Microsserviços",
-    "description": "Teste do fluxo de autenticação (Kong + JWT), do cadastro de leiloeiros/licitantes e do cadastro de leilões (eventos). Tudo passa pela porta 8000 (Kong).",
+    "description": "Teste do fluxo de autenticação (Kong + JWT), do cadastro de leiloeiros/licitantes e do cadastro de leilões (eventos). Tudo passa pela porta 8000 (Kong). Autorizacao: cada usuario age so em nome proprio - o leilao e do leiloeiro dono do token e o lance e do licitante dono do token (token_licitante / token_licitante_b).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -11,6 +11,10 @@
     },
     {
       "key": "token_licitante",
+      "value": ""
+    },
+    {
+      "key": "token_licitante_b",
       "value": ""
     },
     {
@@ -280,12 +284,12 @@
         "url": "{{base_url}}/leiloes",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"leiloeiroId\": 1,\n  \"titulo\": \"Leilao de Nelore - Lote 12\",\n  \"descricao\": \"Bois nelore terminados a pasto, media de 18 arrobas.\",\n  \"localEvento\": \"Parque de Exposicoes de Lages\",\n  \"raca\": \"Nelore\",\n  \"quantidadeBois\": 40,\n  \"lanceInicial\": 5000,\n  \"incrementoMinimo\": 100,\n  \"dataInicio\": \"{{data_inicio}}\",\n  \"dataFim\": \"{{data_fim}}\"\n}"
+          "raw": "{\n  \"titulo\": \"Leilao de Nelore - Lote 12\",\n  \"descricao\": \"Bois nelore terminados a pasto, media de 18 arrobas.\",\n  \"localEvento\": \"Parque de Exposicoes de Lages\",\n  \"raca\": \"Nelore\",\n  \"quantidadeBois\": 40,\n  \"lanceInicial\": 5000,\n  \"incrementoMinimo\": 100,\n  \"dataInicio\": \"{{data_inicio}}\",\n  \"dataFim\": \"{{data_fim}}\"\n}"
         }
       }
     },
     {
-      "name": "14. Cadastrar leilao com leiloeiro inexistente (espera 404)",
+      "name": "14. Cadastrar leilao em nome de outro leiloeiro (espera 403)",
       "request": {
         "method": "POST",
         "header": [
@@ -322,7 +326,7 @@
         "url": "{{base_url}}/leiloes",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"leiloeiroId\": 1,\n  \"titulo\": \"Leilao no passado\",\n  \"quantidadeBois\": 10,\n  \"lanceInicial\": 1000,\n  \"incrementoMinimo\": 50,\n  \"dataInicio\": \"2020-01-01T10:00:00Z\",\n  \"dataFim\": \"2020-01-01T14:00:00Z\"\n}"
+          "raw": "{\n  \"titulo\": \"Leilao no passado\",\n  \"quantidadeBois\": 10,\n  \"lanceInicial\": 1000,\n  \"incrementoMinimo\": 50,\n  \"dataInicio\": \"2020-01-01T10:00:00Z\",\n  \"dataFim\": \"2020-01-01T14:00:00Z\"\n}"
         }
       }
     },
@@ -343,7 +347,7 @@
         "url": "{{base_url}}/leiloes",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"leiloeiroId\": 1,\n  \"titulo\": \"Leilao concorrente\",\n  \"quantidadeBois\": 20,\n  \"lanceInicial\": 2000,\n  \"incrementoMinimo\": 50,\n  \"dataInicio\": \"{{data_inicio}}\",\n  \"dataFim\": \"{{data_fim}}\"\n}"
+          "raw": "{\n  \"titulo\": \"Leilao concorrente\",\n  \"quantidadeBois\": 20,\n  \"lanceInicial\": 2000,\n  \"incrementoMinimo\": 50,\n  \"dataInicio\": \"{{data_inicio}}\",\n  \"dataFim\": \"{{data_fim}}\"\n}"
         }
       }
     },
@@ -501,17 +505,74 @@
       }
     },
     {
-      "name": "14. Lances - Primeiro lance leilao 1 (espera 201)",
+      "name": "Lances - Registrar licitante B (guarda token_licitante_b)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "  const body = pm.response.json();",
+              "  pm.collectionVariables.set('token_licitante_b', body.token);",
+              "}"
+            ]
+          }
+        }
+      ],
       "request": {
         "method": "POST",
         "header": [
-          { "key": "Authorization", "value": "Bearer {{token_licitante}}" },
-          { "key": "Content-Type", "value": "application/json" }
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/auth/registrar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nome\": \"Joao Lima\",\n  \"email\": \"joao@example.com\",\n  \"senha\": \"senha123\",\n  \"papel\": \"LICITANTE\",\n  \"dadosPerfil\": {\n    \"cpf\": \"39053344705\",\n    \"limiteCredito\": 3000\n  }\n}"
+        }
+      }
+    },
+    {
+      "name": "Lances - Leiloeiro tentando dar lance (espera 403)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_leiloeiro}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
         ],
         "url": "{{base_url}}/lances",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"leilaoId\": 1,\n  \"licitanteId\": 1,\n  \"valor\": 1000.00\n}"
+          "raw": "{\n  \"leilaoId\": 1,\n  \"valor\": 1000.00\n}"
+        }
+      }
+    },
+    {
+      "name": "14. Lances - Primeiro lance leilao 1 (espera 201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_licitante}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/lances",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"leilaoId\": 1,\n  \"valor\": 1000.00\n}"
         }
       }
     },
@@ -520,13 +581,19 @@
       "request": {
         "method": "POST",
         "header": [
-          { "key": "Authorization", "value": "Bearer {{token_licitante}}" },
-          { "key": "Content-Type", "value": "application/json" }
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_licitante}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
         ],
         "url": "{{base_url}}/lances",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"leilaoId\": 1,\n  \"licitanteId\": 1,\n  \"valor\": 1200.00\n}"
+          "raw": "{\n  \"leilaoId\": 1,\n  \"valor\": 1200.00\n}"
         }
       }
     },
@@ -535,13 +602,19 @@
       "request": {
         "method": "POST",
         "header": [
-          { "key": "Authorization", "value": "Bearer {{token_licitante}}" },
-          { "key": "Content-Type", "value": "application/json" }
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_licitante_b}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
         ],
         "url": "{{base_url}}/lances",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"leilaoId\": 1,\n  \"licitanteId\": 2,\n  \"valor\": 950.00\n}"
+          "raw": "{\n  \"leilaoId\": 1,\n  \"valor\": 950.00\n}"
         }
       }
     },
@@ -550,13 +623,19 @@
       "request": {
         "method": "POST",
         "header": [
-          { "key": "Authorization", "value": "Bearer {{token_licitante}}" },
-          { "key": "Content-Type", "value": "application/json" }
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_licitante_b}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
         ],
         "url": "{{base_url}}/lances",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"leilaoId\": 1,\n  \"licitanteId\": 2,\n  \"valor\": 1350.00\n}"
+          "raw": "{\n  \"leilaoId\": 1,\n  \"valor\": 1350.00\n}"
         }
       }
     },
@@ -564,7 +643,12 @@
       "name": "18. Lances - Buscar maior lance do leilao 1 (espera 200)",
       "request": {
         "method": "GET",
-        "header": [{ "key": "Authorization", "value": "Bearer {{token_licitante}}" }],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_licitante}}"
+          }
+        ],
         "url": "{{base_url}}/lances/leilao/1/maior"
       }
     },
@@ -572,7 +656,12 @@
       "name": "19. Lances - Listar historico de lances do leilao 1 (espera 200)",
       "request": {
         "method": "GET",
-        "header": [{ "key": "Authorization", "value": "Bearer {{token_licitante}}" }],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_licitante}}"
+          }
+        ],
         "url": "{{base_url}}/lances/leilao/1"
       }
     }

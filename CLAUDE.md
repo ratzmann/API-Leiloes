@@ -38,6 +38,10 @@ Arquitetura explicada para iniciantes: [`docs/ARQUITETURA.md`](docs/ARQUITETURA.
 - O Kong é o único ponto de entrada público e valida o JWT; os serviços só **decodificam**
   o token (`middlewares/extrairUsuario.js`).
 - As rotas `/licitantes/:id/reservas` são internas (o Kong responde 403 para fora).
+- **Autorização** fica nos `services/`, usando `papel` e `perfilId` do token
+  (`req.usuarioAutenticado`, repassado pelo controller): leilão só pelo leiloeiro
+  logado (e alterado só pelo dono); lance só pelo licitante logado, em nome próprio.
+  Sem login → 401; sem permissão → 403.
 - Duplicação de pequenos arquivos entre serviços (`config/db.js`, `utils/erros.js`) é
   **intencional**: cada microsserviço é independente.
 
