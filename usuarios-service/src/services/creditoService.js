@@ -22,12 +22,14 @@ const licitanteRepository = require('../repositories/licitanteRepository');
 const reservaRepository = require('../repositories/reservaRepository');
 const { ErroDeValidacao } = require('../utils/erros');
 
-// compara em centavos pra evitar erro de ponto flutuante
-// Exemplo do problema: em JavaScript, 0.1 + 0.2 da 0.30000000000000004.
-// Convertendo para centavos inteiros (10 + 20 = 30), a conta fica exata.
-// Math.round arredonda para o inteiro mais proximo.
+/**
+ * Converte reais em centavos inteiros, para comparar sem erro de ponto flutuante.
+ * Exemplo do problema: em JavaScript, 0.1 + 0.2 da 0.30000000000000004.
+ * Convertendo para centavos inteiros (10 + 20 = 30), a conta fica exata.
+ * Math.round arredonda para o inteiro mais proximo.
+ */
 const centavos = (valor) => Math.round(Number(valor) * 100);
-// Faz o caminho de volta: 2550 centavos -> 25.5 reais.
+/** Faz o caminho de volta: 2550 centavos -> 25.5 reais. */
 const reais = (valorCentavos) => valorCentavos / 100;
 
 /**

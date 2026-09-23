@@ -68,10 +68,12 @@ function transicaoPermitida(statusAtual, novoStatus) {
   return Array.isArray(permitidas) && permitidas.includes(novoStatus);
 }
 
-// dois periodos se sobrepoem quando um comeca antes do outro terminar
-// Exemplo: A = 14h-18h e B = 17h-20h -> A comeca antes de B terminar (14<20)
-// e B comeca antes de A terminar (17<18) -> sobrepoem. Se B fosse 18h-20h,
-// 18<18 e falso -> nao sobrepoem (um termina exatamente quando o outro comeca).
+/**
+ * true se os dois periodos se sobrepoem: cada um comeca antes do outro terminar.
+ * Exemplo: A = 14h-18h e B = 17h-20h -> A comeca antes de B terminar (14<20)
+ * e B comeca antes de A terminar (17<18) -> sobrepoem. Se B fosse 18h-20h,
+ * 18<18 e falso -> nao sobrepoem (um termina exatamente quando o outro comeca).
+ */
 function periodosSobrepoem(inicioA, fimA, inicioB, fimB) {
   return paraData(inicioA) < paraData(fimB) && paraData(inicioB) < paraData(fimA);
 }

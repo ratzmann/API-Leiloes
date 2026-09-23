@@ -13,10 +13,13 @@
 
 const { ErroDeValidacao } = require('../utils/erros');
 
-// Trabalha em centavos inteiros para evitar erros de ponto flutuante
-// (ex.: 0.1 + 0.2 = 0.30000000000000004 em JavaScript).
+/**
+ * Converte reais em centavos inteiros (ex.: 10.5 -> 1050): trabalhar em
+ * centavos evita erros de ponto flutuante
+ * (ex.: 0.1 + 0.2 = 0.30000000000000004 em JavaScript).
+ */
 const centavos = (valor) => Math.round(Number(valor) * 100);
-// Formata em reais: 5000 -> "R$ 5000.00".
+/** Formata em reais: 5000 -> "R$ 5000.00". */
 const brl = (valor) => `R$ ${Number(valor).toFixed(2)}`;
 
 /**

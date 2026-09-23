@@ -54,8 +54,10 @@ const PASSOS = {
 
 // O passo 4 e "repetivel": tenta ate 3 vezes antes de desistir.
 const TENTATIVAS_PASSO_REPETIVEL = 3;
-// Espera entre tentativas (padrao 300 ms). E uma FUNCAO (e nao uma constante)
-// para ler a variavel de ambiente na hora - os testes a zeram para rodar rapido.
+/**
+ * Espera entre tentativas, em ms (padrao 300). E uma FUNCAO (e nao uma constante)
+ * para ler a variavel de ambiente na hora - os testes a zeram para rodar rapido.
+ */
 const esperaEntreTentativas = () => Number(process.env.SAGA_ESPERA_REPETICAO_MS ?? 300);
 
 /** Erro usado apenas na demonstracao (header X-Simular-Falha). */

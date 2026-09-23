@@ -17,10 +17,13 @@
 // (Arquivo identico nos 4 servicos: cada microsservico tem a sua copia.)
 // =============================================================================
 
-// `class ... extends Error` cria um TIPO NOVO de erro, herdando tudo do Error
-// padrao do JavaScript (mensagem, pilha de chamadas) e acrescentando `codigo`.
-// Assim o middleware de erro diferencia "erro esperado" (regra de negocio) de
-// "erro inesperado" (bug) usando `instanceof ErroDeValidacao`.
+/**
+ * `class ... extends Error` cria um TIPO NOVO de erro, herdando tudo do Error
+ * padrao do JavaScript (mensagem, pilha de chamadas) e acrescentando `codigo`.
+ * Assim o middleware de erro diferencia "erro esperado" (regra de negocio) de
+ * "erro inesperado" (bug) usando `instanceof ErroDeValidacao`.
+ * Recebe a mensagem (que vai para o cliente no campo `erro`) e o codigo HTTP.
+ */
 class ErroDeValidacao extends Error {
   // `codigo = 400` e um valor PADRAO: se ninguem informar, vale 400 (Bad Request).
   constructor(mensagem, codigo = 400) {

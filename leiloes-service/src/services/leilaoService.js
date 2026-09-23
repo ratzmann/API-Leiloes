@@ -375,16 +375,25 @@ async function liberarCreditoDoLeilao(leilaoId) {
   }
 }
 
-// Atalhos: cada um reaproveita alterarStatus com um status fixo.
-// (Reaproveitar em vez de copiar codigo evita que as regras fiquem diferentes.)
+/**
+ * Atalho da Regra 5: AGENDADO -> ABERTO. Recebe o id do leilao e quem esta
+ * logado (so o dono muda o status) e devolve o leilao atualizado.
+ * Os tres atalhos reaproveitam alterarStatus com um status fixo: reaproveitar
+ * em vez de copiar codigo evita que as regras fiquem diferentes.
+ */
 async function abrir(id, usuario) {
   return alterarStatus(id, 'ABERTO', usuario);
 }
 
+/** Atalho da Regra 5: ABERTO -> ENCERRADO (mesmo formato de abrir). */
 async function encerrar(id, usuario) {
   return alterarStatus(id, 'ENCERRADO', usuario);
 }
 
+/**
+ * Atalho da Regra 5: AGENDADO ou ABERTO -> CANCELADO (mesmo formato de abrir).
+ * Pela Regra 8, o cancelamento tambem libera o credito reservado no leilao.
+ */
 async function cancelar(id, usuario) {
   return alterarStatus(id, 'CANCELADO', usuario);
 }

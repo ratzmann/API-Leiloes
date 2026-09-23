@@ -24,6 +24,12 @@
 
 const jwt = require('jsonwebtoken');
 
+/**
+ * Recebe (req, res, next), como todo middleware do Express.
+ * Se a requisicao trouxer o header "Authorization: Bearer <token>", guarda o
+ * conteudo do token em req.usuarioAutenticado; sem token, o campo fica vazio.
+ * Nunca responde nem bloqueia a requisicao: sempre chama next() no final.
+ */
 function extrairUsuario(req, res, next) {
   // Headers sao "metadados" da requisicao. O token vem no header
   // Authorization no formato "Bearer <token>".

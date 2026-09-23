@@ -15,13 +15,17 @@ const fs = require('fs');
 const path = require('path');
 const pool = require('../config/db');
 
-// Roda o init.sql toda vez que o servico sobe. O Postgres so executa o
-// initdb com o volume vazio, entao tabela nova nao chegaria em banco que ja
-// existe. Como e tudo IF NOT EXISTS, rodar de novo nao quebra nada.
-//
-// Parametros com valor padrao: { tentativas = 10, esperaMs = 2000 } = {}
-// significa "recebo um objeto de opcoes; se nao vier nada, uso 10 tentativas
-// com 2 segundos (2000 ms) de espera".
+/**
+ * Roda o init.sql toda vez que o servico sobe. O Postgres so executa o
+ * initdb com o volume vazio, entao tabela nova nao chegaria em banco que ja
+ * existe. Como e tudo IF NOT EXISTS, rodar de novo nao quebra nada.
+ *
+ * Parametros com valor padrao: { tentativas = 10, esperaMs = 2000 } = {}
+ * significa "recebo um objeto de opcoes; se nao vier nada, uso 10 tentativas
+ * com 2 segundos (2000 ms) de espera".
+ * Termina sem devolver nada quando o SQL roda; se o banco nao responder em
+ * nenhuma tentativa, lanca o erro da ultima.
+ */
 async function migrar({ tentativas = 10, esperaMs = 2000 } = {}) {
   // __dirname = pasta onde este arquivo esta (src/db). readFileSync le o
   // arquivo inteiro como texto ('utf8').

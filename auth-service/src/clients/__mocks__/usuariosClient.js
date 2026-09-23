@@ -9,6 +9,10 @@
 // Assim testamos as regras de negocio SEM banco de dados e SEM rede.
 // =============================================================================
 
+/**
+ * Copia do erro de clients/http.js. Os testes lancam este erro para simular
+ * o outro servico fora do ar, e o service o reconhece com `instanceof`.
+ */
 class ServicoIndisponivel extends Error {
   constructor(mensagem) {
     super(mensagem);
