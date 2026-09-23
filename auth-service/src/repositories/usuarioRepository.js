@@ -58,4 +58,14 @@ async function atualizarPerfilId(usuarioId, perfilId) {
   );
 }
 
-module.exports = { buscarPorEmail, criar, atualizarPerfilId };
+/**
+ * Apaga um usuario pelo id. Usado so na COMPENSACAO do registro, quando o
+ * perfil nao pode ser criado no usuarios-service.
+ * @returns true se apagou alguma linha
+ */
+async function remover(id) {
+  const { rowCount } = await pool.query('DELETE FROM usuarios WHERE id = $1', [id]);
+  return rowCount > 0;
+}
+
+module.exports = { buscarPorEmail, criar, atualizarPerfilId, remover };

@@ -13,4 +13,5 @@ module.exports = {
   buscarPorEmail: jest.fn(),
   criar: jest.fn(),
   atualizarPerfilId: jest.fn(),
+  remover: jest.fn(),
 };

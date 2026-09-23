@@ -2,7 +2,8 @@
 // tests/authService.test.js  -  testes das regras de cadastro e login
 // -----------------------------------------------------------------------------
 // Cobre: validacao do registro, e-mail duplicado (409), login com senha errada
-// (401) e login correto. O repository e o gerador de token sao mockados.
+// (401), login correto e a COMPENSACAO do registro (se o perfil nao puder ser
+// criado, o usuario e apagado). O repository e o gerador de token sao mockados.
 // COMO LER UM TESTE (Jest):
 //   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
 //   test('descricao', () => { ... })    um cenario (chamado tambem de it);
@@ -141,5 +142,58 @@ describe('authService.login', () => {
 
     const resultado = await authService.login({ email: 'x@x.com', senha: 'senhaCerta' });
     expect(resultado.token).toBe('token-fake');
+  });
+});
+
+describe('authService.registrar - compensacao quando o perfil falha', () => {
+  // cenario comum: e-mail livre e usuario criado no auth-db com id 10
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    process.env.USUARIOS_SERVICE_URL = 'http://usuarios-service:3002';
+    global.fetch = jest.fn();
+    usuarioRepository.buscarPorEmail.mockResolvedValue(null);
+    usuarioRepository.criar.mockResolvedValue({ id: 10, nome: 'Ana Souza', email: 'a@a.com', papel: 'LICITANTE' });
+    usuarioRepository.remover.mockResolvedValue(true);
+  });
+
+  const dados = { nome: 'Ana Souza', email: 'a@a.com', senha: '123456', papel: 'LICITANTE', dadosPerfil: { cpf: '11111111111' } };
+
+  test('CPF recusado (400): apaga o usuario criado e devolve o mesmo 400', async () => {
+    global.fetch.mockResolvedValue({ ok: false, status: 400, json: async () => ({ erro: 'CPF invalido.' }) });
+
+    await expect(authService.registrar(dados)).rejects.toMatchObject({ codigo: 400, message: 'CPF invalido.' });
+    expect(usuarioRepository.remover).toHaveBeenCalledWith(10);
+    expect(usuarioRepository.atualizarPerfilId).not.toHaveBeenCalled();
+  });
+
+  test('CPF ja cadastrado (409): apaga o usuario e devolve 409', async () => {
+    global.fetch.mockResolvedValue({ ok: false, status: 409, json: async () => ({ erro: 'Ja existe um licitante cadastrado com este CPF.' }) });
+
+    await expect(authService.registrar(dados)).rejects.toMatchObject({ codigo: 409 });
+    expect(usuarioRepository.remover).toHaveBeenCalledWith(10);
+  });
+
+  test('usuarios-service fora do ar (rede ou 5xx): apaga o usuario e devolve 503', async () => {
+    global.fetch.mockRejectedValueOnce(new TypeError('fetch failed'));
+    await expect(authService.registrar(dados)).rejects.toMatchObject({ codigo: 503 });
+
+    global.fetch.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) });
+    await expect(authService.registrar(dados)).rejects.toMatchObject({ codigo: 503 });
+
+    expect(usuarioRepository.remover).toHaveBeenCalledTimes(2);
+  });
+
+  test('se ate a remocao falhar, o erro original continua sendo devolvido', async () => {
+    global.fetch.mockResolvedValue({ ok: false, status: 400, json: async () => ({ erro: 'CPF invalido.' }) });
+    usuarioRepository.remover.mockRejectedValue(new Error('banco fora do ar'));
+
+    await expect(authService.registrar(dados)).rejects.toMatchObject({ codigo: 400 });
+  });
+
+  test('sem falha, nada e apagado', async () => {
+    global.fetch.mockResolvedValue({ ok: true, json: async () => ({ id: 99 }) });
+    await authService.registrar(dados);
+    expect(usuarioRepository.remover).not.toHaveBeenCalled();
   });
 });

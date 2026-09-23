@@ -65,6 +65,13 @@ function validarRegistro({ nome, email, senha, papel }) {
  *   4. pede ao usuarios-service para criar o perfil (leiloeiro/licitante);
  *   5. gera o token JWT e devolve tudo (sem a senha!).
  *
+ * O registro e uma operacao DISTRIBUIDA: o usuario fica no auth-db e o perfil
+ * no usuarios-db, e nao existe uma transacao unica entre os dois bancos. Por
+ * isso ha uma COMPENSACAO (a mesma ideia da Saga de lance): se o passo 4
+ * falhar, o usuario criado no passo 3 e APAGADO e o erro real volta ao
+ * cliente. Sem isso sobraria um usuario sem perfil - que nao consegue agir
+ * (sem perfilId no token) e nem se registrar de novo (e-mail ja usado).
+ *
  * @returns {{ usuario, perfil, token }}
  */
 async function registrar({ nome, email, senha, papel, dadosPerfil }) {
@@ -80,22 +87,25 @@ async function registrar({ nome, email, senha, papel, dadosPerfil }) {
   const senhaHash = await hashSenha(senha);
   const usuario = await usuarioRepository.criar({ nome, email, senhaHash, papel });
 
-  // `let` (em vez de `const`) porque o valor de perfil pode mudar logo abaixo.
-  let perfil = null;
+  // `let` sem valor inicial: sera preenchida dentro do try.
+  let perfil;
   try {
     // `dadosPerfil || {}`: se nao vier nada, usa um objeto vazio.
     perfil = await criarPerfilNoUsuariosService(usuario, papel, dadosPerfil || {});
-    // Guarda no auth-db o id do perfil criado no outro servico (liga os dois).
-    if (perfil && perfil.id) {
-      await usuarioRepository.atualizarPerfilId(usuario.id, perfil.id);
-      // Atualiza tambem o objeto em memoria: o token gerado logo abaixo
-      // precisa levar o perfilId (usado nas regras de autorizacao).
-      usuario.perfil_id = perfil.id;
-    }
   } catch (err) {
-    // Nao derruba o cadastro de autenticacao caso o servico de dominio esteja
-    // indisponivel; o perfil pode ser completado depois. Erro fica visivel no log.
+    // COMPENSACAO: o perfil nao foi criado, entao desfazemos o passo 3.
     console.error('Falha ao criar perfil no usuarios-service:', err.message);
+    await desfazerCadastro(usuario.id);
+    // Repassa o erro (ja traduzido para 400, 409 ou 503) ao controller.
+    throw err;
+  }
+
+  // Guarda no auth-db o id do perfil criado no outro servico (liga os dois).
+  if (perfil && perfil.id) {
+    await usuarioRepository.atualizarPerfilId(usuario.id, perfil.id);
+    // Atualiza tambem o objeto em memoria: o token gerado logo abaixo
+    // precisa levar o perfilId (usado nas regras de autorizacao).
+    usuario.perfil_id = perfil.id;
   }
 
   const token = gerarToken(usuario);
@@ -111,6 +121,11 @@ async function registrar({ nome, email, senha, papel, dadosPerfil }) {
  * O endereco vem da variavel USUARIOS_SERVICE_URL (ex.: http://usuarios-service:3002),
  * definida no docker-compose.yml - o codigo nunca tem o endereco escrito.
  *
+ * Erros (sempre ErroDeValidacao, para o controller responder direito):
+ *   - 400 ou 409 do usuarios-service (ex.: CPF invalido, CPF ja cadastrado)
+ *     -> o MESMO codigo e a mesma mensagem, para o cliente saber o que corrigir;
+ *   - qualquer outra resposta, ou falha de rede -> 503 (tente de novo depois).
+ *
  * @returns o perfil criado (objeto JSON) ou null se a URL nao estiver configurada.
  */
 async function criarPerfilNoUsuariosService(usuario, papel, dadosPerfil) {
@@ -120,29 +135,60 @@ async function criarPerfilNoUsuariosService(usuario, papel, dadosPerfil) {
 
   // Operador ternario: condicao ? valorSeVerdadeiro : valorSeFalso.
   const rota = papel === 'LEILOEIRO' ? 'leiloeiros' : 'licitantes';
-  // fetch() e a funcao nativa do Node 18+ para fazer requisicoes HTTP.
-  const resposta = await fetch(`${usuariosServiceUrl}/${rota}`, {
-    method: 'POST',
-    // Avisa ao outro servico que o corpo enviado esta em formato JSON.
-    headers: { 'Content-Type': 'application/json' },
-    // JSON.stringify transforma o objeto JavaScript em texto JSON.
-    body: JSON.stringify({
-      usuarioId: usuario.id,
-      nome: usuario.nome,
-      email: usuario.email,
-      // "Spread" (...): copia todos os campos de dadosPerfil para este objeto
-      // (ex.: cpf e limiteCredito do licitante, registroProfissional do leiloeiro).
-      ...dadosPerfil,
-    }),
-  });
+  let resposta;
+  try {
+    // fetch() e a funcao nativa do Node 18+ para fazer requisicoes HTTP.
+    resposta = await fetch(`${usuariosServiceUrl}/${rota}`, {
+      method: 'POST',
+      // Avisa ao outro servico que o corpo enviado esta em formato JSON.
+      headers: { 'Content-Type': 'application/json' },
+      // JSON.stringify transforma o objeto JavaScript em texto JSON.
+      body: JSON.stringify({
+        usuarioId: usuario.id,
+        nome: usuario.nome,
+        email: usuario.email,
+        // "Spread" (...): copia todos os campos de dadosPerfil para este objeto
+        // (ex.: cpf e limiteCredito do licitante, registroProfissional do leiloeiro).
+        ...dadosPerfil,
+      }),
+    });
+  } catch (err) {
+    // Falha de rede: o usuarios-service nem respondeu.
+    throw new ErroDeValidacao(
+      'Nao foi possivel criar o perfil agora (servico de usuarios indisponivel). Tente novamente.',
+      503
+    );
+  }
 
   // resposta.ok e verdadeiro para status 200-299 (sucesso).
-  if (!resposta.ok) {
-    const corpo = await resposta.text();
-    throw new Error(`usuarios-service retornou ${resposta.status}: ${corpo}`);
+  if (resposta.ok) {
+    // Le o corpo da resposta e converte de JSON para objeto.
+    return resposta.json();
   }
-  // Le o corpo da resposta e converte de JSON para objeto.
-  return resposta.json();
+
+  // Recusa de negocio (dado invalido ou duplicado): repassa codigo e mensagem.
+  if (resposta.status === 400 || resposta.status === 409) {
+    // .catch(() => ({})): se o corpo nao for JSON, usa um objeto vazio.
+    const corpo = await resposta.json().catch(() => ({}));
+    throw new ErroDeValidacao(corpo.erro || 'Dados do perfil recusados.', resposta.status);
+  }
+  throw new ErroDeValidacao(
+    `Nao foi possivel criar o perfil agora (servico de usuarios respondeu ${resposta.status}). Tente novamente.`,
+    503
+  );
+}
+
+/**
+ * COMPENSACAO do registro: apaga o usuario recem-criado quando o perfil nao
+ * pode ser criado. Se ate a remocao falhar (ex.: banco fora do ar), apenas
+ * registra no log - o erro original do registro continua sendo devolvido.
+ */
+async function desfazerCadastro(usuarioId) {
+  try {
+    await usuarioRepository.remover(usuarioId);
+  } catch (err) {
+    console.error(`Falha ao desfazer o cadastro do usuario ${usuarioId}:`, err.message);
+  }
 }
 
 /**
