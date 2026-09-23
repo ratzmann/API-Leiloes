@@ -723,6 +723,15 @@ Run-Step -Nome "70. Licitante A nao ve CPF/e-mail/limite de B (espera 200)" -Cod
     return $r
 }
 
+# 71. Erros gerados pelo proprio Kong seguem o formato { erro } da API
+Run-Step -Nome "71. Erros do Kong no formato { erro } (404 e 403) (espera 200)" -CodigoEsperado 200 -Acao {
+    $semRota = Invoke-Api GET "/nao-existe" -Token $script:tokenA
+    $interna = Invoke-Api POST "/licitantes/$($script:licitanteAId)/reservas" @{ valor = 10 } -Token $script:tokenA
+    if ($semRota.StatusCode -ne 404 -or -not $semRota.Json.erro) { return @{ StatusCode = 500 } }
+    if ($interna.StatusCode -ne 403 -or -not $interna.Json.erro) { return @{ StatusCode = 500 } }
+    return @{ StatusCode = 200 }
+}
+
 Write-Host "==========================================================================" -ForegroundColor Cyan
 Write-Host "                           RESUMO DOS TESTES                             " -ForegroundColor Yellow
 Write-Host "   Passou: $script:TotalPass" -ForegroundColor Green

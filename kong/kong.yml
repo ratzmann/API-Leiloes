@@ -13,6 +13,13 @@
 #   route    -> quais caminhos levam a esse service;
 #   plugin   -> comportamento extra (autenticacao, bloqueio, limite...);
 #   consumer -> "quem" consome a API (aqui, com o segredo do JWT).
+#
+# Formato dos erros: a API responde erros como {"erro": "mensagem"}. Aqui isso
+# vale para os 403 abaixo (campo `body`) e, pelo template kong/erro.json
+# (KONG_ERROR_TEMPLATE_JSON no docker-compose), para os erros do proprio Kong,
+# como o 404 de rota inexistente. Excecao: o 401 do plugin jwt ("Unauthorized",
+# "Bad token") continua como {"message": ...} - a versao gratuita do Kong nao
+# permite mudar esse corpo sem escrever codigo Lua.
 # =============================================================================
 _format_version: "3.0"
 _transform: true
@@ -57,11 +64,13 @@ services:
         plugins:
           # request-termination: o Kong responde ele mesmo (403 Forbidden) e a
           # requisicao NUNCA chega ao servico. So a Saga, de dentro da rede do
-          # Docker, consegue chamar essas rotas.
+          # Docker, consegue chamar essas rotas. `body` + `content_type` definem
+          # a resposta no mesmo formato de erro da API: {"erro": "..."}.
           - name: request-termination
             config:
               status_code: 403
-              message: Reservas de credito sao internas e so podem ser feitas pela Saga de lances.
+              content_type: application/json
+              body: '{"erro": "Reservas de credito sao internas e so podem ser feitas pela Saga de lances."}'
       # Criar perfil (POST /leiloeiros ou /licitantes) tambem e interno: quem
       # faz isso e o auth-service, no registro, pela rede interna do Docker.
       # De fora, o caminho certo e POST /auth/registrar.
@@ -79,7 +88,8 @@ services:
           - name: request-termination
             config:
               status_code: 403
-              message: Perfis sao criados pelo registro em POST /auth/registrar.
+              content_type: application/json
+              body: '{"erro": "Perfis sao criados pelo registro em POST /auth/registrar."}'
     # Plugin JWT no nivel do SERVICE: vale para todas as rotas acima.
     plugins:
       - name: jwt

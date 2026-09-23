@@ -228,9 +228,13 @@ services:
       # Dentro do container a Admin API escuta em todas as interfaces; quem
       # restringe o acesso e o mapeamento de porta abaixo (so 127.0.0.1).
       KONG_ADMIN_LISTEN: 0.0.0.0:8001
+      # Modelo das respostas de erro geradas pelo PROPRIO Kong (ex.: 404 de rota
+      # inexistente): {"erro": "..."}, o mesmo formato dos microsservicos.
+      KONG_ERROR_TEMPLATE_JSON: /kong/erro.json
     volumes:
       # Coloca o nosso kong.yml dentro do container.
       - ./kong/kong.yml:/kong/kong.yml
+      - ./kong/erro.json:/kong/erro.json
     # ports: "porta_na_sua_maquina:porta_no_container". So o Kong tem isso.
     ports:
       - "8000:8000"   # Proxy (entrada publica da API)
