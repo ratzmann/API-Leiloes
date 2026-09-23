@@ -70,24 +70,68 @@ async function buscarMaiorPorLeilao(leilaoId) {
   return maior;
 }
 
+/**
+ * AUTORIZACAO: decide EM NOME DE QUEM o lance sera dado.
+ *
+ * Autenticacao x autorizacao:
+ *   - autenticacao = "quem e voce?"  -> o Kong confere o token JWT;
+ *   - autorizacao  = "voce PODE fazer isto?" -> esta funcao.
+ *
+ * Regras:
+ *   - sem usuario logado                              -> 401
+ *   - papel diferente de LICITANTE (ex.: leiloeiro)   -> 403
+ *   - token sem perfilId (perfil nao criado/token antigo) -> 403
+ *   - licitanteId informado diferente do proprio      -> 403 (ninguem da
+ *     lance em nome de outra pessoa nem gasta o credito dela)
+ *
+ * @param usuario              payload do token (req.usuarioAutenticado)
+ * @param licitanteIdInformado licitanteId do corpo (opcional)
+ * @returns o id do licitante logado (perfilId do token)
+ */
+function autorizarLicitante(usuario, licitanteIdInformado) {
+  if (!usuario) {
+    throw new ErroDeValidacao('Faca login para dar lances.', 401);
+  }
+  if (usuario.papel !== 'LICITANTE') {
+    throw new ErroDeValidacao('Apenas licitantes podem dar lances.', 403);
+  }
+  if (!idValido(usuario.perfilId)) {
+    throw new ErroDeValidacao(
+      'Seu usuario nao tem perfil de licitante vinculado. Faca login novamente.',
+      403
+    );
+  }
+  // O corpo pode trazer o licitanteId (compatibilidade), mas ele precisa ser o proprio.
+  // `!= null` cobre undefined e null ao mesmo tempo; '' (texto vazio) tambem e ignorado.
+  if (licitanteIdInformado != null && licitanteIdInformado !== ''
+      && Number(licitanteIdInformado) !== Number(usuario.perfilId)) {
+    throw new ErroDeValidacao('Voce so pode dar lances em seu proprio nome.', 403);
+  }
+  return Number(usuario.perfilId);
+}
+
 // Regra de negocio 1: leilaoId, licitanteId e valor obrigatorios e validos.
 // Regra de negocio 2: valor estritamente maior que zero.
 // Regra de negocio 3: primeiro lance >= lance inicial; depois, >= maior lance + incremento.
 // Regra de negocio 4: mesmo licitante nao pode cobrir seu proprio lance atual.
 // Regra de negocio 5: o licitante precisa ter credito pro valor do lance.
+// Regra de negocio 6: so um LICITANTE logado da lance, e so em nome proprio.
 // As regras 3 a 5 dependem do leiloes e do usuarios, por isso o registro passa pela saga.
 /**
- * Registra um lance: valida localmente e entrega para a Saga executar.
+ * Registra um lance: autoriza, valida localmente e entrega para a Saga.
  * Os valores sao convertidos para Number aqui, uma unica vez, para a Saga
  * trabalhar sempre com numeros.
+ * @param usuario       quem esta logado (payload do token)
  * @param simularFalha  nome de um passo para falhar de proposito (demonstracao)
  */
-async function registrarLance({ leilaoId, licitanteId, valor, simularFalha = null }) {
+async function registrarLance({ leilaoId, licitanteId: licitanteIdInformado, valor, usuario, simularFalha = null }) {
+  // Primeiro a autorizacao: o licitante do lance e SEMPRE quem esta logado.
+  const licitanteId = autorizarLicitante(usuario, licitanteIdInformado);
   validarDados({ leilaoId, licitanteId, valor });
 
   return registrarLanceSaga.executar({
     leilaoId: Number(leilaoId),
-    licitanteId: Number(licitanteId),
+    licitanteId,
     valor: Number(valor),
     simularFalha,
   });
@@ -128,4 +172,5 @@ module.exports = {
   buscarSaga,
   reprocessarSaga,
   validarDados,
+  autorizarLicitante,
 };

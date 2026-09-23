@@ -53,26 +53,21 @@ async function buscarMaiorPorLeilao(req, res) {
 }
 
 /**
- * POST /lances   corpo: { leilaoId, licitanteId, valor }
+ * POST /lances   corpo: { leilaoId, valor, licitanteId? }
  * Dispara a SAGA de registro de lance. Resposta 201 com o lance gravado e
  * os campos sagaId e sagaStatus.
+ *
+ * O licitante do lance e SEMPRE quem esta logado (perfilId do token). O
+ * licitanteId no corpo e opcional; se vier, precisa ser o proprio (senao 403).
+ * Essa regra de autorizacao fica no service (lanceService.autorizarLicitante),
+ * onde pode ser testada.
  *
  * Header opcional (so para demonstracao): X-Simular-Falha: <nome-do-passo>
  * forca uma falha naquele passo, para mostrar a compensacao funcionando.
  */
 async function registrar(req, res) {
   try {
-    const { leilaoId, valor } = req.body;
-    // `let` porque o valor pode ser trocado logo abaixo.
-    let licitanteId = req.body.licitanteId;
-
-    // Se licitanteId nao for passado no body, tenta extrair do token do usuario autenticado
-    // Obs.: o token gerado pelo auth-service nao tem "perfilId"; entao cai no
-    // "sub", que e o id do USUARIO no auth-db - nem sempre igual ao id do
-    // LICITANTE no usuarios-db. Por isso o README orienta enviar licitanteId.
-    if (!licitanteId && req.usuarioAutenticado) {
-      licitanteId = req.usuarioAutenticado.perfilId || req.usuarioAutenticado.sub;
-    }
+    const { leilaoId, valor, licitanteId } = req.body;
 
     // forca uma falha num passo da saga, pra mostrar a compensacao.
     // so funciona com SAGA_PERMITIR_FALHA_SIMULADA=true
@@ -85,6 +80,8 @@ async function registrar(req, res) {
       leilaoId,
       licitanteId,
       valor,
+      // quem esta logado (colocado em req pelo middleware extrairUsuario)
+      usuario: req.usuarioAutenticado,
       simularFalha,
     });
     res.status(201).json(lance);
