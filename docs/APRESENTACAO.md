@@ -5,16 +5,17 @@ Roteiro para os **15 minutos** do grupo, seguindo a divisão pedida no enunciado
 - **um aluno** apresenta o **serviço de autenticação** e o seu microsserviço de domínio;
 - **os demais** apresentam os **padrões de microsserviços** usados e o seu microsserviço de domínio.
 
-> Troque `<ALUNO 1>`, `<ALUNO 2>` e `<ALUNO 3>` pelos nomes. A divisão abaixo
-> associa cada padrão ao serviço onde ele aparece mais (Kong protege
-> `/leiloes`; a Saga mora no lances-service), mas pode ser trocada.
+> Cada um apresenta o próprio microsserviço: **Lucas** (usuários e
+> leiloeiros, com a autenticação), **Thiago** (leilão) e **Anderson** (lance).
+> Cada padrão fica com o serviço onde ele aparece mais: o Kong protege
+> `/leiloes` e a Saga mora no lances-service.
 
 | Bloco | Quem | Conteúdo | Tempo |
 |---|---|---|---|
-| 0 | `<ALUNO 1>` | Abertura: o problema e o desenho geral | 1 min |
-| 1 | `<ALUNO 1>` | **auth-service** + **usuarios-service** | 4 min |
-| 2 | `<ALUNO 2>` | Padrão **API Gateway (Kong)** + **leiloes-service** | 4 min |
-| 3 | `<ALUNO 3>` | Padrão **Saga orquestrada** + **lances-service** | 4 min |
+| 0 | Lucas | Abertura: o problema e o desenho geral | 1 min |
+| 1 | Lucas | **auth-service** + **usuarios-service** | 4 min |
+| 2 | Thiago | Padrão **API Gateway (Kong)** + **leiloes-service** | 4 min |
+| 3 | Anderson | Padrão **Saga orquestrada** + **lances-service** | 4 min |
 | 4 | todos | Testes, requisitos atendidos e fechamento | 2 min |
 
 ---
@@ -60,7 +61,7 @@ $L = $leilao.id
 
 ---
 
-## Bloco 0 — Abertura (`<ALUNO 1>`, 1 min)
+## Bloco 0 — Abertura (Lucas, 1 min)
 
 **Falar:**
 - O sistema: leilões de gado. Leiloeiros cadastram leilões; licitantes dão
@@ -73,7 +74,7 @@ $L = $leilao.id
 
 ---
 
-## Bloco 1 — Autenticação + usuarios-service (`<ALUNO 1>`, 4 min)
+## Bloco 1 — Autenticação + usuarios-service (Lucas, 4 min)
 
 **Falar:**
 - **auth-service** — registro e login. Senha guardada com **bcrypt** (hash).
@@ -104,7 +105,7 @@ Chamar PUT "/licitantes/$($joao.perfil.id)" @{ nome = "Invasor" } $TM           
 
 ---
 
-## Bloco 2 — API Gateway (Kong) + leiloes-service (`<ALUNO 2>`, 4 min)
+## Bloco 2 — API Gateway (Kong) + leiloes-service (Thiago, 4 min)
 
 **Falar (padrão API Gateway):**
 - O **Kong** é o único ponto de entrada (porta 8000). Ele confere a assinatura
@@ -138,7 +139,7 @@ Chamar PATCH "/leiloes/$L/abrir" $null $TL                                      
 
 ---
 
-## Bloco 3 — Saga orquestrada + lances-service (`<ALUNO 3>`, 4 min)
+## Bloco 3 — Saga orquestrada + lances-service (Anderson, 4 min)
 
 **Falar (padrão Saga):**
 - Registrar um lance mexe em **três bancos**: o leilão (leiloes), o crédito
