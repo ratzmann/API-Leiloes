@@ -18,5 +18,6 @@ class ServicoIndisponivel extends Error {
 
 module.exports = {
   buscarLeiloeiro: jest.fn(),
+  liberarReservasDoLeilao: jest.fn(),
   ServicoIndisponivel,
 };

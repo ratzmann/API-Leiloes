@@ -10,6 +10,8 @@
 //   Regra 6 - editar/remover so enquanto AGENDADO
 //   Regra 7 - autorizacao: so um LEILOEIRO cadastra (em nome proprio), e so o
 //             DONO do leilao edita, muda status ou remove
+//   Regra 8 - cancelar o leilao devolve o credito reservado pelos licitantes
+//             (chamada REST ao usuarios-service)
 //
 // Quem chama: controllers/leilaoController.js
 // Quem e chamado: repositories/leilaoRepository.js (banco),
@@ -313,6 +315,8 @@ async function atualizar(id, dados, usuario) {
  * (TRANSICOES_PERMITIDAS em utils/validadores.js).
  * 400 se o status nao existir; 409 se a transicao nao for permitida
  * (ex.: tentar reabrir um leilao ENCERRADO).
+ *
+ * Ao CANCELAR, tambem libera o credito reservado no leilao (Regra 8).
  */
 async function alterarStatus(id, novoStatus, usuario) {
   if (!statusValido(novoStatus)) {
@@ -322,6 +326,13 @@ async function alterarStatus(id, novoStatus, usuario) {
   const leilao = await buscarPorId(id);
   garantirDono(leilao, usuario);
 
+  // Cancelar de novo um leilao ja CANCELADO nao muda o status: serve para
+  // TENTAR DE NOVO a liberacao do credito, caso ela tenha falhado antes.
+  if (novoStatus === 'CANCELADO' && leilao.status === 'CANCELADO') {
+    await liberarCreditoDoLeilao(id);
+    return leilao;
+  }
+
   if (!transicaoPermitida(leilao.status, novoStatus)) {
     throw new ErroDeValidacao(
       `Transicao de status invalida: ${leilao.status} -> ${novoStatus}.`,
@@ -329,7 +340,39 @@ async function alterarStatus(id, novoStatus, usuario) {
     );
   }
 
-  return leilaoRepository.atualizarStatus(id, novoStatus);
+  const atualizado = await leilaoRepository.atualizarStatus(id, novoStatus);
+
+  // A ORDEM importa: primeiro o status vira CANCELADO (a partir daqui o leilao
+  // nao aceita mais lances), depois o credito e liberado.
+  if (novoStatus === 'CANCELADO') {
+    await liberarCreditoDoLeilao(id);
+  }
+  return atualizado;
+}
+
+// Regra 8: leilao CANCELADO devolve o credito reservado pelos licitantes
+/**
+ * Pede ao usuarios-service para liberar todas as reservas de credito do
+ * leilao. Sem isso, o credito de quem estava ganhando ficaria bloqueado para
+ * sempre, ja que ninguem mais pode vencer um leilao cancelado.
+ *
+ * Se o usuarios-service estiver fora do ar, o leilao CONTINUA cancelado e
+ * respondemos 503 pedindo para repetir o cancelamento - a liberacao e
+ * idempotente, entao repetir e seguro.
+ */
+async function liberarCreditoDoLeilao(leilaoId) {
+  try {
+    await usuariosClient.liberarReservasDoLeilao(leilaoId);
+  } catch (err) {
+    if (err instanceof usuariosClient.ServicoIndisponivel) {
+      throw new ErroDeValidacao(
+        'Leilao cancelado, mas o credito reservado nao pode ser liberado agora ' +
+          '(servico de usuarios indisponivel). Repita o cancelamento para tentar de novo.',
+        503
+      );
+    }
+    throw err;
+  }
 }
 
 // Atalhos: cada um reaproveita alterarStatus com um status fixo.

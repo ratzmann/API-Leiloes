@@ -1,10 +1,11 @@
 // =============================================================================
 // tests/leilaoService.test.js  -  testes das regras do leilao
 // -----------------------------------------------------------------------------
-// Cobre as regras 1 a 7: dados do evento, data futura, leiloeiro existente
+// Cobre as regras 1 a 8: dados do evento, data futura, leiloeiro existente
 // (usuarios-service mockado, incluindo servico fora do ar -> 503), agenda livre,
 // transicoes de status, edicao/remocao so enquanto AGENDADO e a Regra 7
-// (autorizacao: so o leiloeiro logado cadastra, e so o dono altera).
+// (autorizacao: so o leiloeiro logado cadastra, e so o dono altera) e a Regra 8
+// (cancelar devolve o credito reservado, com repeticao segura se falhar).
 // COMO LER UM TESTE (Jest):
 //   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
 //   test('descricao', () => { ... })    um cenario (chamado tambem de it);
@@ -319,5 +320,69 @@ describe('leilaoService.remover', () => {
     leilaoRepository.remover.mockResolvedValue(true);
 
     await expect(leilaoService.remover(1, leiloeiro1)).resolves.toBe(true);
+  });
+});
+
+describe('leilaoService - Regra 8: cancelar devolve o credito reservado', () => {
+  test('cancelar muda o status e DEPOIS pede a liberacao do credito ao usuarios-service', async () => {
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'ABERTO', leiloeiro_id: 1 });
+    leilaoRepository.atualizarStatus.mockResolvedValue({ id: 1, status: 'CANCELADO' });
+    usuariosClient.liberarReservasDoLeilao.mockResolvedValue({ leilaoId: 1, liberadas: 1 });
+
+    const resultado = await leilaoService.cancelar(1, leiloeiro1);
+
+    expect(resultado.status).toBe('CANCELADO');
+    expect(usuariosClient.liberarReservasDoLeilao).toHaveBeenCalledWith(1);
+    // a ordem importa: primeiro para de aceitar lances, depois devolve o credito
+    const ordemStatus = leilaoRepository.atualizarStatus.mock.invocationCallOrder[0];
+    const ordemLiberar = usuariosClient.liberarReservasDoLeilao.mock.invocationCallOrder[0];
+    expect(ordemStatus).toBeLessThan(ordemLiberar);
+  });
+
+  test('PATCH /status para CANCELADO tambem libera o credito', async () => {
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'AGENDADO', leiloeiro_id: 1 });
+    leilaoRepository.atualizarStatus.mockResolvedValue({ id: 1, status: 'CANCELADO' });
+
+    await leilaoService.alterarStatus(1, 'CANCELADO', leiloeiro1);
+
+    expect(usuariosClient.liberarReservasDoLeilao).toHaveBeenCalledWith(1);
+  });
+
+  test('encerrar NAO libera o credito (a reserva do vencedor continua valendo)', async () => {
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'ABERTO', leiloeiro_id: 1 });
+    leilaoRepository.atualizarStatus.mockResolvedValue({ id: 1, status: 'ENCERRADO' });
+
+    await leilaoService.encerrar(1, leiloeiro1);
+
+    expect(usuariosClient.liberarReservasDoLeilao).not.toHaveBeenCalled();
+  });
+
+  test('usuarios-service fora do ar: o leilao fica cancelado e a resposta e 503', async () => {
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'ABERTO', leiloeiro_id: 1 });
+    leilaoRepository.atualizarStatus.mockResolvedValue({ id: 1, status: 'CANCELADO' });
+    usuariosClient.liberarReservasDoLeilao.mockRejectedValue(new usuariosClient.ServicoIndisponivel('timeout'));
+
+    await expect(leilaoService.cancelar(1, leiloeiro1)).rejects.toMatchObject({
+      codigo: 503,
+      message: expect.stringMatching(/Repita o cancelamento/),
+    });
+    expect(leilaoRepository.atualizarStatus).toHaveBeenCalledWith(1, 'CANCELADO');
+  });
+
+  test('cancelar de novo um leilao ja CANCELADO so tenta liberar o credito outra vez', async () => {
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'CANCELADO', leiloeiro_id: 1 });
+    usuariosClient.liberarReservasDoLeilao.mockResolvedValue({ leilaoId: 1, liberadas: 1 });
+
+    const resultado = await leilaoService.cancelar(1, leiloeiro1);
+
+    expect(resultado.status).toBe('CANCELADO');
+    expect(leilaoRepository.atualizarStatus).not.toHaveBeenCalled();
+    expect(usuariosClient.liberarReservasDoLeilao).toHaveBeenCalledWith(1);
+  });
+
+  test('so o dono pode repetir o cancelamento', async () => {
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'CANCELADO', leiloeiro_id: 1 });
+    await expect(leilaoService.cancelar(1, leiloeiro2)).rejects.toMatchObject({ codigo: 403 });
+    expect(usuariosClient.liberarReservasDoLeilao).not.toHaveBeenCalled();
   });
 });

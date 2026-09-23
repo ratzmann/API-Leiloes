@@ -58,6 +58,41 @@ async function buscarLeiloeiro(leiloeiroId) {
 }
 
 /**
+ * Faz POST {USUARIOS_SERVICE_URL}/reservas/leilao/{id}/liberar - rota INTERNA
+ * do usuarios-service que libera todo o credito reservado num leilao.
+ * Usado quando o leilao e CANCELADO (Regra 8).
+ *   - devolve o resumo { leilaoId, liberadas, reservas };
+ *   - devolve null se a URL nao estiver configurada (servico rodando sozinho);
+ *   - lanca ServicoIndisponivel em erro de rede, timeout ou resposta nao-2xx.
+ */
+async function liberarReservasDoLeilao(leilaoId) {
+  const baseUrl = process.env.USUARIOS_SERVICE_URL;
+  if (!baseUrl) return null;
+
+  // Mesmo esquema de timeout do buscarLeiloeiro (AbortController + setTimeout).
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  try {
+    const resposta = await fetch(`${baseUrl}/reservas/leilao/${leilaoId}/liberar`, {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    if (!resposta.ok) {
+      const corpo = await resposta.text();
+      throw new ServicoIndisponivel(`usuarios-service retornou ${resposta.status}: ${corpo}`);
+    }
+    return resposta.json();
+  } catch (err) {
+    if (err instanceof ServicoIndisponivel) throw err;
+    throw new ServicoIndisponivel(`Falha ao liberar reservas no usuarios-service: ${err.message}`);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
  * Erro especifico para "o outro servico nao respondeu direito".
  * O leilaoService o converte em HTTP 503 (Service Unavailable).
  * (Pode ser declarada depois de buscarLeiloeiro porque so e usada quando a
@@ -70,4 +105,4 @@ class ServicoIndisponivel extends Error {
   }
 }
 
-module.exports = { buscarLeiloeiro, ServicoIndisponivel };
+module.exports = { buscarLeiloeiro, liberarReservasDoLeilao, ServicoIndisponivel };
