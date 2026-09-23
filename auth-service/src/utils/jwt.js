@@ -57,14 +57,6 @@ function gerarToken(usuario) {
   );
 }
 
-/**
- * Confere assinatura, emissor e validade de um token e devolve o payload.
- * Lanca erro se o token for invalido ou estiver expirado.
- * Obs.: hoje quem confere os tokens e o Kong; esta funcao nao e chamada
- * pelo codigo do servico (candidata a remocao futura).
- */
-function verificarToken(token) {
-  return jwt.verify(token, SECRET, { issuer: ISSUER });
-}
-
-module.exports = { gerarToken, verificarToken };
+// Nao ha funcao de "verificar token" aqui: quem confere assinatura e
+// validade dos tokens e o Kong, antes de a requisicao chegar aos servicos.
+module.exports = { gerarToken };

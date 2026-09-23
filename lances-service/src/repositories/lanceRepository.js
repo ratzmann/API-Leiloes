@@ -43,21 +43,6 @@ async function buscarMaiorPorLeilao(leilaoId) {
   return rows[0] || null;
 }
 
-/**
- * INSERT simples de lance (sem saga).
- * Obs.: hoje nao e usado - a Saga grava pelo tx.criar de registrarComTrava.
- * Candidato a remocao futura.
- */
-async function criar({ leilaoId, licitanteId, valor }) {
-  const { rows } = await pool.query(
-    `INSERT INTO lances (leilao_id, licitante_id, valor)
-     VALUES ($1, $2, $3)
-     RETURNING *`,
-    [leilaoId, licitanteId, valor]
-  );
-  return rows[0];
-}
-
 // passo 3 da saga: grava o lance com o leilao travado (advisory lock),
 // assim ninguem grava outro lance entre a checagem do valor e o INSERT
 /**
@@ -121,6 +106,5 @@ module.exports = {
   buscarPorId,
   buscarPorLeilao,
   buscarMaiorPorLeilao,
-  criar,
   registrarComTrava,
 };

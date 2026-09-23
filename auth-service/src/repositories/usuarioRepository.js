@@ -32,18 +32,6 @@ async function buscarPorEmail(email) {
 }
 
 /**
- * Busca um usuario pelo id.
- * Obs.: hoje nenhum service chama esta funcao (candidata a remocao futura).
- */
-async function buscarPorId(id) {
-  const { rows } = await pool.query(
-    'SELECT * FROM usuarios WHERE id = $1',
-    [id]
-  );
-  return rows[0] || null;
-}
-
-/**
  * Insere um novo usuario e devolve o registro criado.
  * RETURNING faz o Postgres devolver as colunas da linha recem-inserida
  * (incluindo o id gerado automaticamente). Note que senha_hash NAO esta
@@ -70,4 +58,4 @@ async function atualizarPerfilId(usuarioId, perfilId) {
   );
 }
 
-module.exports = { buscarPorEmail, buscarPorId, criar, atualizarPerfilId };
+module.exports = { buscarPorEmail, criar, atualizarPerfilId };
