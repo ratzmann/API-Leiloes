@@ -93,13 +93,27 @@ function validarDataFutura(dataInicio) {
   }
 }
 
-/** Lista leiloes, com filtros opcionais { status, leiloeiroId }. */
-async function listar(filtros) {
+/**
+ * Lista leiloes, com filtros opcionais { status, leiloeiroId }.
+ * 400 se o filtro leiloeiroId vier e nao for um inteiro positivo (ex.: "abc"):
+ * sem essa checagem, o texto chegaria ao SQL e o Postgres responderia com erro (500).
+ */
+async function listar(filtros = {}) {
+  if (filtros.leiloeiroId && !inteiroPositivo(filtros.leiloeiroId)) {
+    throw new ErroDeValidacao('leiloeiroId deve ser um numero inteiro positivo.');
+  }
   return leilaoRepository.listar(filtros);
 }
 
-/** Busca um leilao; 404 se nao existir. Reaproveitada por varias funcoes abaixo. */
+/**
+ * Busca um leilao pelo id. Reaproveitada por varias funcoes abaixo (consultar,
+ * editar, mudar status, disponibilidade, remover).
+ * 400 se o id nao for um inteiro positivo (ex.: /leiloes/abc); 404 se nao existir.
+ */
 async function buscarPorId(id) {
+  if (!inteiroPositivo(id)) {
+    throw new ErroDeValidacao('ID invalido.');
+  }
   const leilao = await leilaoRepository.buscarPorId(id);
   if (!leilao) {
     throw new ErroDeValidacao('Leilao nao encontrado.', 404);

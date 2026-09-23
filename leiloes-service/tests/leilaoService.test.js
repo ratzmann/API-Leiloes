@@ -218,6 +218,27 @@ describe('leilaoService.buscarPorId', () => {
     leilaoRepository.buscarPorId.mockResolvedValue(null);
     await expect(leilaoService.buscarPorId(999)).rejects.toThrow('Leilao nao encontrado.');
   });
+
+  test('lanca 400 para id que nao e inteiro positivo, sem ir ao banco', async () => {
+    // NaN = Number('abc'), como chega do controller quando a URL e /.../abc
+    for (const id of [NaN, 1.5, 0, -1]) {
+      await expect(leilaoService.buscarPorId(id)).rejects.toMatchObject({ codigo: 400, message: 'ID invalido.' });
+    }
+    expect(leilaoRepository.buscarPorId).not.toHaveBeenCalled();
+  });
+});
+
+describe('leilaoService.listar', () => {
+  test('lanca 400 se o filtro leiloeiroId nao for numero (ex.: ?leiloeiroId=abc)', async () => {
+    await expect(leilaoService.listar({ leiloeiroId: 'abc' })).rejects.toMatchObject({ codigo: 400 });
+    expect(leilaoRepository.listar).not.toHaveBeenCalled();
+  });
+
+  test('repassa os filtros validos ao repository', async () => {
+    leilaoRepository.listar.mockResolvedValue([]);
+    await leilaoService.listar({ status: 'ABERTO', leiloeiroId: '3' });
+    expect(leilaoRepository.listar).toHaveBeenCalledWith({ status: 'ABERTO', leiloeiroId: '3' });
+  });
 });
 
 describe('leilaoService.alterarStatus', () => {
