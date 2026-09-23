@@ -68,7 +68,7 @@ describe('Saga de registro de lance: caminho feliz', () => {
     const lance = await saga.executar(PEDIDO);
 
     expect(lance).toMatchObject({ id: 99, sagaId: 42, sagaStatus: 'CONCLUIDA' });
-    expect(usuariosClient.reservarCredito).toHaveBeenCalledWith(7, 1600, 'saga-42');
+    expect(usuariosClient.reservarCredito).toHaveBeenCalledWith(7, 1600, 'saga-42', 1); // leilaoId vai junto
     expect(tx.criar).toHaveBeenCalledWith({ licitanteId: 7, valor: 1600, sagaId: 42, reservaId: 20 });
     expect(usuariosClient.liberarReserva).toHaveBeenCalledWith(2, 11);
     expect(resultados()).toEqual([

@@ -153,7 +153,8 @@ async function executar({ leilaoId, licitanteId, valor, simularFalha = null }) {
     // repetida, o usuarios-service devolve a mesma reserva em vez de criar outra.
     passoAtual = PASSOS.RESERVA;
     simularSeSolicitado(simularFalha, passoAtual);
-    reserva = await usuariosClient.reservarCredito(licitanteId, valor, `saga-${saga.id}`);
+    // O leilaoId vai junto: se o leilao for cancelado, esta reserva e liberada.
+    reserva = await usuariosClient.reservarCredito(licitanteId, valor, `saga-${saga.id}`, leilaoId);
     saga.reserva_id = reserva.id;
     registrarPasso(saga, passoAtual, 'OK', `Reserva ${reserva.id} de R$ ${Number(valor).toFixed(2)}.`);
     await sagaRepository.salvar(saga);

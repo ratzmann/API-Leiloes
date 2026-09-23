@@ -14,18 +14,20 @@ const { ErroDeValidacao } = require('../utils/erros');
 // passo 2 da saga: reserva o valor no credito do licitante.
 // a referencia e o id da saga, entao repetir a chamada nao reserva duas vezes
 /**
- * POST /licitantes/:id/reservas   corpo: { valor, referencia }
+ * POST /licitantes/:id/reservas   corpo: { valor, referencia, leilaoId }
+ * O leilaoId fica gravado na reserva: se o leilao for CANCELADO, o
+ * usuarios-service libera todas as reservas dele de uma vez.
  * @returns a reserva criada (ou a ja existente, se a referencia se repetir)
  * Recusas de negocio (400 dado invalido, 404 licitante nao existe,
  * 409 credito insuficiente) viram ErroDeValidacao com o MESMO codigo,
  * para o cliente final receber a mensagem certa.
  */
-async function reservarCredito(licitanteId, valor, referencia) {
+async function reservarCredito(licitanteId, valor, referencia, leilaoId) {
   const base = urlBase('USUARIOS_SERVICE_URL');
   const { status, corpo } = await requisicao(
     'usuarios-service',
     `${base}/licitantes/${licitanteId}/reservas`,
-    { method: 'POST', body: { valor, referencia } }
+    { method: 'POST', body: { valor, referencia, leilaoId } }
   );
 
   if (status === 200 || status === 201) return corpo;
