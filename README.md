@@ -117,6 +117,8 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 2. E-mail único.
 3. Registro profissional (ex: `JUCESC-000123`) único e com formato validado.
 4. **Autorização**: só o próprio leiloeiro altera (`PUT`) ou remove (`DELETE`) o seu cadastro.
+5. **Privacidade (LGPD)**: e-mail e telefone só aparecem para o próprio leiloeiro;
+   os demais veem `id`, `nome` e o registro profissional (que é público).
 
 **Licitante**
 1. CPF validado (dígitos verificadores) e único.
@@ -126,8 +128,7 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 5. O licitante **não** altera o próprio limite de crédito (`403`) — o limite é
    definido no cadastro.
 6. **Privacidade (LGPD)**: CPF, e-mail, telefone e limite de crédito só aparecem
-   para o próprio licitante; os demais veem apenas `id` e `nome` (o mesmo vale
-   para e-mail e telefone do leiloeiro, cujo registro profissional é público).
+   para o próprio licitante; os demais veem apenas `id` e `nome`.
 
 > Perfis são criados só pelo registro (`POST /auth/registrar`): o Kong
 > responde `403` a `POST /leiloeiros` e `POST /licitantes` vindos de fora.

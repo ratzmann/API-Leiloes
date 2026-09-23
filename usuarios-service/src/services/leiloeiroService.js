@@ -11,6 +11,7 @@
 //   2. e-mail unico                                                           -> cadastrar
 //   3. registro profissional unico e no formato ORGAO-NUMERO (ex.: JUCESC-000123) -> cadastrar
 //   4. so o proprio leiloeiro altera ou remove o cadastro                     -> atualizar / remover
+//   5. e-mail e telefone so aparecem para o proprio leiloeiro (LGPD)          -> listar / consultar
 //
 // Quem chama: controllers/leiloeiroController.js
 // Quem e chamado: repositories/leiloeiroRepository.js, utils/validadores.js
@@ -52,8 +53,8 @@ function validarDados({ nome, email, registroProfissional }) {
 }
 
 /**
- * Lista todos os leiloeiros. Cada um aparece inteiro so para o proprio
- * leiloeiro; para os demais, so os CAMPOS_PUBLICOS (visaoPara).
+ * Regra 5. Lista todos os leiloeiros. Cada um aparece inteiro so para o
+ * proprio leiloeiro; para os demais, so os CAMPOS_PUBLICOS (visaoPara).
  * @param usuario  quem esta logado (payload do token)
  */
 async function listar(usuario) {
@@ -62,8 +63,8 @@ async function listar(usuario) {
 }
 
 /**
- * GET /leiloeiros/:id: busca um leiloeiro (404 se nao existir) e aplica a
- * visibilidade - dados completos so para o proprio leiloeiro.
+ * Regra 5. GET /leiloeiros/:id: busca um leiloeiro (404 se nao existir) e
+ * aplica a visibilidade - dados completos so para o proprio leiloeiro.
  * O leiloes-service chama esta rota (sem token) para validar o leiloeiro antes
  * de cadastrar um leilao: ele so precisa saber se existe, entao a visao publica basta.
  */

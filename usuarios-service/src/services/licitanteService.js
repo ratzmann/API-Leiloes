@@ -11,6 +11,7 @@
 //   3. limite de credito nunca negativo                   -> validarDados
 //   4. so o proprio licitante altera ou remove o cadastro -> atualizar / remover
 //   5. o licitante NAO altera o proprio limite de credito -> atualizar
+//   6. CPF, e-mail, telefone e limite so para o proprio (LGPD) -> listar / consultar
 //
 // Quem chama: controllers/licitanteController.js
 // Quem e chamado: repositories/licitanteRepository.js, utils/validadores.js
@@ -47,8 +48,8 @@ function validarDados({ nome, email, cpf, limiteCredito }) {
 }
 
 /**
- * Lista todos os licitantes. Cada um aparece inteiro so para o proprio
- * licitante; para os demais, so os CAMPOS_PUBLICOS (visaoPara).
+ * Regra 6. Lista todos os licitantes. Cada um aparece inteiro so para o
+ * proprio licitante; para os demais, so os CAMPOS_PUBLICOS (visaoPara).
  * @param usuario  quem esta logado (payload do token)
  */
 async function listar(usuario) {
@@ -57,8 +58,8 @@ async function listar(usuario) {
 }
 
 /**
- * GET /licitantes/:id: busca um licitante (404 se nao existir) e aplica a
- * visibilidade - CPF e demais dados pessoais so para o proprio licitante.
+ * Regra 6. GET /licitantes/:id: busca um licitante (404 se nao existir) e
+ * aplica a visibilidade - CPF e demais dados pessoais so para o proprio licitante.
  */
 async function consultar(id, usuario) {
   const licitante = await buscarPorId(id);
