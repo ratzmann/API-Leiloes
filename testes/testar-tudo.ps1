@@ -679,6 +679,26 @@ Run-Step -Nome "66. Rota interna /reservas nao existe pelo Kong (espera 404)" -C
     return (Invoke-Api POST "/reservas/leilao/$($script:leilaoAoVivoId)/liberar" -Token $script:tokenLeiloeiro)
 }
 
+# ------------------------------------------------------------------------------
+# Registro com perfil recusado: compensacao no auth-service
+# ------------------------------------------------------------------------------
+Write-Host ""
+Write-Host "------------------------ REGISTRO COM PERFIL INVALIDO ---------------------" -ForegroundColor Cyan
+
+$emailCompensacao = "compensacao_$(Get-Random)@example.com"
+
+# 67. CPF invalido: o usuarios-service recusa o perfil e o registro inteiro falha
+Run-Step -Nome "67. Registro com CPF invalido (espera 400)" -CodigoEsperado 400 -Acao {
+    return (Invoke-Api POST "/auth/registrar" @{ nome = "Teste Compensacao"; email = $emailCompensacao; senha = "senha123"; papel = "LICITANTE"; dadosPerfil = @{ cpf = "11111111111" } })
+}
+
+# 68. O usuario foi desfeito: o mesmo e-mail pode ser registrado de novo
+Run-Step -Nome "68. Mesmo e-mail com CPF valido registra (espera 201)" -CodigoEsperado 201 -Acao {
+    $r = Invoke-Api POST "/auth/registrar" @{ nome = "Teste Compensacao"; email = $emailCompensacao; senha = "senha123"; papel = "LICITANTE"; dadosPerfil = @{ cpf = (Novo-Cpf) } }
+    if ($r.StatusCode -eq 201 -and -not $r.Json.perfil.id) { return @{ StatusCode = 500 } }
+    return $r
+}
+
 Write-Host "==========================================================================" -ForegroundColor Cyan
 Write-Host "                           RESUMO DOS TESTES                             " -ForegroundColor Yellow
 Write-Host "   Passou: $script:TotalPass" -ForegroundColor Green
