@@ -222,7 +222,7 @@ o leilão no `leiloes-service`, reserva o crédito do licitante no
 Por isso o lance precisa de um **leilão real, aberto e dentro do período**, e
 de **licitantes reais com limite de crédito**.
 
-> Para rodar tudo isso automaticamente: `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` (passos 30 a 61).
+> Para rodar tudo isso automaticamente: `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` (passos 30 a 66).
 
 **Autorização:** o lance é sempre dado em nome de quem está logado. Por isso
 cada licitante usa o **próprio token** (`TOKEN_A`, `TOKEN_B`) e o

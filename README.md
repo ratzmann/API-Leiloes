@@ -31,7 +31,7 @@ Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro
    sem passar pelo Kong, URL sempre vinda de variável de ambiente):
 
    auth-service     ──▶ usuarios-service   cria o perfil ao registrar
-   leiloes-service  ──▶ usuarios-service   valida o leiloeiro do leilão
+   leiloes-service  ──▶ usuarios-service   valida o leiloeiro; ao cancelar, libera o crédito
    lances-service   ──▶ leiloes-service    Saga passo 1: leilão aceita lances?
    lances-service   ──▶ usuarios-service   Saga passos 2 e 4: reserva e libera crédito
 ```
@@ -147,6 +147,12 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
    sempre em nome próprio (o `leiloeiroId` vem do token; se enviado no corpo,
    precisa ser o próprio). Editar, mudar status e remover: só o **dono** do
    leilão. Violações → `403` (sem login → `401`). As rotas `GET` continuam livres.
+8. **Cancelar devolve o crédito**: ao cancelar um leilão, o leiloes-service pede
+   ao usuarios-service (rota interna `POST /reservas/leilao/:id/liberar`) que
+   libere todas as reservas daquele leilão — ninguém mais pode vencê-lo. Se o
+   usuarios-service estiver fora, o leilão fica cancelado, a resposta é `503` e
+   basta repetir o cancelamento. Encerrar **não** libera: a reserva do vencedor
+   continua valendo.
 
 ### lances-service
 
@@ -303,17 +309,18 @@ de 50%:
 | Serviço | Testes | Cobertura (linhas) |
 |---|---|---|
 | auth-service | 18 | 87% |
-| usuarios-service | 57 | 76% |
-| leiloes-service | 51 | 74% |
+| usuarios-service | 64 | 77% |
+| leiloes-service | 57 | 71% |
 | lances-service | 56 | 75% |
 
 Ponta a ponta, com a stack no ar (PowerShell):
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
 ```
-61 passos pelo Kong: autenticação, usuários, leilões, a Saga de lances —
+66 passos pelo Kong: autenticação, usuários, leilões, a Saga de lances —
 caminho feliz, recusas, compensação, pendência e reprocessamento — e a
-autorização (ninguém age em nome de outra pessoa nem altera o cadastro alheio).
+autorização (ninguém age em nome de outra pessoa nem altera o cadastro alheio)
+e o cancelamento de leilão devolvendo o crédito reservado.
 
 ## Variáveis de ambiente
 
@@ -324,5 +331,5 @@ para `.env` e ajuste `DB_HOST` etc.
 ## Próximos passos (grupo)
 
 - Acompanhamento ao vivo dos lances (WebSockets ou Event-Driven).
-- Encerramento do pregão como Saga: ao encerrar, confirmar o crédito do
-  vencedor e liberar eventuais reservas remanescentes.
+- Encerramento do pregão como Saga: ao encerrar, registrar o vencedor e
+  confirmar (consumir) o crédito dele. O cancelamento já devolve o crédito.

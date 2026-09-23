@@ -23,7 +23,7 @@ Roteiro para os **15 minutos** do grupo, seguindo a divisão pedida no enunciado
 
 - [ ] Docker Desktop aberto e o sistema no ar: `docker compose up --build -d`
 - [ ] Testes unitários passando: `powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1`
-- [ ] Teste ponta a ponta passando: `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` (61/61)
+- [ ] Teste ponta a ponta passando: `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` (66/66)
 - [ ] Um terminal PowerShell aberto na raiz do projeto, já com o **bloco de preparação da demo** (abaixo) executado
 - [ ] Abas abertas no editor: `docker-compose.yml`, `kong/kong.yml`, `docs/ARQUITETURA.md` e os arquivos citados em cada bloco
 
@@ -115,7 +115,9 @@ Chamar PUT "/licitantes/$($joao.perfil.id)" @{ nome = "Invasor" } $TM           
   `AGENDADO → ABERTO → ENCERRADO` (máquina de estados).
 - Regras: dados coerentes e duração ≥ 30 min, início no futuro, **leiloeiro
   validado por REST no usuarios-service**, sem choque de agenda, edição só
-  enquanto `AGENDADO`, e **só o leiloeiro dono** gerencia o leilão.
+  enquanto `AGENDADO`, **só o leiloeiro dono** gerencia o leilão, e
+  **cancelar devolve o crédito** reservado pelos licitantes (outra chamada REST
+  ao usuarios-service).
 
 **Mostrar no código:**
 - [`kong/kong.yml`](../kong/kong.yml) — services, plugin `jwt`, `request-termination` (403) e `consumers`
@@ -178,9 +180,9 @@ Chamar GET "/licitantes/$($maria.perfil.id)/credito" $null $TM                  
 **Falar:**
 - **Testes unitários** (Jest) em cada serviço, com banco e rede trocados por
   mocks; testes de regras (services, Saga) e da camada HTTP (supertest).
-  Cobertura (linhas) sobre todo o `src/`: auth 87%, usuarios 76%, leiloes 74%,
-  lances 75% — o `npm test` falha se cair abaixo de 50%. São 182 testes.
-- **Teste ponta a ponta**: 61 passos reais pelo Kong.
+  Cobertura (linhas) sobre todo o `src/`: auth 87%, usuarios 77%, leiloes 71%,
+  lances 75% — o `npm test` falha se cair abaixo de 50%. São 195 testes.
+- **Teste ponta a ponta**: 66 passos reais pelo Kong.
 
 **Mostrar:** a saída do `testar-unitarios.ps1` (resumo com os 4 serviços).
 
@@ -191,7 +193,7 @@ Chamar GET "/licitantes/$($maria.perfil.id)/credito" $null $TM                  
 | 1 microsserviço de domínio por aluno, independente | usuarios, leiloes, lances — código, banco e Dockerfile próprios |
 | ≥ 3 regras de negócio por serviço | README, seção "Regras de negócio" |
 | Arquitetura interna definida | camadas em todos os serviços (seção 4 do `ARQUITETURA.md`) |
-| Testes com cobertura ≥ 50% | `testar-unitarios.ps1` (74% a 87% de linhas, em todo o `src/`) |
+| Testes com cobertura ≥ 50% | `testar-unitarios.ps1` (71% a 87% de linhas, em todo o `src/`) |
 | ≥ 2 padrões de microsserviços | API Gateway (Kong) e Saga orquestrada |
 | Serviço de autenticação | auth-service (bcrypt + JWT, validado pelo Kong) |
 | Formato de comunicação | REST (HTTP + JSON) |

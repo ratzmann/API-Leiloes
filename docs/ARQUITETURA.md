@@ -235,6 +235,7 @@ O endereço **nunca** fica no código: vem de variável de ambiente.
 |---|---|---|---|
 | auth-service | usuarios-service `POST /leiloeiros` ou `/licitantes` | criar o perfil no registro | `auth-service/src/services/authService.js` |
 | leiloes-service | usuarios-service `GET /leiloeiros/:id` | validar o leiloeiro do leilão | `leiloes-service/src/clients/usuariosClient.js` |
+| leiloes-service | usuarios-service `POST /reservas/leilao/:id/liberar` (interna) | devolver o crédito ao **cancelar** o leilão | `leiloes-service/src/clients/usuariosClient.js` |
 | lances-service | leiloes-service `GET /leiloes/:id/disponibilidade` | Saga, passo 1 | `lances-service/src/clients/leiloesClient.js` |
 | lances-service | usuarios-service `POST /licitantes/:id/reservas` e `.../liberar` | Saga, passos 2 e 4 + compensação | `lances-service/src/clients/usuariosClient.js` |
 
@@ -349,6 +350,7 @@ sequenceDiagram
 | 5. Ciclo de vida `AGENDADO → ABERTO → ENCERRADO` (+ `CANCELADO`) | `alterarStatus` + `utils/validadores.js` |
 | 6. Editar/remover só enquanto `AGENDADO` | `atualizar`, `remover` |
 | 7. Autorização: só o leiloeiro logado cadastra; só o dono altera | `autorizarLeiloeiro`, `garantirDono` |
+| 8. Cancelar devolve o crédito reservado (REST ao usuarios-service) | `alterarStatus`, `liberarCreditoDoLeilao` |
 
 ### lances-service
 
@@ -395,10 +397,10 @@ métrica ficar abaixo de 50%.
 | Serviço | Testes | Cobertura (linhas) |
 |---|---|---|
 | auth-service | 18 | 87% |
-| usuarios-service | 57 | 76% |
-| leiloes-service | 51 | 74% |
+| usuarios-service | 64 | 77% |
+| leiloes-service | 57 | 71% |
 | lances-service | 56 | 75% |
-| **Total** | **182** | |
+| **Total** | **195** | |
 
 Como rodar:
 
@@ -406,7 +408,7 @@ Como rodar:
 |---|---|---|
 | Unitários dos 4 serviços, com resumo | `powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1` | Não (usa Node local ou Docker) |
 | Unitários de um serviço | `cd <servico> && npm install && npm test` | Não |
-| Ponta a ponta (61 passos pelo Kong) | `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` | Sim |
+| Ponta a ponta (66 passos pelo Kong) | `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` | Sim |
 | Manual | `testes/roteiro-de-testes.md` (curl) e a coleção Postman | Sim |
 
 ---
@@ -427,6 +429,9 @@ Como rodar:
   pelo próprio dono (`utils/autorizacao.js`); o licitante não altera o próprio
   limite de crédito; `POST` de perfis bloqueado no Kong (só o auth-service cria,
   no registro, pela rede interna).
+- **Cancelamento de leilão**: antes, o crédito de quem estava ganhando ficava
+  bloqueado para sempre. Agora as reservas guardam o `leilao_id` e o cancelamento
+  libera todas elas (Regra 8), com repetição segura se o usuarios-service falhar.
 - `package-lock.json` do lances-service versionado; pastas `coverage/` fora do
   git; campo `version:` obsoleto removido do `docker-compose.yml`.
 
@@ -445,7 +450,7 @@ Duplicar `config/db.js`, `utils/erros.js` e `extrairUsuario.js` em cada serviço
 **Evoluções (do README)**
 
 - Acompanhamento ao vivo dos lances (WebSockets ou eventos).
-- Encerramento do pregão como Saga (confirmar crédito do vencedor e liberar o resto).
+- Encerramento do pregão como Saga (registrar o vencedor e confirmar o crédito dele).
 
 ---
 
@@ -499,7 +504,7 @@ Duplicar `config/db.js`, `utils/erros.js` e `extrairUsuario.js` em cada serviço
    `GET /lances/sagas/:id`.
 7. **Autorização** — seção 5: `lanceService.autorizarLicitante` e
    `leilaoService.garantirDono`; demonstrar um leiloeiro tentando dar lance (403).
-8. **Testes** — `testar-unitarios.ps1` (182 testes, cobertura ≥ 50% em todo o `src/`) e `testar-tudo.ps1` (61 passos).
+8. **Testes** — `testar-unitarios.ps1` (195 testes, cobertura ≥ 50% em todo o `src/`) e `testar-tudo.ps1` (66 passos).
 9. **Próximos passos** — seção 10.
 
 ---
@@ -533,6 +538,7 @@ fora, o Kong responde `403`.
 | `GET` | `/licitantes/:id/reservas` | logado | Histórico de reservas. |
 | `POST` | `/licitantes/:id/reservas` | **interna** | Reserva crédito (Saga, passo 2). |
 | `POST` | `/licitantes/:id/reservas/:reservaId/liberar` | **interna** | Libera a reserva (compensação / passo 4). |
+| `POST` | `/reservas/leilao/:leilaoId/liberar` | **interna** | Libera todas as reservas de um leilão cancelado (o Kong nem tem essa rota). |
 
 ### leiloes-service (`/leiloes`)
 
@@ -545,7 +551,7 @@ fora, o Kong responde `403`.
 | `PUT` | `/leiloes/:id` | o dono | Edita um leilão ainda `AGENDADO`. |
 | `PATCH` | `/leiloes/:id/abrir` | o dono | `AGENDADO → ABERTO`. |
 | `PATCH` | `/leiloes/:id/encerrar` | o dono | `ABERTO → ENCERRADO`. |
-| `PATCH` | `/leiloes/:id/cancelar` | o dono | Cancela um leilão não encerrado. |
+| `PATCH` | `/leiloes/:id/cancelar` | o dono | Cancela um leilão não encerrado **e devolve o crédito reservado** (repetir tenta liberar de novo). |
 | `PATCH` | `/leiloes/:id/status` | o dono | Transição genérica (`{ "status": "ABERTO" }`). |
 | `DELETE` | `/leiloes/:id` | o dono | Remove um leilão ainda `AGENDADO`. |
 

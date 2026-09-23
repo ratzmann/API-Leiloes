@@ -14,7 +14,7 @@ Arquitetura explicada para iniciantes: [`docs/ARQUITETURA.md`](docs/ARQUITETURA.
 | `lances-service/` | Lances + orquestrador da Saga de registro de lance (porta 3003, outro container). |
 | `kong/kong.yml` | API Gateway em modo DB-less: único ponto de entrada (porta 8000), valida o JWT. |
 | `docker-compose.yml` | Sobe os 4 serviços, os 4 Postgres e o Kong. |
-| `testes/` | Coleção Postman, roteiro manual e `testar-tudo.ps1` (ponta a ponta). |
+| `testes/` | `testar-unitarios.ps1` (Jest dos 4 serviços), `testar-tudo.ps1` (ponta a ponta), roteiro manual e coleção Postman. |
 
 ## Convenções de código
 
@@ -43,7 +43,8 @@ Arquitetura explicada para iniciantes: [`docs/ARQUITETURA.md`](docs/ARQUITETURA.
   logado (e alterado só pelo dono); lance só pelo licitante logado, em nome próprio;
   cadastro de leiloeiro/licitante alterado só pelo próprio (`usuarios-service/src/utils/autorizacao.js`).
   Sem login → 401; sem permissão → 403.
-- Rotas internas bloqueadas no Kong (403): reservas de crédito e `POST` de perfis.
+- Rotas internas: reservas de crédito e `POST` de perfis (o Kong responde 403) e
+  `/reservas/leilao/:id/liberar` (o Kong nem tem rota `/reservas`).
 - Duplicação de pequenos arquivos entre serviços (`config/db.js`, `utils/erros.js`) é
   **intencional**: cada microsserviço é independente.
 
