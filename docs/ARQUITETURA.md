@@ -19,6 +19,7 @@
 10. [Pontos de atenção e próximos passos](#10-pontos-de-atenção-e-próximos-passos)
 11. [Glossário](#11-glossário)
 12. [Roteiro sugerido para a apresentação](#12-roteiro-sugerido-para-a-apresentação)
+13. [Mapa de endpoints](#13-mapa-de-endpoints)
 
 ---
 
@@ -483,3 +484,81 @@ Duplicar `config/db.js`, `utils/erros.js` e `extrairUsuario.js` em cada serviço
    `leilaoService.garantirDono`; demonstrar um leiloeiro tentando dar lance (403).
 8. **Testes** — `npm test` em um serviço e o `testar-tudo.ps1` (61 passos).
 9. **Próximos passos** — seção 10.
+
+---
+
+## 13. Mapa de endpoints
+
+Tudo passa pelo Kong em `http://localhost:8000`. Com exceção de `/auth/*`, as
+rotas exigem `Authorization: Bearer <token>` (sem token → `401`, respondido pelo
+próprio Kong). "Interna" = chamada só entre serviços, pela rede do Docker; de
+fora, o Kong responde `403`.
+
+### auth-service (`/auth`, público)
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/auth/registrar` | Cria usuário + perfil (leiloeiro ou licitante) e devolve o token. |
+| `POST` | `/auth/login` | Confere e-mail e senha e devolve o token. |
+| `GET` | `/auth/health` | Healthcheck. |
+
+### usuarios-service (`/leiloeiros`, `/licitantes`)
+
+| Método | Rota | Quem pode | Descrição |
+|---|---|---|---|
+| `GET` | `/leiloeiros`, `/leiloeiros/:id` | logado | Lista / detalha leiloeiros. |
+| `POST` | `/leiloeiros` | **interna** | Cria o perfil (auth-service, no registro). |
+| `PUT` / `DELETE` | `/leiloeiros/:id` | o próprio | Atualiza (nome, telefone) / remove o cadastro. |
+| `GET` | `/licitantes`, `/licitantes/:id` | logado | Lista / detalha licitantes. |
+| `POST` | `/licitantes` | **interna** | Cria o perfil (auth-service, no registro). |
+| `PUT` / `DELETE` | `/licitantes/:id` | o próprio | Atualiza (nome, telefone; não o limite) / remove. |
+| `GET` | `/licitantes/:id/credito` | logado | Limite, reservado e disponível. |
+| `GET` | `/licitantes/:id/reservas` | logado | Histórico de reservas. |
+| `POST` | `/licitantes/:id/reservas` | **interna** | Reserva crédito (Saga, passo 2). |
+| `POST` | `/licitantes/:id/reservas/:reservaId/liberar` | **interna** | Libera a reserva (compensação / passo 4). |
+
+### leiloes-service (`/leiloes`)
+
+| Método | Rota | Quem pode | Descrição |
+|---|---|---|---|
+| `GET` | `/leiloes` | logado | Lista. Filtros opcionais: `?status=ABERTO`, `?leiloeiroId=1`. |
+| `GET` | `/leiloes/:id` | logado | Detalha um leilão. |
+| `GET` | `/leiloes/:id/disponibilidade` | logado / interna | Se aceita lances agora (Saga, passo 1). |
+| `POST` | `/leiloes` | leiloeiro | Cadastra em nome do leiloeiro logado. |
+| `PUT` | `/leiloes/:id` | o dono | Edita um leilão ainda `AGENDADO`. |
+| `PATCH` | `/leiloes/:id/abrir` | o dono | `AGENDADO → ABERTO`. |
+| `PATCH` | `/leiloes/:id/encerrar` | o dono | `ABERTO → ENCERRADO`. |
+| `PATCH` | `/leiloes/:id/cancelar` | o dono | Cancela um leilão não encerrado. |
+| `PATCH` | `/leiloes/:id/status` | o dono | Transição genérica (`{ "status": "ABERTO" }`). |
+| `DELETE` | `/leiloes/:id` | o dono | Remove um leilão ainda `AGENDADO`. |
+
+Exemplo de cadastro (o `leiloeiroId` vem do token):
+
+```bash
+curl -X POST http://localhost:8000/leiloes \
+  -H "Authorization: Bearer $TOKEN_LEILOEIRO" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "titulo": "Leilão de Nelore - Lote 12",
+    "descricao": "Bois nelore terminados a pasto, média de 18 arrobas.",
+    "localEvento": "Parque de Exposições de Lages",
+    "raca": "Nelore",
+    "quantidadeBois": 40,
+    "lanceInicial": 5000,
+    "incrementoMinimo": 100,
+    "dataInicio": "2026-10-01T14:00:00Z",
+    "dataFim": "2026-10-01T18:00:00Z"
+  }'
+```
+
+### lances-service (`/lances`)
+
+| Método | Rota | Quem pode | Descrição |
+|---|---|---|---|
+| `POST` | `/lances` | licitante | Registra um lance em nome próprio (inicia a Saga). |
+| `GET` | `/lances` | logado | Todos os lances. |
+| `GET` | `/lances/:id` | logado | Um lance. |
+| `GET` | `/lances/leilao/:leilaoId` | logado | Lances do leilão (maior primeiro). |
+| `GET` | `/lances/leilao/:leilaoId/maior` | logado | Maior lance atual. |
+| `GET` | `/lances/sagas`, `/lances/sagas/:id` | logado | Sagas executadas, passo a passo. |
+| `POST` | `/lances/sagas/:id/reprocessar` | logado | Tenta de novo o passo 4 pendente. |

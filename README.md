@@ -45,8 +45,8 @@ Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro
   lote, valores, período e ciclo de vida (`AGENDADO → ABERTO → ENCERRADO`).
   Mesma arquitetura em camadas, mais uma camada `clients/` para a comunicação
   REST com o `usuarios-service` (`USUARIOS_SERVICE_URL`), usada para validar o
-  leiloeiro responsável antes de gravar o leilão. Detalhes em
-  [`leiloes-service/README.md`](leiloes-service/README.md).
+  leiloeiro responsável antes de gravar o leilão. Todos os endpoints de todos
+  os serviços estão no [mapa de endpoints](docs/ARQUITETURA.md#13-mapa-de-endpoints).
 - **lances-service**: Registro e consulta de **Lances** de leilões, com histórico,
   validação de maior lance atual e regras anti-lance repetido. Segue a mesma
   arquitetura em camadas (`routes → controllers → services → repositories → Postgres`),
