@@ -23,7 +23,7 @@ Roteiro para os **15 minutos** do grupo, seguindo a divisão pedida no enunciado
 
 - [ ] Docker Desktop aberto e o sistema no ar: `docker compose up --build -d`
 - [ ] Testes unitários passando: `powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1`
-- [ ] Teste ponta a ponta passando: `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` (66/66)
+- [ ] Teste ponta a ponta passando: `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` (68/68)
 - [ ] Um terminal PowerShell aberto na raiz do projeto, já com o **bloco de preparação da demo** (abaixo) executado
 - [ ] Abas abertas no editor: `docker-compose.yml`, `kong/kong.yml`, `docs/ARQUITETURA.md` e os arquivos citados em cada bloco
 
@@ -79,7 +79,9 @@ $L = $leilao.id
 - **auth-service** — registro e login. Senha guardada com **bcrypt** (hash).
   O login devolve um **JWT** com `sub`, `papel` e `perfilId`.
 - No registro, o auth-service chama o usuarios-service por **REST** para criar
-  o perfil (leiloeiro ou licitante) — primeira comunicação entre serviços.
+  o perfil (leiloeiro ou licitante) — primeira comunicação entre serviços. Se o
+  perfil for recusado (ex.: CPF inválido), o usuário criado é **apagado**
+  (compensação, a mesma ideia da Saga) e o erro volta ao cliente.
 - **usuarios-service** — leiloeiros, licitantes e **crédito** do licitante.
   Regras: CPF com dígitos verificadores, e-mail/CPF/registro únicos, limite
   ≥ 0, reservas nunca passam do limite, e **só o próprio usuário altera o seu
@@ -180,9 +182,9 @@ Chamar GET "/licitantes/$($maria.perfil.id)/credito" $null $TM                  
 **Falar:**
 - **Testes unitários** (Jest) em cada serviço, com banco e rede trocados por
   mocks; testes de regras (services, Saga) e da camada HTTP (supertest).
-  Cobertura (linhas) sobre todo o `src/`: auth 87%, usuarios 77%, leiloes 71%,
-  lances 75% — o `npm test` falha se cair abaixo de 50%. São 195 testes.
-- **Teste ponta a ponta**: 66 passos reais pelo Kong.
+  Cobertura (linhas) sobre todo o `src/`: auth 89%, usuarios 77%, leiloes 71%,
+  lances 75% — o `npm test` falha se cair abaixo de 50%. São 200 testes.
+- **Teste ponta a ponta**: 68 passos reais pelo Kong.
 
 **Mostrar:** a saída do `testar-unitarios.ps1` (resumo com os 4 serviços).
 
@@ -193,7 +195,7 @@ Chamar GET "/licitantes/$($maria.perfil.id)/credito" $null $TM                  
 | 1 microsserviço de domínio por aluno, independente | usuarios, leiloes, lances — código, banco e Dockerfile próprios |
 | ≥ 3 regras de negócio por serviço | README, seção "Regras de negócio" |
 | Arquitetura interna definida | camadas em todos os serviços (seção 4 do `ARQUITETURA.md`) |
-| Testes com cobertura ≥ 50% | `testar-unitarios.ps1` (71% a 87% de linhas, em todo o `src/`) |
+| Testes com cobertura ≥ 50% | `testar-unitarios.ps1` (71% a 89% de linhas, em todo o `src/`) |
 | ≥ 2 padrões de microsserviços | API Gateway (Kong) e Saga orquestrada |
 | Serviço de autenticação | auth-service (bcrypt + JWT, validado pelo Kong) |
 | Formato de comunicação | REST (HTTP + JSON) |
@@ -211,6 +213,7 @@ cadastros em uso, acompanhamento ao vivo dos lances (WebSockets/eventos).
 |---|---|
 | Por que um banco por serviço? | Independência: cada serviço evolui e sobe sozinho; ninguém depende do esquema do outro. |
 | Se os serviços só decodificam o token, dá para forjar um? | Não pelo caminho normal: o Kong confere a assinatura antes, e os serviços não têm porta exposta. |
+| E se o usuarios-service recusar o perfil no registro? | O auth-service apaga o usuário recém-criado (compensação) e devolve o erro real: `400` (CPF inválido), `409` (CPF já usado) ou `503` (serviço fora). |
 | O que acontece se o usuarios-service cair no meio da Saga? | Timeout de 3 s → erro 503; se já havia reserva, a Saga tenta compensar e registra o resultado em `sagas_lance`. |
 | Dois lances iguais ao mesmo tempo? | O passo 3 trava o leilão (`pg_advisory_xact_lock`) e confere o valor de novo antes do `INSERT`. |
 | Por que Saga orquestrada e não coreografada? | O fluxo tem ordem e compensações claras; um orquestrador central deixa isso explícito e rastreável. |

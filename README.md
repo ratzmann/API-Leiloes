@@ -39,7 +39,10 @@ Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro
 - **auth-service**: cadastro de credenciais (e-mail/senha), login, emissão de
   JWT (HS256). Ao registrar um usuário, chama o `usuarios-service` via HTTP
   usando a variável de ambiente `USUARIOS_SERVICE_URL` para criar o perfil de
-  domínio (leiloeiro ou licitante).
+  domínio (leiloeiro ou licitante). Se o perfil for recusado (ex.: CPF
+  inválido → `400`, CPF já usado → `409`) ou o usuarios-service não responder
+  (`503`), o registro é **desfeito** (o usuário recém-criado é apagado) e o
+  erro volta ao cliente — nenhuma conta fica sem perfil.
 - **usuarios-service**: CRUD de **Leiloeiro** e **Licitante**, arquitetura em
   camadas (`routes → controllers → services → repositories → Postgres`).
   Também controla o **crédito do licitante**: reservas e liberações usadas
@@ -184,7 +187,8 @@ docker compose up --build
 
 Serviços:
 - Gateway (Kong): `http://localhost:8000`
-- Admin API do Kong (dev): `http://localhost:8001`
+- Admin API do Kong (dev): `http://localhost:8001` — só acessível na própria
+  máquina (publicada em `127.0.0.1`), porque permite alterar o gateway.
 
 > `auth-service`, `usuarios-service`, `leiloes-service` e `lances-service` **não** têm porta
 > publicada no host — só são acessíveis pela rede interna do Docker ou através
@@ -309,7 +313,7 @@ de 50%:
 
 | Serviço | Testes | Cobertura (linhas) |
 |---|---|---|
-| auth-service | 18 | 87% |
+| auth-service | 23 | 89% |
 | usuarios-service | 64 | 77% |
 | leiloes-service | 57 | 71% |
 | lances-service | 56 | 75% |
@@ -318,10 +322,11 @@ Ponta a ponta, com a stack no ar (PowerShell):
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
 ```
-66 passos pelo Kong: autenticação, usuários, leilões, a Saga de lances —
-caminho feliz, recusas, compensação, pendência e reprocessamento — e a
-autorização (ninguém age em nome de outra pessoa nem altera o cadastro alheio)
-e o cancelamento de leilão devolvendo o crédito reservado.
+68 passos pelo Kong: autenticação, usuários, leilões, a Saga de lances —
+caminho feliz, recusas, compensação, pendência e reprocessamento —, a
+autorização (ninguém age em nome de outra pessoa nem altera o cadastro alheio),
+o cancelamento de leilão devolvendo o crédito reservado e o registro desfeito
+quando o perfil é recusado.
 
 ## Variáveis de ambiente
 

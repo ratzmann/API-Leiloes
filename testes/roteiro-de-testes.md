@@ -81,7 +81,8 @@ curl -X POST http://localhost:8000/auth/registrar \
   }'
 ```
 
-CPF/registro inválido de propósito (deve dar 400):
+CPF/registro inválido de propósito (deve dar 400 — e o usuário **não** fica criado:
+o registro é desfeito, então o mesmo e-mail pode ser usado de novo):
 ```bash
 curl -i -X POST http://localhost:8000/auth/registrar \
   -H "Content-Type: application/json" \
@@ -354,7 +355,7 @@ docker compose logs -f lances-service
 docker compose logs -f kong
 ```
 
-## 15. Inspecionar a config do Kong direto (Admin API, porta 8001)
+## 15. Inspecionar a config do Kong direto (Admin API, porta 8001 — só na própria máquina)
 ```bash
 curl http://localhost:8001/services
 curl http://localhost:8001/routes

@@ -233,7 +233,7 @@ O endereço **nunca** fica no código: vem de variável de ambiente.
 
 | Quem chama | Quem é chamado | Para quê | Onde no código |
 |---|---|---|---|
-| auth-service | usuarios-service `POST /leiloeiros` ou `/licitantes` | criar o perfil no registro | `auth-service/src/services/authService.js` |
+| auth-service | usuarios-service `POST /leiloeiros` ou `/licitantes` | criar o perfil no registro (se falhar, o usuário é **apagado**: compensação) | `auth-service/src/services/authService.js` |
 | leiloes-service | usuarios-service `GET /leiloeiros/:id` | validar o leiloeiro do leilão | `leiloes-service/src/clients/usuariosClient.js` |
 | leiloes-service | usuarios-service `POST /reservas/leilao/:id/liberar` (interna) | devolver o crédito ao **cancelar** o leilão | `leiloes-service/src/clients/usuariosClient.js` |
 | lances-service | leiloes-service `GET /leiloes/:id/disponibilidade` | Saga, passo 1 | `lances-service/src/clients/leiloesClient.js` |
@@ -396,11 +396,11 @@ métrica ficar abaixo de 50%.
 
 | Serviço | Testes | Cobertura (linhas) |
 |---|---|---|
-| auth-service | 18 | 87% |
+| auth-service | 23 | 89% |
 | usuarios-service | 64 | 77% |
 | leiloes-service | 57 | 71% |
 | lances-service | 56 | 75% |
-| **Total** | **195** | |
+| **Total** | **200** | |
 
 Como rodar:
 
@@ -408,7 +408,7 @@ Como rodar:
 |---|---|---|
 | Unitários dos 4 serviços, com resumo | `powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1` | Não (usa Node local ou Docker) |
 | Unitários de um serviço | `cd <servico> && npm install && npm test` | Não |
-| Ponta a ponta (66 passos pelo Kong) | `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` | Sim |
+| Ponta a ponta (68 passos pelo Kong) | `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` | Sim |
 | Manual | `testes/roteiro-de-testes.md` (curl) e a coleção Postman | Sim |
 
 ---
@@ -417,6 +417,12 @@ Como rodar:
 
 ### Já resolvido nesta revisão
 
+- **Registro distribuído com compensação**: antes, se o perfil fosse recusado
+  (ex.: CPF inválido), o registro respondia `201` com `perfil: null` e a conta
+  ficava inutilizável e com o e-mail preso. Agora o usuário recém-criado é
+  apagado e o erro real (`400`/`409`/`503`) volta ao cliente.
+- **Admin API do Kong** (porta 8001) publicada só em `127.0.0.1`.
+- **Comentários**: um único bloco por função e numeração das regras igual à do README.
 - **Código sem uso removido**: `verificarToken`, `usuarioRepository.buscarPorId`
   (auth) e `lanceRepository.criar` (lances).
 - **Consistência entre serviços**: `ErroDeValidacao` em `utils/erros.js` nos 4
@@ -504,7 +510,7 @@ Duplicar `config/db.js`, `utils/erros.js` e `extrairUsuario.js` em cada serviço
    `GET /lances/sagas/:id`.
 7. **Autorização** — seção 5: `lanceService.autorizarLicitante` e
    `leilaoService.garantirDono`; demonstrar um leiloeiro tentando dar lance (403).
-8. **Testes** — `testar-unitarios.ps1` (195 testes, cobertura ≥ 50% em todo o `src/`) e `testar-tudo.ps1` (66 passos).
+8. **Testes** — `testar-unitarios.ps1` (200 testes, cobertura ≥ 50% em todo o `src/`) e `testar-tudo.ps1` (68 passos).
 9. **Próximos passos** — seção 10.
 
 ---
