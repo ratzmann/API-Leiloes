@@ -13,8 +13,10 @@
 #
 # Formato YAML: a hierarquia e dada pela INDENTACAO (espacos), e "chave: valor".
 # Linhas com # sao comentarios.
+#
+# Obs.: nao ha mais a linha "version:" no topo. O Docker Compose atual
+# (especificacao Compose) ignora esse campo e so emitia um aviso.
 # =============================================================================
-version: "3.9"
 
 # Rede virtual privada. Todos os containers entram nela e se enxergam pelo
 # NOME (ex.: o auth-service acessa o banco em "auth-db", e nao num IP).
