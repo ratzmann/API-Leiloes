@@ -144,6 +144,9 @@ services:
     networks:
       - leilao-net
 
+  # Obs.: usuarios, leiloes e lances NAO recebem JWT_SECRET/JWT_ISSUER: eles so
+  # DECODIFICAM o token (quem confere a assinatura e o Kong). So o auth-service,
+  # que ASSINA os tokens, precisa do segredo.
   usuarios-service:
     build: ./usuarios-service
     container_name: usuarios-service
@@ -154,8 +157,6 @@ services:
       DB_USER: usuarios_user
       DB_PASSWORD: usuarios_pass
       DB_NAME: usuarios_db
-      JWT_SECRET: ${JWT_SECRET:-super-segredo-trabalho-microsservicos}
-      JWT_ISSUER: sistema-leilao-auth
     depends_on:
       usuarios-db:
         condition: service_healthy
@@ -172,8 +173,6 @@ services:
       DB_USER: leiloes_user
       DB_PASSWORD: leiloes_pass
       DB_NAME: leiloes_db
-      JWT_SECRET: ${JWT_SECRET:-super-segredo-trabalho-microsservicos}
-      JWT_ISSUER: sistema-leilao-auth
       # Para validar o leiloeiro antes de cadastrar um leilao.
       USUARIOS_SERVICE_URL: http://usuarios-service:3002
     depends_on:
@@ -196,8 +195,6 @@ services:
       DB_USER: lances_user
       DB_PASSWORD: lances_pass
       DB_NAME: lances_db
-      JWT_SECRET: ${JWT_SECRET:-super-segredo-trabalho-microsservicos}
-      JWT_ISSUER: sistema-leilao-auth
       # saga do lance: consulta o leilao e reserva/libera credito
       LEILOES_SERVICE_URL: http://leiloes-service:3003
       USUARIOS_SERVICE_URL: http://usuarios-service:3002
