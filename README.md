@@ -359,11 +359,13 @@ para `.env` e ajuste `DB_HOST` etc.
 
 | Variável | Onde | Para quê |
 |---|---|---|
+| `PORT` | os 4 serviços | porta HTTP do serviço (3001 a 3003) |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | os 4 serviços | conexão com o banco do serviço |
 | `JWT_SECRET`, `JWT_ISSUER`, `JWT_EXPIRES_IN` | só o auth-service | assinar os tokens (iguais aos do `kong.yml`) |
 | `USUARIOS_SERVICE_URL`, `LEILOES_SERVICE_URL` | quem chama esses serviços | endereço interno (rede do Docker) |
 | `SERVICOS_TIMEOUT_MS` | auth, leiloes e lances | tempo máximo das chamadas entre serviços (padrão 3000) |
 | `SAGA_PERMITIR_FALHA_SIMULADA` | lances-service | libera o header `X-Simular-Falha` (só para demo) |
+| `SAGA_ESPERA_REPETICAO_MS` | lances-service | espera entre as tentativas do passo 4 da Saga (padrão 300) |
 
 ## Próximos passos (grupo)
 
