@@ -112,8 +112,10 @@ Exemplo: `GET http://localhost:8000/leiloes/1` com um token válido.
 ```
 
 Se algo der errado no caminho, o `service` lança um `ErroDeValidacao` com o
-código HTTP (400, 404, 409...) e o `tratarErro` do controller transforma isso
-em resposta JSON: `{ "erro": "Leilao nao encontrado." }`.
+código HTTP (400, 404, 409...), o controller repassa o erro com `next(err)` e o
+**middleware de erro** (`middlewares/tratarErros.js`) responde em JSON:
+`{ "erro": "Leilao nao encontrado." }`. Todo erro da API tem esse formato —
+inclusive os gerados pelo Kong (exceto o `401` do plugin JWT).
 
 ---
 
@@ -137,7 +139,7 @@ routes/  →  controllers/  →  services/  →  repositories/  →  PostgreSQL
 | `repositories/` | O único lugar com **SQL**. | O estoquista. |
 | `clients/` | Chamadas HTTP para outros microsserviços. | O telefone interno. |
 | `sagas/` | Coordena uma operação entre vários serviços (só no lances). | O coordenador de um evento. |
-| `middlewares/` | Funções que rodam antes das rotas (ex.: ler o token). | O segurança da porta da loja. |
+| `middlewares/` | Funções que rodam antes das rotas (`extrairUsuario`: ler o token) ou depois delas, em caso de erro (`tratarErros`: responder `{ erro }`). | O segurança da porta e o balcão de reclamações. |
 | `utils/` | Validações e o tipo `ErroDeValidacao`. | A caixa de ferramentas. |
 | `config/db.js` | Conexão (pool) com o Postgres. | A chave do depósito. |
 | `db/init.sql` | Criação das tabelas. | A planta do depósito. |
@@ -239,10 +241,14 @@ O endereço **nunca** fica no código: vem de variável de ambiente.
 | lances-service | leiloes-service `GET /leiloes/:id/disponibilidade` | Saga, passo 1 | `lances-service/src/clients/leiloesClient.js` |
 | lances-service | usuarios-service `POST /licitantes/:id/reservas` e `.../liberar` | Saga, passos 2 e 4 + compensação | `lances-service/src/clients/usuariosClient.js` |
 
-Cuidados que o código toma:
+Todas as chamadas passam por `clients/<servico>Client.js`, apoiado no helper
+`clients/http.js` — **o mesmo arquivo** em auth, leiloes e lances. Cuidados que
+o código toma:
 
-- **Timeout** (3 s): se o outro serviço travar, a chamada é cancelada
-  (`AbortController`) em vez de esperar para sempre.
+- **Timeout** (3 s, `SERVICOS_TIMEOUT_MS`): se o outro serviço travar, a chamada
+  é cancelada (`AbortController`) em vez de esperar para sempre.
+- **URL ausente** (variável de ambiente não configurada) também vira
+  `ServicoIndisponivel` — nada é pulado em silêncio.
 - **Erro de rede ou 5xx** vira `ServicoIndisponivel`, que é devolvido ao
   cliente como **503**.
 - **Erros de negócio (4xx)** são repassados com o mesmo código (ex.: 409
@@ -338,6 +344,7 @@ sequenceDiagram
 | Licitante: CPF e e-mail únicos; limite de crédito ≥ 0 | `services/licitanteService.js` |
 | Crédito: reservas nunca passam do limite; reserva/liberação idempotentes | `services/creditoService.js` |
 | Autorização: só o próprio altera/remove o cadastro; licitante não muda o próprio limite | `utils/autorizacao.js` + `atualizar`/`remover` dos services |
+| Privacidade (LGPD): dados pessoais só para o próprio; os demais veem os campos públicos | `utils/autorizacao.js` → `visaoPara`; `listar`/`consultar` dos services |
 
 ### leiloes-service (`services/leilaoService.js`)
 
@@ -396,11 +403,11 @@ métrica ficar abaixo de 50%.
 
 | Serviço | Testes | Cobertura (linhas) |
 |---|---|---|
-| auth-service | 23 | 89% |
-| usuarios-service | 64 | 77% |
-| leiloes-service | 57 | 71% |
-| lances-service | 56 | 75% |
-| **Total** | **200** | |
+| auth-service | 28 | 82% |
+| usuarios-service | 70 | 78% |
+| leiloes-service | 62 | 81% |
+| lances-service | 57 | 75% |
+| **Total** | **217** | |
 
 Como rodar:
 
@@ -408,7 +415,7 @@ Como rodar:
 |---|---|---|
 | Unitários dos 4 serviços, com resumo | `powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1` | Não (usa Node local ou Docker) |
 | Unitários de um serviço | `cd <servico> && npm install && npm test` | Não |
-| Ponta a ponta (68 passos pelo Kong) | `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` | Sim |
+| Ponta a ponta (71 passos pelo Kong) | `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` | Sim |
 | Manual | `testes/roteiro-de-testes.md` (curl) e a coleção Postman | Sim |
 
 ---
@@ -425,10 +432,18 @@ Como rodar:
 - **Comentários**: um único bloco por função e numeração das regras igual à do README.
 - **Código sem uso removido**: `verificarToken`, `usuarioRepository.buscarPorId`
   (auth) e `lanceRepository.criar` (lances).
-- **Consistência entre serviços**: `ErroDeValidacao` em `utils/erros.js` nos 4
-  serviços; `db/migrar.js` rodando ao subir em usuarios, leiloes e lances;
-  `middlewares/extrairUsuario.js` idêntico nos 3 serviços; `try/catch` em todas
-  as funções de controller.
+- **Consistência entre serviços**: arquivos de apoio **idênticos** em todos os
+  serviços que os usam — `utils/erros.js`, `config/db.js`, `db/migrar.js` e
+  `middlewares/tratarErros.js` (nos 4), `clients/http.js` (auth, leiloes e
+  lances) e `middlewares/extrairUsuario.js` (usuarios, leiloes e lances). Os 4
+  serviços rodam a migração ao subir e nenhum service lê `process.env`.
+- **Chamadas entre serviços padronizadas**: o auth deixou de fazer `fetch`
+  direto (agora `clients/usuariosClient.js`, com timeout) e o leiloes deixou de
+  repetir a lógica de timeout (usa o `clients/http.js`).
+- **Middleware de erro único**: os controllers só fazem `next(err)`; um JSON
+  inválido responde `400 { erro }` (antes, uma página HTML). Os erros do Kong
+  seguem o mesmo formato (exceto o `401` do JWT).
+- **Privacidade (LGPD)**: CPF, e-mail, telefone e limite só para o próprio dono.
 - **Autorização**: o token passou a levar `perfilId`; lances só em nome do
   licitante logado; leilões só em nome do leiloeiro logado e alterados só pelo dono.
 - **Cadastros de usuários**: `PUT`/`DELETE` de `/leiloeiros` e `/licitantes` só
@@ -441,8 +456,8 @@ Como rodar:
 - `package-lock.json` do lances-service versionado; pastas `coverage/` fora do
   git; campo `version:` obsoleto removido do `docker-compose.yml`.
 
-Duplicar `config/db.js`, `utils/erros.js` e `extrairUsuario.js` em cada serviço
-é **intencional** (independência dos microsserviços).
+Duplicar esses arquivos de apoio em cada serviço é **intencional**
+(independência dos microsserviços: nenhum depende de uma biblioteca comum).
 
 ### Próximos passos
 
@@ -452,6 +467,11 @@ Duplicar `config/db.js`, `utils/erros.js` e `extrairUsuario.js` em cada serviço
 - **Remoção de cadastros em uso**: remover um leiloeiro com leilões ativos, ou
   um licitante com reservas de crédito, ainda é permitido. Uma regra de negócio
   (ou "desativar" em vez de apagar) evitaria dados órfãos entre os serviços.
+- **401 do Kong**: o plugin JWT responde `{ "message": ... }`; padronizar para
+  `{ "erro": ... }` exigiria um plugin em Lua ou a versão Enterprise.
+- **Crédito visível a qualquer logado**: `GET /licitantes/:id/credito` ainda
+  mostra limite e reservado de qualquer licitante (o teste ponta a ponta usa
+  isso para conferir a Saga); poderia seguir a mesma regra de privacidade.
 
 **Evoluções (do README)**
 
@@ -510,7 +530,7 @@ Duplicar `config/db.js`, `utils/erros.js` e `extrairUsuario.js` em cada serviço
    `GET /lances/sagas/:id`.
 7. **Autorização** — seção 5: `lanceService.autorizarLicitante` e
    `leilaoService.garantirDono`; demonstrar um leiloeiro tentando dar lance (403).
-8. **Testes** — `testar-unitarios.ps1` (200 testes, cobertura ≥ 50% em todo o `src/`) e `testar-tudo.ps1` (68 passos).
+8. **Testes** — `testar-unitarios.ps1` (217 testes, cobertura ≥ 50% em todo o `src/`) e `testar-tudo.ps1` (71 passos).
 9. **Próximos passos** — seção 10.
 
 ---
@@ -534,10 +554,10 @@ fora, o Kong responde `403`.
 
 | Método | Rota | Quem pode | Descrição |
 |---|---|---|---|
-| `GET` | `/leiloeiros`, `/leiloeiros/:id` | logado | Lista / detalha leiloeiros. |
+| `GET` | `/leiloeiros`, `/leiloeiros/:id` | logado | Lista / detalha leiloeiros (e-mail e telefone só para o próprio). |
 | `POST` | `/leiloeiros` | **interna** | Cria o perfil (auth-service, no registro). |
 | `PUT` / `DELETE` | `/leiloeiros/:id` | o próprio | Atualiza (nome, telefone) / remove o cadastro. |
-| `GET` | `/licitantes`, `/licitantes/:id` | logado | Lista / detalha licitantes. |
+| `GET` | `/licitantes`, `/licitantes/:id` | logado | Lista / detalha licitantes (CPF, e-mail, telefone e limite só para o próprio). |
 | `POST` | `/licitantes` | **interna** | Cria o perfil (auth-service, no registro). |
 | `PUT` / `DELETE` | `/licitantes/:id` | o próprio | Atualiza (nome, telefone; não o limite) / remove. |
 | `GET` | `/licitantes/:id/credito` | logado | Limite, reservado e disponível. |

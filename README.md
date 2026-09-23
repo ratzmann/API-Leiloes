@@ -125,6 +125,9 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 4. **Autorização**: só o próprio licitante altera ou remove o seu cadastro.
 5. O licitante **não** altera o próprio limite de crédito (`403`) — o limite é
    definido no cadastro.
+6. **Privacidade (LGPD)**: CPF, e-mail, telefone e limite de crédito só aparecem
+   para o próprio licitante; os demais veem apenas `id` e `nome` (o mesmo vale
+   para e-mail e telefone do leiloeiro, cujo registro profissional é público).
 
 > Perfis são criados só pelo registro (`POST /auth/registrar`): o Kong
 > responde `403` a `POST /leiloeiros` e `POST /licitantes` vindos de fora.
@@ -313,20 +316,29 @@ de 50%:
 
 | Serviço | Testes | Cobertura (linhas) |
 |---|---|---|
-| auth-service | 23 | 89% |
-| usuarios-service | 64 | 77% |
-| leiloes-service | 57 | 71% |
-| lances-service | 56 | 75% |
+| auth-service | 28 | 82% |
+| usuarios-service | 70 | 78% |
+| leiloes-service | 62 | 81% |
+| lances-service | 57 | 75% |
 
 Ponta a ponta, com a stack no ar (PowerShell):
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
 ```
-68 passos pelo Kong: autenticação, usuários, leilões, a Saga de lances —
+71 passos pelo Kong: autenticação, usuários, leilões, a Saga de lances —
 caminho feliz, recusas, compensação, pendência e reprocessamento —, a
 autorização (ninguém age em nome de outra pessoa nem altera o cadastro alheio),
-o cancelamento de leilão devolvendo o crédito reservado e o registro desfeito
-quando o perfil é recusado.
+o cancelamento de leilão devolvendo o crédito reservado, o registro desfeito
+quando o perfil é recusado, a privacidade dos dados pessoais e o formato dos
+erros.
+
+## Formato dos erros
+
+Toda resposta de erro da API tem o formato `{ "erro": "mensagem" }` (nos erros
+da Saga, também `sagaId`). Nos serviços isso é feito por um único middleware
+(`middlewares/tratarErros.js`); no Kong, pelo template `kong/erro.json` e pelo
+campo `body` das rotas bloqueadas. Exceção: o `401` do plugin JWT do Kong
+continua como `{ "message": "Unauthorized" }` (não configurável na versão gratuita).
 
 ## Variáveis de ambiente
 
