@@ -121,5 +121,31 @@ cd leiloes-service && npm install && npm test
 ```
 
 Jest com `repositories/` e `clients/` mockados (`__mocks__/`), cobrindo as
-regras de negócio de `services/` e `utils/`. Cobertura atual: **~96%**
+regras de negócio de `services/` e `utils/` e o código do T2 (ambiente, métricas, Swagger, migração). Cobertura atual: **~98%**
 (mínimo exigido pelo trabalho: 50%).
+
+## T2 — CI/CD e Observabilidade
+
+Decisões, funcionamento, passo a passo das contas (GitHub, Render, Neon,
+SonarCloud) e roteiro de apresentação: **[`docs/T2-DECISOES.md`](docs/T2-DECISOES.md)**.
+
+| O quê | Onde |
+| --- | --- |
+| Pipeline (build, testes, SonarCloud, imagem no GHCR, deploy DEV/HOMOL no Render) | `../.github/workflows/leiloes-service.yml` |
+| Versão (Semantic Versioning) | campo `version` do `package.json` |
+| Swagger (só DEV) | `GET /docs` e `GET /docs/openapi.json` |
+| Métricas Prometheus | `GET /metrics` |
+| Health check (versão e ambiente) | `GET /health` |
+| Prometheus + Grafana | `observabilidade/` (`docker compose up -d --build`) |
+
+Variáveis novas:
+
+| Variável | Uso |
+| --- | --- |
+| `APP_ENV` | `local`, `dev` ou `homol`; o Swagger só liga em `local`/`dev` |
+| `SWAGGER_ENABLED` | opcional: força o Swagger ligado (`true`) ou desligado (`false`) |
+| `DATABASE_URL` + `DB_SSL=true` | banco gerenciado (Neon/Render); substitui as `DB_*` |
+| `VERSAO_IMAGEM` | gravada pelo pipeline no build da imagem (ex.: `1.1.0-dev.14`) |
+
+Ao iniciar, o serviço roda `src/db/migrar.js` (cria a tabela se não existir),
+necessário em bancos gerenciados, que chegam vazios.

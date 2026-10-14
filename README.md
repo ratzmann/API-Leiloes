@@ -285,3 +285,12 @@ para `.env` e ajuste `DB_HOST` etc.
 - Acompanhamento ao vivo dos lances (WebSockets ou Event-Driven).
 - Encerramento do pregão como Saga: ao encerrar, confirmar o crédito do
   vencedor e liberar eventuais reservas remanescentes.
+
+## T2 — CI/CD e Observabilidade
+
+Cada integrante tem o pipeline do próprio serviço em `.github/workflows/`
+(filtrado pela pasta do serviço). Git Flow: `feature/*` → `develop` (DEV) →
+`main` (HOMOL).
+
+- **leiloes-service**: `.github/workflows/leiloes-service.yml` — detalhes em
+  [`leiloes-service/docs/T2-DECISOES.md`](leiloes-service/docs/T2-DECISOES.md).
