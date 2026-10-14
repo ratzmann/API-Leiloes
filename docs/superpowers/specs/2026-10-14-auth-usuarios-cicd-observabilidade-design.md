@@ -24,7 +24,7 @@ Requisitos do enunciado e como cada um é atendido (vale para os dois serviços;
 | 8 | Dependabot + secrets | entradas npm e docker para os dois serviços em `.github/dependabot.yml`; secrets em *Environments* |
 | 9 | Prometheus + Grafana | `/metrics` (prom-client) + stack em `<s>/observabilidade/` com dashboard provisionado |
 | 10 | 1 pipeline por serviço | dois workflows, cada um com filtro `paths: <s>/**` |
-| 11 | Entregáveis | README de cada serviço + `<s>/docs/T2-DECISOES.md` e `GUIA-CONFIGURACAO.md` |
+| 11 | Entregáveis | README de cada serviço + `<s>/docs/T2-DECISOES.md`; um `GUIA-CONFIGURACAO.md` para os dois, em `usuarios-service/docs/` |
 
 Fora do escopo: `leiloes-service` e `lances-service`, o Kong, o
 `docker-compose.yml` raiz, as regras de negócio e as PRs do Dependabot já abertas.
@@ -171,5 +171,5 @@ Verificação local antes de entregar:
 - Commits pequenos e convencionais (`feat(auth)`, `ci(usuarios)`, `docs(auth)`…)
   no branch `feature/auth-usuarios-cicd`.
 - Sem push. O passo a passo de push, PRs, environments, Neon, Render e Sonar
-  fica no `GUIA-CONFIGURACAO.md` de cada serviço, reaproveitando o do leiloes
-  no que for igual.
+  fica em `usuarios-service/docs/GUIA-CONFIGURACAO.md`, um guia só para os dois
+  serviços, porque eles são configurados juntos (mesmo Neon, mesma organização no Sonar).
