@@ -53,6 +53,10 @@ jobs:
       - name: Instalar dependencias (build)
         run: npm ci
 
+      # barra vulnerabilidade CRITICA conhecida nas dependencias que vao para a imagem
+      - name: Auditoria de seguranca das dependencias
+        run: npm audit --omit=dev --audit-level=critical
+
       - name: Testes automatizados com cobertura (minimo 50%)
         run: npm test -- --ci
 

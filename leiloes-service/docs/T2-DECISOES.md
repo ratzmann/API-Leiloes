@@ -337,6 +337,13 @@ está na seção 5.
 | `RENDER_URL` | environment `dev` e `homol` | variável |
 | `DATABASE_URL` | **só no Render** | — nunca passa pelo GitHub |
 
+- **`npm audit` no CI:** o job `ci` falha se houver vulnerabilidade **crítica**
+  conhecida nas dependências de produção (as que vão para a imagem). Na revisão
+  final, o `npm audit` achou 1 crítica (`proxy-addr`) e 2 moderadas (`qs`), que
+  vinham do Express e já existiam na `main`. Foram corrigidas com `npm audit fix`
+  (só o `package-lock.json` mudou; 62/62 testes continuam passando).
+  O corte é "crítica" e não "qualquer" para um aviso moderado novo não travar a
+  entrega; essas o Dependabot resolve por PR.
 - **Menor privilégio no workflow:** permissão padrão `contents: read`. Só o job
   `imagem` ganha `packages: write` (publicar) e `contents: write` (criar a tag).
 - O `.env.example` perdeu `JWT_SECRET`/`JWT_ISSUER`: o leiloes-service **não**
@@ -359,7 +366,7 @@ está na seção 5.
 ### 4.1 O pipeline, job a job
 
 1. **`ci`**: checkout com histórico completo → Node 20 com cache do npm →
-   `npm ci` → `npm test` (falha se algum teste falhar ou a cobertura ficar
+   `npm ci` → `npm audit` (falha com vulnerabilidade crítica) → `npm test` (falha se algum teste falhar ou a cobertura ficar
    < 50%) → guarda o relatório de cobertura → SonarCloud.
 2. **`versao`**: lê o `package.json`, valida o formato `X.Y.Z` e decide as tags
    e o ambiente. Em `main`, confere se a versão já foi publicada. Escreve um
