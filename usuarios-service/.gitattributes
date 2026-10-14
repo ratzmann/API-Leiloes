@@ -1,0 +1,2 @@
+# scripts rodam no runner Linux do GitHub Actions: sempre LF
+*.sh text eol=lf
