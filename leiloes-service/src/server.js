@@ -1,13 +1,22 @@
 require('dotenv').config();
 const criarApp = require('./app');
 const { carregarAmbiente } = require('./config/ambiente');
+const migrar = require('./db/migrar');
 
 const ambiente = carregarAmbiente();
 const PORT = process.env.PORT || 3003;
 
-criarApp(ambiente).listen(PORT, () => {
-  console.log(
-    `leiloes-service ${ambiente.versao} (${ambiente.nome}) ouvindo na porta ${PORT}` +
-      ` - swagger ${ambiente.swaggerHabilitado ? 'em /docs' : 'desligado'}`
-  );
-});
+// so abre a porta depois que a tabela existe
+migrar()
+  .then(() => {
+    criarApp(ambiente).listen(PORT, () => {
+      console.log(
+        `leiloes-service ${ambiente.versao} (${ambiente.nome}) ouvindo na porta ${PORT}` +
+          ` - swagger ${ambiente.swaggerHabilitado ? 'em /docs' : 'desligado'}`
+      );
+    });
+  })
+  .catch((err) => {
+    console.error('Falha ao preparar o banco do leiloes-service:', err.message);
+    process.exit(1);
+  });
