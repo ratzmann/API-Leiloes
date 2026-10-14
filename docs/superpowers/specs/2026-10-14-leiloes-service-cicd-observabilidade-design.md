@@ -86,16 +86,14 @@ Lê as variáveis de ambiente **uma vez** e expõe:
 
 | Campo | Variável | Padrão |
 |---|---|---|
-| `nome` | `APP_ENV` | `local` |
-| `versao` | (package.json) | — |
-| `swaggerHabilitado` | `SWAGGER_ENABLED` (`true`/`false`) | `true` se `APP_ENV` for `local` ou `dev`; `false` em qualquer outro (fail-closed) |
-| `validarLeiloeiro` | `VALIDAR_LEILOEIRO` | `true` |
+| `nome` | `APP_ENV` | `local` fora de container; `desconhecido` quando `NODE_ENV=production` (imagem Docker) |
+| `versao` | `VERSAO_IMAGEM` (injetada no build da imagem) | `version` do package.json |
+| `swaggerHabilitado` | `SWAGGER_ENABLED` (`true`/`false`) | `true` se `nome` for `local` ou `dev`; `false` em qualquer outro (fail-closed: esquecer `APP_ENV` no HOMOL **não** liga o Swagger) |
 
-`VALIDAR_LEILOEIRO=false` existe porque, no Render, o `leiloes-service` sobe
-sozinho (sem o `usuarios-service` dos colegas). No DEV ele pode ser desligado
-para a demonstração; no HOMOL o padrão é validar (com `USUARIOS_SERVICE_URL`
-apontando para o usuarios-service publicado, quando existir). Quando desligado,
-a Regra 3 é pulada e o serviço registra um aviso no log.
+Validação do leiloeiro (Regra 3) fora do Docker Compose: o código já trata
+`USUARIOS_SERVICE_URL` vazia como "serviço rodando sozinho" e pula a consulta.
+No Render, DEV fica sem a variável (demo independente) e HOMOL recebe a URL do
+usuarios-service dos colegas quando ele estiver publicado. Nenhuma variável nova.
 
 ### 3.3 Banco de dados
 
@@ -193,14 +191,14 @@ como health check e o que o smoke test do pipeline confere.
 
 Jest + supertest (já no projeto):
 
-- `ambiente.test.js`: padrões e overrides de `APP_ENV`, `SWAGGER_ENABLED`,
-  `VALIDAR_LEILOEIRO`;
+- `ambiente.test.js`: padrões e overrides de `APP_ENV`, `NODE_ENV`, `SWAGGER_ENABLED`,
+  `VERSAO_IMAGEM`;
 - `app.test.js`: `/health` com versão e ambiente; `/docs` 200 em DEV e 404 em
   HOMOL; `/metrics` com as métricas e a rota padronizada;
 - `metricas.test.js`: contadores de negócio e normalização da rota;
 - `db.test.js`: escolha entre `DATABASE_URL` e `DB_*`, SSL;
 - `migrar.test.js`: retry e desistência;
-- `leilaoService.test.js`: casos novos de `validarLeiloeiro=false` e incremento
+- `leilaoService.test.js`: casos novos de incremento
   dos contadores.
 
 `coverageThreshold` global de 50% (exigência do T1) passa a ser verificado no CI.
