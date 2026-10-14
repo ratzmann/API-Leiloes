@@ -3,6 +3,7 @@ jest.mock('../src/repositories/reservaRepository');
 const licitanteRepository = require('../src/repositories/licitanteRepository');
 const reservaRepository = require('../src/repositories/reservaRepository');
 const creditoService = require('../src/services/creditoService');
+const metricas = require('../src/observabilidade/metricas');
 
 // transacao falsa: roda a funcao com as operacoes mockadas
 function transacaoFalsa(tx) {
@@ -120,5 +121,44 @@ describe('creditoService.listarReservas', () => {
   test('lista as reservas do licitante', async () => {
     reservaRepository.listarPorLicitante.mockResolvedValue([{ id: 1 }]);
     await expect(creditoService.listarReservas(1)).resolves.toEqual([{ id: 1 }]);
+  });
+});
+
+describe('metricas de negocio', () => {
+  let espiao;
+  beforeEach(() => {
+    espiao = jest.spyOn(metricas, 'registrarOperacaoCredito');
+  });
+  afterEach(() => espiao.mockRestore());
+
+  test('reserva nova soma como reservada', async () => {
+    novaTx();
+    await creditoService.reservar(1, { valor: 100, referencia: 'saga-m1' });
+    expect(espiao).toHaveBeenCalledWith('reservada');
+  });
+
+  test('repeticao da mesma referencia e reserva recusada nao somam', async () => {
+    novaTx({ buscarPorReferencia: jest.fn().mockResolvedValue({ id: 7 }) });
+    await creditoService.reservar(1, { valor: 100, referencia: 'saga-m2' });
+
+    novaTx({ somarReservado: jest.fn().mockResolvedValue(5000) });
+    await expect(creditoService.reservar(1, { valor: 1 })).rejects.toMatchObject({ codigo: 409 });
+
+    expect(espiao).not.toHaveBeenCalled();
+  });
+
+  test('liberacao soma uma vez; liberar de novo nao soma', async () => {
+    novaTx({
+      buscarPorId: jest.fn().mockResolvedValue({ id: 10, licitante_id: 1, status: 'RESERVADA' }),
+    });
+    await creditoService.liberar(1, 10);
+
+    novaTx({
+      buscarPorId: jest.fn().mockResolvedValue({ id: 10, licitante_id: 1, status: 'LIBERADA' }),
+    });
+    await creditoService.liberar(1, 10);
+
+    expect(espiao).toHaveBeenCalledTimes(1);
+    expect(espiao).toHaveBeenCalledWith('liberada');
   });
 });

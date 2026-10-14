@@ -1,4 +1,5 @@
 const licitanteRepository = require('../repositories/licitanteRepository');
+const metricas = require('../observabilidade/metricas');
 const { ErroDeValidacao } = require('../utils/erros');
 const { emailValido, cpfValido } = require('../utils/validadores');
 
@@ -46,7 +47,7 @@ async function cadastrar({ usuarioId, nome, email, cpf, telefone, limiteCredito 
     throw new ErroDeValidacao('Ja existe um licitante cadastrado com este CPF.', 409);
   }
 
-  return licitanteRepository.criar({
+  const criado = await licitanteRepository.criar({
     usuarioId,
     nome,
     email,
@@ -54,6 +55,8 @@ async function cadastrar({ usuarioId, nome, email, cpf, telefone, limiteCredito 
     telefone,
     limiteCredito,
   });
+  metricas.registrarCadastro('licitante');
+  return criado;
 }
 
 async function atualizar(id, dados) {

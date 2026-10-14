@@ -1,13 +1,19 @@
 require('dotenv').config();
-const app = require('./app');
+const criarApp = require('./app');
+const { carregarAmbiente } = require('./config/ambiente');
 const migrar = require('./db/migrar');
 
+const ambiente = carregarAmbiente();
 const PORT = process.env.PORT || 3002;
 
+// so abre a porta depois que as tabelas existem
 migrar()
   .then(() => {
-    app.listen(PORT, () => {
-      console.log(`usuarios-service ouvindo na porta ${PORT}`);
+    criarApp(ambiente).listen(PORT, () => {
+      console.log(
+        `usuarios-service ${ambiente.versao} (${ambiente.nome}) ouvindo na porta ${PORT}` +
+          ` - swagger ${ambiente.swaggerHabilitado ? 'em /docs' : 'desligado'}`
+      );
     });
   })
   .catch((err) => {

@@ -1,4 +1,5 @@
 const leiloeiroRepository = require('../repositories/leiloeiroRepository');
+const metricas = require('../observabilidade/metricas');
 const { ErroDeValidacao } = require('../utils/erros');
 const { emailValido } = require('../utils/validadores');
 
@@ -48,7 +49,9 @@ async function cadastrar({ usuarioId, nome, email, registroProfissional, telefon
     throw new ErroDeValidacao('Ja existe um leiloeiro cadastrado com este registro profissional.', 409);
   }
 
-  return leiloeiroRepository.criar({ usuarioId, nome, email, registroProfissional, telefone });
+  const criado = await leiloeiroRepository.criar({ usuarioId, nome, email, registroProfissional, telefone });
+  metricas.registrarCadastro('leiloeiro');
+  return criado;
 }
 
 async function atualizar(id, dados) {

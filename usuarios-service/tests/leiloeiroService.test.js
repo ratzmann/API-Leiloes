@@ -1,6 +1,7 @@
 jest.mock('../src/repositories/leiloeiroRepository');
 const leiloeiroRepository = require('../src/repositories/leiloeiroRepository');
 const leiloeiroService = require('../src/services/leiloeiroService');
+const metricas = require('../src/observabilidade/metricas');
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -76,5 +77,23 @@ describe('leiloeiroService.buscarPorId', () => {
   test('lanca 404 quando nao encontrado', async () => {
     leiloeiroRepository.buscarPorId.mockResolvedValue(null);
     await expect(leiloeiroService.buscarPorId(999)).rejects.toThrow('Leiloeiro nao encontrado.');
+  });
+});
+
+describe('metricas de negocio', () => {
+  test('cadastro com sucesso soma como leiloeiro; recusado nao soma', async () => {
+    const espiao = jest.spyOn(metricas, 'registrarCadastro');
+    const dados = { nome: 'Joao Silva', email: 'a@a.com', registroProfissional: 'JUCESC-000123' };
+    leiloeiroRepository.buscarPorEmail.mockResolvedValueOnce({ id: 9 });
+    await expect(leiloeiroService.cadastrar(dados)).rejects.toThrow();
+    expect(espiao).not.toHaveBeenCalled();
+
+    leiloeiroRepository.buscarPorEmail.mockResolvedValue(null);
+    leiloeiroRepository.buscarPorRegistroProfissional.mockResolvedValue(null);
+    leiloeiroRepository.criar.mockResolvedValue({ id: 1 });
+    await leiloeiroService.cadastrar(dados);
+
+    expect(espiao).toHaveBeenCalledWith('leiloeiro');
+    espiao.mockRestore();
   });
 });
