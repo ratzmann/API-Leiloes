@@ -1,0 +1,38 @@
+# Dependabot: abre PRs de atualizacao de dependencias (seguranca e versoes novas).
+# As PRs vao para o develop, passam pelo pipeline e seguem o Git Flow normal.
+# Cada integrante acrescenta aqui as entradas do proprio servico.
+version: 2
+updates:
+  # leiloes-service: dependencias npm
+  - package-ecosystem: npm
+    directory: /leiloes-service
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(leiloes)'
+    groups:
+      dependencias-de-desenvolvimento:
+        dependency-type: development
+
+  # leiloes-service: imagem base do Dockerfile (node:20-alpine)
+  - package-ecosystem: docker
+    directory: /leiloes-service
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: 'chore(leiloes)'
+
+  # actions usadas nos workflows
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: 'ci'
