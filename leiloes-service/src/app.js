@@ -6,9 +6,15 @@ const swaggerUi = require('swagger-ui-express');
 const extrairUsuario = require('./middlewares/extrairUsuario');
 const leilaoRoutes = require('./routes/leilaoRoutes');
 const criarDocumentoOpenApi = require('./docs/openapi');
+const metricas = require('./observabilidade/metricas');
 
 function criarApp(ambiente) {
   const app = express();
+
+  // rotulos ambiente/versao em todas as metricas + medicao de cada requisicao
+  metricas.definirRotulosPadrao({ ambiente: ambiente.nome, versao: ambiente.versao });
+  app.use(metricas.medirRequisicoes);
+
   app.use(express.json());
   app.use(extrairUsuario);
 
@@ -21,6 +27,9 @@ function criarApp(ambiente) {
       ambiente: ambiente.nome,
     })
   );
+
+  // lido pelo Prometheus (ver observabilidade/prometheus/prometheus.yml)
+  app.get('/metrics', metricas.responderMetricas);
 
   // Swagger so no DEV (e local). No HOMOL a rota nem existe: cai no 404.
   if (ambiente.swaggerHabilitado) {

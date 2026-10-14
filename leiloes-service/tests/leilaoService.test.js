@@ -4,6 +4,7 @@ jest.mock('../src/clients/usuariosClient');
 const leilaoRepository = require('../src/repositories/leilaoRepository');
 const usuariosClient = require('../src/clients/usuariosClient');
 const leilaoService = require('../src/services/leilaoService');
+const metricas = require('../src/observabilidade/metricas');
 
 const HORA = 60 * 60 * 1000;
 
@@ -251,5 +252,48 @@ describe('leilaoService.remover', () => {
     leilaoRepository.remover.mockResolvedValue(true);
 
     await expect(leilaoService.remover(1)).resolves.toBe(true);
+  });
+});
+
+describe('metricas de negocio', () => {
+  test('cadastro com sucesso soma em leiloes_cadastrados_total', async () => {
+    const espiao = jest.spyOn(metricas, 'registrarLeilaoCadastrado');
+    leilaoRepository.listarAtivosPorLeiloeiro.mockResolvedValue([]);
+    leilaoRepository.criar.mockResolvedValue({ id: 1, status: 'AGENDADO' });
+
+    await leilaoService.cadastrar(leilaoValido());
+
+    expect(espiao).toHaveBeenCalledTimes(1);
+    espiao.mockRestore();
+  });
+
+  test('cadastro recusado nao soma', async () => {
+    const espiao = jest.spyOn(metricas, 'registrarLeilaoCadastrado');
+
+    await expect(leilaoService.cadastrar(leilaoValido({ titulo: 'x' }))).rejects.toThrow();
+
+    expect(espiao).not.toHaveBeenCalled();
+    espiao.mockRestore();
+  });
+
+  test('mudanca de status aceita soma pelo status de destino', async () => {
+    const espiao = jest.spyOn(metricas, 'registrarMudancaStatus');
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'AGENDADO' });
+    leilaoRepository.atualizarStatus.mockResolvedValue({ id: 1, status: 'ABERTO' });
+
+    await leilaoService.abrir(1);
+
+    expect(espiao).toHaveBeenCalledWith('ABERTO');
+    espiao.mockRestore();
+  });
+
+  test('transicao recusada nao soma', async () => {
+    const espiao = jest.spyOn(metricas, 'registrarMudancaStatus');
+    leilaoRepository.buscarPorId.mockResolvedValue({ id: 1, status: 'ENCERRADO' });
+
+    await expect(leilaoService.abrir(1)).rejects.toThrow();
+
+    expect(espiao).not.toHaveBeenCalled();
+    espiao.mockRestore();
   });
 });

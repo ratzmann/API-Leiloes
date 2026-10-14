@@ -1,6 +1,7 @@
 const leilaoRepository = require('../repositories/leilaoRepository');
 const usuariosClient = require('../clients/usuariosClient');
 const { ErroDeValidacao } = require('../utils/erros');
+const metricas = require('../observabilidade/metricas');
 const {
   dataValida,
   paraData,
@@ -134,7 +135,7 @@ async function cadastrar(dados) {
   await garantirLeiloeiroExiste(leiloeiroId);
   await garantirAgendaLivre(leiloeiroId, dataInicio, dataFim);
 
-  return leilaoRepository.criar({
+  const criado = await leilaoRepository.criar({
     leiloeiroId: Number(leiloeiroId),
     titulo: titulo.trim(),
     descricao,
@@ -146,6 +147,8 @@ async function cadastrar(dados) {
     dataInicio: paraData(dataInicio),
     dataFim: paraData(dataFim),
   });
+  metricas.registrarLeilaoCadastrado();
+  return criado;
 }
 
 // Regra 6: so edita enquanto esta AGENDADO (depois de aberto ja tem lance)
@@ -201,7 +204,9 @@ async function alterarStatus(id, novoStatus) {
     );
   }
 
-  return leilaoRepository.atualizarStatus(id, novoStatus);
+  const atualizado = await leilaoRepository.atualizarStatus(id, novoStatus);
+  metricas.registrarMudancaStatus(novoStatus);
+  return atualizado;
 }
 
 async function abrir(id) {

@@ -40,3 +40,32 @@ describe('Swagger por ambiente', () => {
     expect((await request(app).get('/docs/openapi.json')).status).toBe(404);
   });
 });
+
+describe('GET /metrics', () => {
+  const leilaoRepository = require('../src/repositories/leilaoRepository');
+
+  test('expoe as metricas com a rota padronizada e o ambiente', async () => {
+    leilaoRepository.buscarPorId.mockResolvedValue(null);
+    const app = criarApp(HOMOL);
+    await request(app).get('/leiloes/42');
+    await request(app).get('/nao-existe');
+
+    const resposta = await request(app).get('/metrics');
+    expect(resposta.status).toBe(200);
+    expect(resposta.headers['content-type']).toMatch(/text\/plain/);
+    expect(resposta.text).toMatch(
+      /leiloes_http_requisicoes_total\{[^}]*rota="\/leiloes\/:id"[^}]*status="404"/
+    );
+    expect(resposta.text).toMatch(/rota="nao_encontrada"/);
+    expect(resposta.text).not.toMatch(/rota="\/leiloes\/42"/);
+    expect(resposta.text).toMatch(/ambiente="homol"/);
+    expect(resposta.text).toContain('leiloes_process_cpu_seconds_total');
+  });
+
+  test('a leitura do /metrics nao conta como requisicao', async () => {
+    const app = criarApp(HOMOL);
+    await request(app).get('/metrics');
+    const resposta = await request(app).get('/metrics');
+    expect(resposta.text).not.toMatch(/rota="\/metrics"/);
+  });
+});
