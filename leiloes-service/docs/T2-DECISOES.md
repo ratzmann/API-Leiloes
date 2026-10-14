@@ -91,9 +91,7 @@ está na seção 5.
 | `develop` | tudo acima + publica a imagem + deploy | **DEV** |
 | `main` | tudo acima + valida a versão + tag git + deploy | **HOMOL** |
 
-- **Nada foi enviado ao GitHub.** Branches e commits estão só na sua máquina,
-  porque `develop` é um branch compartilhado com o grupo. Os comandos estão na
-  seção 5.1.
+- Os branches `main` e `develop` já estão no GitHub com este trabalho.
 
 ### D3. Um workflow só, filtrado por pasta
 
@@ -211,7 +209,7 @@ está na seção 5.
     variável `RENDER_URL`;
   - o GitHub mostra o histórico de deploys e o link do ambiente;
   - dá para exigir **aprovação manual** antes do deploy em HOMOL (opcional,
-    seção 5.6), bom para mostrar na apresentação.
+    `GUIA-CONFIGURACAO.md`, etapa 6.2), bom para mostrar na apresentação.
 - **Sem o secret do hook:** o deploy é pulado com aviso (mesma lógica do Sonar).
 
 ### D9. Banco: `DATABASE_URL` + migração ao iniciar + Neon
@@ -400,153 +398,11 @@ O Render define a `PORT` sozinho.
 
 ## 5. Passo a passo para colocar no ar
 
-> ⚠️ **Permissões:** o repositório `ratzmann/API-Leiloes` é do Lucas. Criar
-> *Environments*, secrets, variáveis e proteção de branch exige ser **admin** do
-> repositório. Peça ao Lucas para te dar o papel *Admin* em Settings →
-> Collaborators, ou para ele cadastrar o que está nos passos 5.6 e 5.7.
-
-### 5.1 Enviar os branches (Git Flow)
-
-```bash
-cd API-Leiloes
-git push -u origin develop                          # cria o develop no GitHub (cópia da main)
-git push -u origin feature/leiloes-service-cicd     # dispara o pipeline (ci + build da imagem)
-gh pr create --base develop --head feature/leiloes-service-cicd \
-  --title "T2: CI/CD e observabilidade do leiloes-service" \
-  --body "Pipeline, Swagger por ambiente, metricas Prometheus e Grafana. Ver leiloes-service/docs/T2-DECISOES.md"
-```
-
-Nesse primeiro momento, Sonar e deploy aparecem como "pulados" (avisos
-amarelos). É esperado: as contas ainda não existem.
-
-> **Combine com o grupo** antes de dar push no `develop`, porque ele passa a ser
-> o branch de integração de todos. Se alguém já tiver criado um `develop`, use
-> `git pull origin develop` no seu antes de enviar.
-
-### 5.2 Neon (banco)
-
-1. Entre em <https://neon.tech> com a conta do GitHub e crie o projeto
-   `leiloes` (região mais próxima: AWS São Paulo, se houver; senão, US East).
-2. Em **Databases**, crie `leiloes_dev` e `leiloes_homol`.
-3. Em **Connection Details**, copie a *connection string* de cada banco
-   (`postgresql://...neon.tech/leiloes_dev?sslmode=require`).
-
-### 5.3 Primeira imagem no GHCR
-
-1. Faça o merge da PR no `develop`. O pipeline publica
-   `ghcr.io/ratzmann/leiloes-service:1.1.0-dev.N` e `:dev`. O deploy é pulado,
-   porque ainda não há hook.
-2. Para o Render conseguir baixar a imagem, escolha **um** caminho:
-   - **A (mais simples):** o Lucas abre o pacote em
-     github.com/ratzmann?tab=packages → `leiloes-service` → *Package settings*
-     → *Change visibility* → **Public**.
-   - **B (sem depender dele):** crie um token clássico seu em GitHub → Settings
-     → Developer settings → *Personal access tokens (classic)*, só com o escopo
-     `read:packages`, e cadastre-o no Render (passo 5.4) como *Registry
-     Credential* (usuário = seu login do GitHub, senha = o token).
-
-### 5.4 Render (DEV e HOMOL)
-
-Para **DEV**:
-
-1. <https://render.com> → **New → Web Service → Existing Image**.
-2. Image URL: `ghcr.io/ratzmann/leiloes-service:dev` (no caminho B, selecione a
-   credencial).
-3. Nome: `leiloes-service-dev`. Plano: **Free**.
-4. *Environment Variables*:
-   - `APP_ENV=dev`
-   - `DATABASE_URL=<string do leiloes_dev>`
-   - `DB_SSL=true`
-5. *Advanced* → **Health Check Path**: `/health`.
-6. Crie. Ao terminar, teste `https://leiloes-service-dev.onrender.com/health` e
-   `/docs`.
-7. Em **Settings → Deploy Hook**, copie a URL (é secreta).
-
-Para **HOMOL**: igual, com estas diferenças.
-
-- Ele só pode ser criado **depois** do primeiro merge na `main`, que publica a tag `:homol`.
-- Image URL: `ghcr.io/ratzmann/leiloes-service:homol`.
-- Nome: `leiloes-service-homol`.
-- `APP_ENV=homol` e `DATABASE_URL=<string do leiloes_homol>`.
-- Opcional: `USUARIOS_SERVICE_URL=<URL do usuarios-service do colega>`.
-
-> Se o Render der outro endereço (porque o nome já estava em uso), atualize
-> `RENDER_URL` (passo 5.6) e os `targets` de
-> `leiloes-service/observabilidade/prometheus/prometheus.yml`.
-
-### 5.5 SonarCloud
-
-1. <https://sonarcloud.io> → *Log in with GitHub*.
-2. Crie uma organização (pode ser a sua, ex.: `thiagoschulze`); anote a **key**.
-3. *Analyze new project* → *Create a project manually*:
-   - nome `leiloes-service`;
-   - key, ex.: `thiagoschulze_leiloes-service`;
-   - em *Analysis Method*, escolha **GitHub Actions** e **desligue a Automatic
-     Analysis** (as duas juntas dão erro).
-4. *My Account → Security*: gere um token.
-
-### 5.6 GitHub: secrets, variáveis e environments
-
-**Settings → Secrets and variables → Actions:**
-
-| Aba | Nome | Valor |
-|---|---|---|
-| Secrets | `SONAR_TOKEN` | token do passo 5.5 |
-| Variables | `SONAR_ORGANIZATION` | key da organização |
-| Variables | `SONAR_PROJECT_KEY` | key do projeto |
-
-**Settings → Environments → New environment** `dev` e depois `homol`:
-
-| Em cada environment | Valor |
-|---|---|
-| Secret `RENDER_DEPLOY_HOOK_URL` | Deploy Hook do serviço correspondente |
-| Variable `RENDER_URL` | `https://leiloes-service-dev.onrender.com` (ou `-homol`) |
-| (opcional, só `homol`) *Required reviewers* | você mesmo: o deploy em HOMOL espera um clique de aprovação |
-
-Depois, em **Actions**, rode de novo (*Re-run all jobs*) a última execução do
-`develop`: agora Sonar e deploy rodam de verdade.
-
-### 5.7 Dependabot e proteção de branches
-
-- **Settings → Code security**: ative *Dependabot alerts* e *Dependabot
-  security updates*. As atualizações de versão já vêm do `dependabot.yml`.
-- **Settings → Branches → Add rule**, para `main` e `develop`:
-  - *Require a pull request before merging*;
-  - *Require status checks to pass*: selecione `Build, testes e SonarCloud`
-    (aparece depois da primeira execução).
-
-### 5.8 Primeira release em HOMOL
-
-```bash
-gh pr create --base main --head develop --title "Release leiloes-service 1.1.0"
-```
-
-Ao fazer o merge, o pipeline:
-
-- publica `ghcr.io/ratzmann/leiloes-service:1.1.0`;
-- cria a tag `leiloes-service-v1.1.0`;
-- faz o deploy em HOMOL.
-
-Crie o serviço HOMOL no Render (5.4) se ainda não existir e rode o job de novo.
-
-**Próximas versões:** altere `version` no `leiloes-service/package.json`
-(`1.1.1` para correção, `1.2.0` para funcionalidade nova) no seu branch
-`feature/*`. Se esquecer, o pipeline da `main` avisa e não publica.
-
-### 5.9 Observabilidade
-
-```powershell
-cd leiloes-service\observabilidade
-docker compose up -d --build
-powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1                      # local
-powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1 -BaseUrl https://leiloes-service-dev.onrender.com -Rodadas 10
-```
-
-- Grafana: <http://localhost:3000> (admin/admin, ou entra direto como
-  visualizador). O dashboard **leiloes-service** é a página inicial.
-- Prometheus: <http://localhost:9090> → *Status → Targets* mostra `local`,
-  `dev` e `homol` (UP/DOWN).
-- Para desligar: `docker compose down -v`.
+O checklist completo, clique a clique, está em
+**[`GUIA-CONFIGURACAO.md`](GUIA-CONFIGURACAO.md)**: permissão de admin,
+GitHub Actions, GHCR, Neon, Render (DEV e HOMOL), SonarCloud,
+secrets/variáveis/environments, Dependabot, proteção de branches, Grafana e
+tabela de problemas comuns.
 
 ---
 

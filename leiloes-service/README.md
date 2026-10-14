@@ -128,6 +128,7 @@ regras de negócio de `services/` e `utils/` e o código do T2 (ambiente, métri
 
 Decisões, funcionamento, passo a passo das contas (GitHub, Render, Neon,
 SonarCloud) e roteiro de apresentação: **[`docs/T2-DECISOES.md`](docs/T2-DECISOES.md)**.
+Checklist de configuração das contas: **[`docs/GUIA-CONFIGURACAO.md`](docs/GUIA-CONFIGURACAO.md)**.
 
 | O quê | Onde |
 | --- | --- |
