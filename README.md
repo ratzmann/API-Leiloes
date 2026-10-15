@@ -322,7 +322,7 @@ de 50%:
 | auth-service | 56 | 91% |
 | usuarios-service | 102 | 84% |
 | leiloes-service | 96 | 88% |
-| lances-service | 57 | 75% |
+| lances-service | 90 | 82% |
 
 Os testes unitários também cobrem os clients HTTP (`tests/usuariosClient.test.js`,
 com o `fetch` simulado) e, nos serviços com T2, a parte nova: `/health`, `/docs`
@@ -398,3 +398,8 @@ Cada integrante tem o pipeline do próprio serviço em `.github/workflows/`
 - **usuarios-service**: `.github/workflows/usuarios-service.yml` — detalhes em
   [`usuarios-service/docs/T2-DECISOES.md`](usuarios-service/docs/T2-DECISOES.md).
   Configuração das contas dos dois: [`usuarios-service/docs/GUIA-CONFIGURACAO.md`](usuarios-service/docs/GUIA-CONFIGURACAO.md).
+- **lances-service**: `.github/workflows/lances-service.yml` — detalhes em
+  [`lances-service/docs/T2-DECISOES.md`](lances-service/docs/T2-DECISOES.md).
+  Como a Saga precisa do leiloes e do usuarios, a observabilidade do lances
+  (Prometheus `:9093`, Grafana `:3013`) usa o sistema completo: suba a raiz
+  (`docker compose up -d`) antes de `lances-service/observabilidade`.

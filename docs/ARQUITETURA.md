@@ -408,8 +408,8 @@ métrica ficar abaixo de 50%.
 | auth-service | 56 | 91% |
 | usuarios-service | 102 | 84% |
 | leiloes-service | 96 | 88% |
-| lances-service | 57 | 75% |
-| **Total** | **311** | |
+| lances-service | 90 | 82% |
+| **Total** | **344** | |
 
 Como rodar:
 
