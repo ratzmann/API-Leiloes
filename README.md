@@ -372,12 +372,3 @@ para `.env` e ajuste `DB_HOST` etc.
 | `SERVICOS_TIMEOUT_MS` | auth, leiloes e lances | tempo máximo das chamadas entre serviços (padrão 3000) |
 | `SAGA_PERMITIR_FALHA_SIMULADA` | lances-service | libera o header `X-Simular-Falha` (só para demo) |
 | `SAGA_ESPERA_REPETICAO_MS` | lances-service | espera entre as tentativas do passo 4 da Saga (padrão 300) |
-
-## Próximos passos (grupo)
-
-- Acompanhamento ao vivo dos lances (WebSockets ou Event-Driven).
-- Encerramento do pregão como Saga: ao encerrar, registrar o vencedor e
-  confirmar (consumir) o crédito dele. O cancelamento já devolve o crédito.
-- Papel de administrador (ex.: ajustar limite de crédito), regra para remover
-  cadastros em uso e os demais itens da
-  [seção 10 do guia de arquitetura](docs/ARQUITETURA.md#10-pontos-de-atenção-e-próximos-passos).

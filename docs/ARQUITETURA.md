@@ -18,8 +18,7 @@
 9. [Testes automatizados](#9-testes-automatizados)
 10. [Pontos de atenção e próximos passos](#10-pontos-de-atenção-e-próximos-passos)
 11. [Glossário](#11-glossário)
-12. [Roteiro sugerido para a apresentação](#12-roteiro-sugerido-para-a-apresentação)
-13. [Mapa de endpoints](#13-mapa-de-endpoints)
+12. [Mapa de endpoints](#12-mapa-de-endpoints)
 
 ---
 
@@ -477,7 +476,6 @@ Duplicar esses arquivos de apoio em cada serviço é **intencional**
 **Evoluções (do README)**
 
 - Acompanhamento ao vivo dos lances (WebSockets ou eventos).
-- Encerramento do pregão como Saga (registrar o vencedor e confirmar o crédito dele).
 
 ---
 
@@ -514,29 +512,7 @@ Duplicar esses arquivos de apoio em cada serviço é **intencional**
 
 ---
 
-## 12. Roteiro sugerido para a apresentação
-
-> O roteiro **por aluno** (15 minutos, com demos prontas em PowerShell) está em
-> [`APRESENTACAO.md`](APRESENTACAO.md). Abaixo, a ordem temática para estudo.
-
-1. **Visão geral** — o desenho da seção 2 e a analogia do shopping.
-2. **`docker-compose.yml`** — os 9 containers, um banco por serviço, só o Kong com porta.
-3. **`kong/kong.yml`** — rotas, plugin JWT e o bloqueio 403 das reservas.
-4. **Um serviço por dentro** (leiloes-service), seguindo uma requisição:
-   `app.js` → `routes/leilaoRoutes.js` → `controllers/leilaoController.js` →
-   `services/leilaoService.js` → `repositories/leilaoRepository.js`.
-5. **Autenticação** — `auth-service/src/services/authService.js`, `utils/jwt.js`, `utils/password.js`.
-6. **A Saga** — `lances-service/src/sagas/registrarLanceSaga.js` (o cabeçalho
-   resume tudo) + demonstração com `X-Simular-Falha: gravar-lance` e
-   `GET /lances/sagas/:id`.
-7. **Autorização** — seção 5: `lanceService.autorizarLicitante` e
-   `leilaoService.garantirDono`; demonstrar um leiloeiro tentando dar lance (403).
-8. **Testes** — `testar-unitarios.ps1` (222 testes, cobertura ≥ 50% em todo o `src/`) e `testar-tudo.ps1` (72 passos).
-9. **Próximos passos** — seção 10.
-
----
-
-## 13. Mapa de endpoints
+## 12. Mapa de endpoints
 
 Tudo passa pelo Kong em `http://localhost:8000`. Com exceção de `/auth/*`, as
 rotas exigem `Authorization: Bearer <token>` (sem token → `401`, respondido pelo
