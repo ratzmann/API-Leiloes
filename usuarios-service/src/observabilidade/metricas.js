@@ -49,10 +49,22 @@ function definirRotulosPadrao({ ambiente, versao }) {
 function rotaDaRequisicao(req) {
   if (req.route && req.route.path) {
     const caminho = req.route.path === '/' ? '' : req.route.path;
-    return `${req.baseUrl || ''}${caminho}` || '/';
+    return `${req.baseUrl || req.prefixoDaRota || ''}${caminho}` || '/';
   }
   if ((req.originalUrl || '').startsWith('/docs')) return '/docs';
   return 'nao_encontrada';
+}
+
+/**
+ * Middleware que guarda o prefixo do router (ex.: /leiloeiros) na requisicao.
+ * Quando um erro sai do router por next(err), o Express apaga o req.baseUrl
+ * antes de a resposta terminar; sem isto a rota medida perderia o prefixo
+ * (ex.: "/:id" em vez de "/leiloeiros/:id"). Uso no app.js:
+ * app.use('/leiloeiros', lembrarPrefixo, rotas).
+ */
+function lembrarPrefixo(req, res, next) {
+  req.prefixoDaRota = req.baseUrl;
+  next();
 }
 
 // Middleware: mede cada requisicao quando a resposta termina ('finish').
@@ -92,6 +104,7 @@ module.exports = {
   registro,
   definirRotulosPadrao,
   rotaDaRequisicao,
+  lembrarPrefixo,
   medirRequisicoes,
   responderMetricas,
   registrarCadastro,

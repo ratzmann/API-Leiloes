@@ -1,10 +1,33 @@
+# =============================================================================
+# kong.yml  -  CONFIGURACAO do API Gateway (Kong em modo DB-less)
+# -----------------------------------------------------------------------------
+# O Kong e a PORTA DE ENTRADA unica do sistema (porta 8000). Para cada
+# requisicao ele:
+#   1. olha o caminho (ex.: /leiloes/1) e descobre a qual SERVICE ela pertence;
+#   2. se o service tiver o plugin "jwt", confere o token (assinatura e validade)
+#      e responde 401 sozinho se o token faltar ou for invalido;
+#   3. encaminha a requisicao para o microsservico, pela rede interna do Docker.
+#
+# Vocabulario do Kong:
+#   service  -> um microsservico de destino (url interna);
+#   route    -> quais caminhos levam a esse service;
+#   plugin   -> comportamento extra (autenticacao, bloqueio, limite...);
+#   consumer -> "quem" consome a API (aqui, com o segredo do JWT).
+#
+# Formato dos erros: a API responde erros como {"erro": "mensagem"}. Aqui isso
+# vale para os 403 abaixo (campo `body`) e, pelo template kong/erro.json
+# (KONG_ERROR_TEMPLATE_JSON no docker-compose), para os erros do proprio Kong,
+# como o 404 de rota inexistente. Excecao: o 401 do plugin jwt ("Unauthorized",
+# "Bad token") continua como {"message": ...} - a versao gratuita do Kong nao
+# permite mudar esse corpo sem escrever codigo Lua.
+# =============================================================================
 _format_version: "3.0"
 _transform: true
 
 # ---------------------------------------------------------------------------
-# Kong como API Gateway (padrão de microsserviços usado pelo grupo) + plugin
-# JWT no papel de "porteiro" da autenticação: valida o token emitido pelo
-# auth-service antes de deixar a requisição chegar nos serviços de domínio.
+# Kong como API Gateway (padrao de microsservicos usado pelo grupo) + plugin
+# JWT no papel de "porteiro" da autenticacao: valida o token emitido pelo
+# auth-service antes de deixar a requisicao chegar nos servicos de dominio.
 # ---------------------------------------------------------------------------
 
 services:
@@ -14,8 +37,10 @@ services:
       - name: auth-routes
         paths:
           - /auth
+        # strip_path: true -> remove o "/auth" antes de repassar:
+        # /auth/login chega no auth-service como /login.
         strip_path: true
-    # Rotas de autenticação (login/registro) são públicas: sem plugin JWT.
+    # Rotas de autenticacao (login/registro) sao publicas: sem plugin JWT.
 
   - name: usuarios-service
     url: http://usuarios-service:3002
@@ -23,26 +48,56 @@ services:
       - name: leiloeiros-routes
         paths:
           - /leiloeiros
+        # strip_path: false -> repassa o caminho inteiro (/leiloeiros/1).
         strip_path: false
       - name: licitantes-routes
         paths:
           - /licitantes
         strip_path: false
       # reserva de credito e so pra uso interno da saga
+      # O "~" indica uma EXPRESSAO REGULAR: \d+ = um ou mais digitos.
+      # Casa /licitantes/1/reservas, /licitantes/25/reservas/3/liberar etc.
       - name: reservas-credito-internas
         paths:
           - '~/licitantes/\d+/reservas'
         strip_path: false
         plugins:
+          # request-termination: o Kong responde ele mesmo (403 Forbidden) e a
+          # requisicao NUNCA chega ao servico. So a Saga, de dentro da rede do
+          # Docker, consegue chamar essas rotas. `body` + `content_type` definem
+          # a resposta no mesmo formato de erro da API: {"erro": "..."}.
           - name: request-termination
             config:
               status_code: 403
-              message: Reservas de credito sao internas e so podem ser feitas pela Saga de lances.
+              content_type: application/json
+              body: '{"erro": "Reservas de credito sao internas e so podem ser feitas pela Saga de lances."}'
+      # Criar perfil (POST /leiloeiros ou /licitantes) tambem e interno: quem
+      # faz isso e o auth-service, no registro, pela rede interna do Docker.
+      # De fora, o caminho certo e POST /auth/registrar.
+      # "methods: [POST]" faz a rota valer so para POST - GET, PUT e DELETE
+      # continuam indo para as rotas acima. O "$" no fim da expressao regular
+      # exige que o caminho TERMINE ali (nao pega /licitantes/1/credito etc.).
+      - name: criar-perfil-interno
+        methods:
+          - POST
+        paths:
+          - '~/leiloeiros$'
+          - '~/licitantes$'
+        strip_path: false
+        plugins:
+          - name: request-termination
+            config:
+              status_code: 403
+              content_type: application/json
+              body: '{"erro": "Perfis sao criados pelo registro em POST /auth/registrar."}'
+    # Plugin JWT no nivel do SERVICE: vale para todas as rotas acima.
     plugins:
       - name: jwt
         config:
+          # Confere se o token nao expirou (claim "exp").
           claims_to_verify:
             - exp
+          # Usa a claim "iss" do token para achar o consumer/segredo certo.
           key_claim_name: iss
 
   - name: leiloes-service
@@ -73,6 +128,10 @@ services:
             - exp
           key_claim_name: iss
 
+# Consumer: guarda o SEGREDO usado para conferir a assinatura dos tokens.
+#   key    -> precisa ser igual ao "iss" do token (JWT_ISSUER no docker-compose);
+#   secret -> precisa ser igual ao JWT_SECRET com que o auth-service assina.
+# Se um dos dois for diferente, o Kong recusa todos os tokens (401).
 consumers:
   - username: sistema-leilao
     jwt_secrets:
