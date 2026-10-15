@@ -1,0 +1,31 @@
+# O Prometheus busca GET /metrics de cada alvo a cada 15 s ("scrape").
+# Cada metrica do servico ja traz os rotulos ambiente e versao; o rotulo "alvo"
+# abaixo identifica de onde o Prometheus leu (usado no painel "Servico no ar").
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # copia local: o lances-service do docker-compose da RAIZ do projeto, alcancado
+  # pela rede leilao-net (ver ../docker-compose.yml desta pasta)
+  - job_name: lances-service-local
+    static_configs:
+      - targets: ['lances-service:3003']
+        labels:
+          alvo: local
+
+  # Render - DEV (branch develop). Ajuste o host se o Render der outro nome ao servico.
+  - job_name: lances-service-dev
+    scheme: https
+    static_configs:
+      - targets: ['lances-service-dev.onrender.com']
+        labels:
+          alvo: dev
+
+  # Render - HOMOL (branch main)
+  - job_name: lances-service-homol
+    scheme: https
+    static_configs:
+      - targets: ['lances-service-homol.onrender.com']
+        labels:
+          alvo: homol

@@ -22,6 +22,9 @@
 # NOME (ex.: o auth-service acessa o banco em "auth-db", e nao num IP).
 networks:
   leilao-net:
+    # nome fixo (sem o prefixo da pasta): a stack de observabilidade do
+    # lances-service entra nesta rede para ler o lances-service
+    name: leilao-net
     driver: bridge
 
 # Volumes = "HDs" do Docker. Guardam os dados dos bancos fora do container,
