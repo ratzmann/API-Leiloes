@@ -1,3 +1,16 @@
+# =============================================================================
+# Dockerfile  -  "RECEITA" para construir a imagem do leiloes-service
+# -----------------------------------------------------------------------------
+# Mesmos passos do auth-service/Dockerfile (la cada linha esta explicada):
+#   FROM    -> imagem base com Node 20;
+#   WORKDIR -> pasta de trabalho /app;
+#   COPY package*.json + RUN npm ci -> instala as versoes exatas do lock (com cache);
+#   COPY src -> copia o codigo;
+#   ARG/ENV VERSAO_IMAGEM -> versao gravada pelo pipeline (aparece no /health);
+#   USER node -> nao roda como root;  EXPOSE -> documenta a porta;
+#   HEALTHCHECK -> o Docker chama o /health;  CMD -> comando que inicia o servico.
+# =============================================================================
+
 FROM node:20-alpine
 
 WORKDIR /app

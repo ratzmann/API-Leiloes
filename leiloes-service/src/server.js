@@ -1,12 +1,29 @@
+// =============================================================================
+// server.js  -  PONTO DE PARTIDA do leiloes-service
+// -----------------------------------------------------------------------------
+// Mesma sequencia nos 4 servicos:
+//   1. carrega as variaveis de ambiente e o ambiente (DEV, HOMOL...);
+//   2. roda a migracao (cria/atualiza a tabela leiloes a partir do init.sql);
+//   3. so entao abre a porta HTTP.
+// Se o banco nao ficar pronto, encerra com erro (exit 1): no Render o container
+// e reiniciado e o erro aparece no log.
+// =============================================================================
+
+// Le o arquivo .env (quando existir) para dentro de process.env.
 require('dotenv').config();
+// criarApp(ambiente) monta a aplicacao Express (ver app.js).
 const criarApp = require('./app');
+// carregarAmbiente() le APP_ENV, versao da imagem, Swagger ligado ou nao.
 const { carregarAmbiente } = require('./config/ambiente');
+// migrar() executa o db/init.sql no banco, com novas tentativas se preciso.
 const migrar = require('./db/migrar');
 
 const ambiente = carregarAmbiente();
+// Porta: a da variavel de ambiente (o Render define PORT) ou, se nao houver, 3003.
 const PORT = process.env.PORT || 3003;
 
-// so abre a porta depois que a tabela existe
+// Promise com .then (sucesso) e .catch (erro): so abre a porta depois que a
+// tabela existe.
 migrar()
   .then(() => {
     criarApp(ambiente).listen(PORT, () => {
