@@ -75,6 +75,30 @@ updates:
     commit-message:
       prefix: 'chore(usuarios)'
 
+  # lances-service: dependencias npm
+  - package-ecosystem: npm
+    directory: /lances-service
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(lances)'
+    groups:
+      dependencias-de-desenvolvimento:
+        dependency-type: development
+
+  # lances-service: imagem base do Dockerfile (node:20-alpine)
+  - package-ecosystem: docker
+    directory: /lances-service
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: 'chore(lances)'
+
   # actions usadas nos workflows
   - package-ecosystem: github-actions
     directory: /
