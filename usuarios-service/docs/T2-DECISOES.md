@@ -34,6 +34,15 @@
 - stack Prometheus + Grafana no ar, com as 10 consultas do dashboard retornando dados;
 - teste ponta a ponta do grupo (`testes/testar-tudo.ps1`, 52 passos pelo Kong) **52/52**.
 
+**Depois da integração com a revisão do T1** (15/10/2026, branch
+`feature/integracao-revisao-t1`):
+- 102 testes unitários passando; a cobertura passou a ser medida sobre **todo o
+  `src/`** (critério do T1, mínimo de 50%): 84% de linhas;
+- o modo "serviço sozinho" (sem `USUARIOS_SERVICE_URL`) continua valendo no auth e no leiloes, que chamam este serviço;
+- as métricas guardam o prefixo da rota (`lembrarPrefixo`), porque com o
+  tratamento de erros único do T1 um erro que sai do router perdia o `req.baseUrl`;
+- validado também o ponta a ponta do T1 (72 passos) e a coleção Postman.
+
 **Não verificado** (depende das contas): a execução no GitHub Actions, o deploy
 no Render e a análise no SonarCloud.
 

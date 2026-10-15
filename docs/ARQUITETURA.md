@@ -131,7 +131,7 @@ routes/  →  controllers/  →  services/  →  repositories/  →  PostgreSQL
 | Pasta | O que faz | Analogia |
 |---|---|---|
 | `server.js` | Liga o servidor numa porta. | Abrir as portas da loja. |
-| `app.js` | Monta o Express: middlewares, rotas, 404. | A planta da loja. |
+| `app.js` | Monta o Express: métricas, middlewares, `/health`, `/metrics`, `/docs`, rotas, 404 e erros. Nos serviços com T2 é uma fábrica, `criarApp(ambiente)`. | A planta da loja. |
 | `routes/` | Liga "método + caminho" a uma função do controller. | A placa indicando cada balcão. |
 | `controllers/` | Lê a requisição, chama o service, devolve status HTTP. | O atendente. |
 | `services/` | **Regras de negócio**. Não conhece HTTP nem SQL. | O gerente que decide. |
@@ -140,7 +140,10 @@ routes/  →  controllers/  →  services/  →  repositories/  →  PostgreSQL
 | `sagas/` | Coordena uma operação entre vários serviços (só no lances). | O coordenador de um evento. |
 | `middlewares/` | Funções que rodam antes das rotas (`extrairUsuario`: ler o token) ou depois delas, em caso de erro (`tratarErros`: responder `{ erro }`). | O segurança da porta e o balcão de reclamações. |
 | `utils/` | Validações e o tipo `ErroDeValidacao`. | A caixa de ferramentas. |
-| `config/db.js` | Conexão (pool) com o Postgres. | A chave do depósito. |
+| `config/db.js` | Conexão (pool) com o Postgres: `DB_*` no docker-compose ou `DATABASE_URL` na nuvem. | A chave do depósito. |
+| `config/ambiente.js` | (T2) Ambiente: `local`, `dev` ou `homol`, versão da imagem e Swagger ligado ou não. | A placa "aberto/fechado". |
+| `observabilidade/metricas.js` | (T2) Métricas para o Prometheus, em `GET /metrics`. | O contador na porta. |
+| `docs/openapi.js` | (T2) Documentação Swagger, em `/docs` (só no DEV). | O cardápio. |
 | `db/init.sql` | Criação das tabelas. | A planta do depósito. |
 | `db/migrar.js` | Roda o `init.sql` ao subir, com novas tentativas (usuarios, leiloes e lances). | Conferir o depósito ao abrir. |
 
@@ -402,11 +405,11 @@ métrica ficar abaixo de 50%.
 
 | Serviço | Testes | Cobertura (linhas) |
 |---|---|---|
-| auth-service | 28 | 82% |
-| usuarios-service | 72 | 78% |
-| leiloes-service | 65 | 82% |
+| auth-service | 56 | 91% |
+| usuarios-service | 102 | 84% |
+| leiloes-service | 96 | 88% |
 | lances-service | 57 | 75% |
-| **Total** | **222** | |
+| **Total** | **311** | |
 
 Como rodar:
 

@@ -33,6 +33,15 @@
 - stack Prometheus + Grafana no ar, com as 10 consultas do dashboard validadas;
 - teste ponta a ponta do grupo (`testes/testar-tudo.ps1`, 52 passos pelo Kong) **continua 52/52**.
 
+**Depois da integração com a revisão do T1** (15/10/2026, branch
+`feature/integracao-revisao-t1`):
+- 96 testes unitários passando; a cobertura passou a ser medida sobre **todo o
+  `src/`** (critério do T1, mínimo de 50%): 88% de linhas;
+- o modo "serviço sozinho" (sem `USUARIOS_SERVICE_URL`) continua valendo: o leilão é cadastrado sem validar o leiloeiro e o cancelamento não tenta liberar reservas. O `gerar-trafego.ps1` agora assina um token de leiloeiro, exigido pela autorização do T1;
+- as métricas guardam o prefixo da rota (`lembrarPrefixo`), porque com o
+  tratamento de erros único do T1 um erro que sai do router perdia o `req.baseUrl`;
+- validado também o ponta a ponta do T1 (72 passos) e a coleção Postman.
+
 **Não verificado** (depende de contas que só você pode criar): a execução real
 no GitHub Actions, o deploy no Render e a análise no SonarCloud. O passo a passo
 está na seção 5.
@@ -479,5 +488,5 @@ tabela de problemas comuns.
 | `leiloes-service/src/observabilidade/metricas.js` | métricas Prometheus |
 | `leiloes-service/src/app.js`, `src/server.js` | montagem e inicialização |
 | `leiloes-service/observabilidade/` | Prometheus, Grafana, dashboard, gerador de tráfego |
-| `leiloes-service/tests/*.test.js` | 62 testes (7 arquivos) |
+| `leiloes-service/tests/*.test.js` | 96 testes (9 arquivos, depois da integração com o T1) |
 | `docs/superpowers/specs/…-design.md`, `docs/superpowers/plans/…md` | spec e plano usados para construir |

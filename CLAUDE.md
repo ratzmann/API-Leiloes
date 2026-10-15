@@ -18,6 +18,9 @@ Roteiro da apresentação: [`docs/APRESENTACAO.md`](docs/APRESENTACAO.md).
 | `kong/erro.json` | Template dos erros gerados pelo próprio Kong (`{ "erro": ... }`). |
 | `docker-compose.yml` | Sobe os 4 serviços, os 4 Postgres e o Kong. |
 | `testes/` | `testar-unitarios.ps1` (Jest dos 4 serviços), `testar-tudo.ps1` (ponta a ponta), roteiro manual e coleção Postman. |
+| `.github/` | T2: um workflow por serviço (CI, imagem no GHCR, deploy no Render) e o Dependabot. |
+| `<servico>/observabilidade/` | T2: Prometheus + Grafana do serviço, com dashboard provisionado e `gerar-trafego.ps1`. |
+| `<servico>/docs/T2-DECISOES.md` | T2: decisões, configuração das contas e roteiro de cada serviço. |
 
 ## Convenções de código
 
@@ -30,6 +33,12 @@ Roteiro da apresentação: [`docs/APRESENTACAO.md`](docs/APRESENTACAO.md).
   - `sagas/` (só no lances-service): orquestração da Saga.
   - `middlewares/`: `extrairUsuario.js` (lê o token) e `tratarErros.js` (responde os erros).
   - `utils/`, `config/`, `db/`: apoio.
+- T2 (auth, usuarios e leiloes; o lances entra no T2 dele): o `app.js` é uma **fábrica**
+  `criarApp(ambiente)` (o `server.js` e os testes criam o app); `config/ambiente.js` lê
+  `APP_ENV`, `SWAGGER_ENABLED` e `VERSAO_IMAGEM`; `observabilidade/metricas.js` expõe
+  `GET /metrics`; `docs/openapi.js` alimenta o Swagger em `/docs` (só em `local`/`dev`).
+  Routers montados com prefixo passam por `metricas.lembrarPrefixo` (o erro que sai por
+  `next(err)` perde o `req.baseUrl`).
 - Responsabilidade de cada camada:
   - **service**: regras de negócio e autorização; não conhece HTTP, SQL nem `process.env`;
   - **controller**: só traduz HTTP ↔ service e repassa `req.usuarioAutenticado`;
@@ -74,11 +83,17 @@ Roteiro da apresentação: [`docs/APRESENTACAO.md`](docs/APRESENTACAO.md).
   - `POST /licitantes/:id/reservas...` e `POST /leiloeiros|/licitantes`: o Kong responde `403`;
   - `/reservas/leilao/:id/liberar`: o Kong nem tem rota `/reservas`.
 - A Admin API do Kong (8001) é publicada só em `127.0.0.1`.
+- **Serviço sozinho (T2)**: no deploy isolado não há `USUARIOS_SERVICE_URL`. Aí o auth só cria
+  a credencial e o leiloes não valida o leiloeiro nem libera reservas
+  (`usuariosClient.estaConfigurado()`); com a URL, valem todas as regras.
+- Os serviços só **decodificam** o JWT. Na nuvem não há Kong na frente: o plano do T2 prevê
+  trocar por `jwt.verify` no `extrairUsuario.js` (ainda não feito).
 - **Arquivos idênticos entre serviços** (duplicação intencional: cada microsserviço é
   independente). Ao mudar um, copie para os outros:
   - nos 4 serviços: `config/db.js`, `utils/erros.js`, `db/migrar.js`, `middlewares/tratarErros.js`;
   - em auth, leiloes e lances: `clients/http.js`;
-  - em usuarios, leiloes e lances: `middlewares/extrairUsuario.js`.
+  - em usuarios, leiloes e lances: `middlewares/extrairUsuario.js`;
+  - em auth, usuarios e leiloes: `config/ambiente.js`.
 
 ## Regras de negócio
 
@@ -112,7 +127,7 @@ powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
 docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000
 ```
 
-- Estado atual: 222 testes unitários (cobertura de linhas entre 75% e 82%), 72 passos no
+- Estado atual: 311 testes unitários (cobertura de linhas entre 75% e 91%), 72 passos no
   ponta a ponta e 62 requisições (92 conferências) na coleção Postman, todos passando.
 - A coleção e o roteiro manual (`testes/roteiro-de-testes.md`, bash) geram dados novos a
   cada execução; ao mudar uma regra, atualize os dois junto com o `testar-tudo.ps1`.
@@ -120,7 +135,12 @@ docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-
 - Onde ficam os testes novos:
   - regras: `tests/<modulo>.test.js`, com repositories e clients mockados (`__mocks__/`);
   - camada HTTP: `tests/rotas.test.js` (supertest, services mockados);
-  - clients: `tests/usuariosClient.test.js` (`fetch` mockado).
+  - clients: `tests/usuariosClient.test.js` (`fetch` mockado);
+  - T2: `app.test.js` (`/health`, `/docs`, `/metrics`), `ambiente.test.js`, `db.test.js`,
+    `migrar.test.js` e `metricas.test.js`.
+- O pipeline de cada serviço com T2 roda `npm ci`, `npm audit --omit=dev --audit-level=critical`,
+  `npm test -- --ci` e o build da imagem. O SonarCloud e o deploy no Render são **pulados**
+  (com aviso) enquanto os secrets não forem configurados no GitHub.
 - Mudou código de um serviço? Reconstrua antes do ponta a ponta:
   `docker compose up -d --build <servico>`.
 

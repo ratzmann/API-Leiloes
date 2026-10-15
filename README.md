@@ -319,13 +319,15 @@ de 50%:
 
 | Serviço | Testes | Cobertura (linhas) |
 |---|---|---|
-| auth-service | 28 | 82% |
-| usuarios-service | 72 | 78% |
-| leiloes-service | 65 | 82% |
+| auth-service | 56 | 91% |
+| usuarios-service | 102 | 84% |
+| leiloes-service | 96 | 88% |
 | lances-service | 57 | 75% |
 
 Os testes unitários também cobrem os clients HTTP (`tests/usuariosClient.test.js`,
-com o `fetch` simulado).
+com o `fetch` simulado) e, nos serviços com T2, a parte nova: `/health`, `/docs`
+e `/metrics` (`app.test.js`), o ambiente, a conexão com o banco, a migração e as
+métricas.
 
 Ponta a ponta, com a stack no ar (PowerShell):
 ```powershell
