@@ -27,6 +27,54 @@ updates:
     commit-message:
       prefix: 'chore(leiloes)'
 
+  # auth-service: dependencias npm
+  - package-ecosystem: npm
+    directory: /auth-service
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(auth)'
+    groups:
+      dependencias-de-desenvolvimento:
+        dependency-type: development
+
+  # auth-service: imagem base do Dockerfile (node:20-alpine)
+  - package-ecosystem: docker
+    directory: /auth-service
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: 'chore(auth)'
+
+  # usuarios-service: dependencias npm
+  - package-ecosystem: npm
+    directory: /usuarios-service
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(usuarios)'
+    groups:
+      dependencias-de-desenvolvimento:
+        dependency-type: development
+
+  # usuarios-service: imagem base do Dockerfile (node:20-alpine)
+  - package-ecosystem: docker
+    directory: /usuarios-service
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: 'chore(usuarios)'
+
   # actions usadas nos workflows
   - package-ecosystem: github-actions
     directory: /

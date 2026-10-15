@@ -1,6 +1,7 @@
 jest.mock('../src/repositories/licitanteRepository');
 const licitanteRepository = require('../src/repositories/licitanteRepository');
 const licitanteService = require('../src/services/licitanteService');
+const metricas = require('../src/observabilidade/metricas');
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -82,5 +83,24 @@ describe('licitanteService.buscarPorId', () => {
   test('lanca 404 quando nao encontrado', async () => {
     licitanteRepository.buscarPorId.mockResolvedValue(null);
     await expect(licitanteService.buscarPorId(999)).rejects.toThrow('Licitante nao encontrado.');
+  });
+});
+
+describe('metricas de negocio', () => {
+  test('cadastro com sucesso soma como licitante; recusado nao soma', async () => {
+    const espiao = jest.spyOn(metricas, 'registrarCadastro');
+    licitanteRepository.buscarPorEmail.mockResolvedValueOnce({ id: 9 });
+    await expect(
+      licitanteService.cadastrar({ nome: 'Maria Souza', email: 'a@a.com', cpf: CPF_VALIDO })
+    ).rejects.toThrow();
+    expect(espiao).not.toHaveBeenCalled();
+
+    licitanteRepository.buscarPorEmail.mockResolvedValue(null);
+    licitanteRepository.buscarPorCpf.mockResolvedValue(null);
+    licitanteRepository.criar.mockResolvedValue({ id: 1 });
+    await licitanteService.cadastrar({ nome: 'Maria Souza', email: 'a@a.com', cpf: CPF_VALIDO });
+
+    expect(espiao).toHaveBeenCalledWith('licitante');
+    espiao.mockRestore();
   });
 });

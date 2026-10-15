@@ -1,0 +1,254 @@
+# Pipeline do usuarios-service (T2 - CI/CD). Um pipeline por microsservico:
+# so roda quando algo dentro de usuarios-service/ (ou este arquivo) muda.
+# Environments com prefixo (usuarios-dev / usuarios-homol): dev e homol sao do leiloes-service,
+# e o secret RENDER_DEPLOY_HOOK_URL tem o mesmo nome em todos.
+#
+#   feature/*  -> ci (build + testes + SonarCloud) + build da imagem (sem publicar)
+#   develop    -> ci -> versao -> imagem (GHCR) -> deploy DEV   (Render, Swagger ligado)
+#   main       -> ci -> versao -> imagem (GHCR) -> deploy HOMOL (Render, Swagger desligado)
+name: usuarios-service
+
+on:
+  push:
+    branches: [main, develop, 'feature/**']
+    paths:
+      - 'usuarios-service/**'
+      - '.github/workflows/usuarios-service.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'usuarios-service/**'
+      - '.github/workflows/usuarios-service.yml'
+  workflow_dispatch:
+
+# um push novo no mesmo branch cancela so a execucao de PR antiga; deploys nunca sao cortados
+concurrency:
+  group: usuarios-service-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# menor privilegio: cada job pede so o que precisa
+permissions:
+  contents: read
+
+env:
+  SERVICO: usuarios-service
+
+defaults:
+  run:
+    working-directory: usuarios-service
+
+jobs:
+  ci:
+    name: Build, testes e SonarCloud
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # o Sonar usa o historico para saber o que e codigo novo
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: usuarios-service/package-lock.json
+
+      - name: Instalar dependencias (build)
+        run: npm ci
+
+      # barra vulnerabilidade CRITICA conhecida nas dependencias que vao para a imagem
+      - name: Auditoria de seguranca das dependencias
+        run: npm audit --omit=dev --audit-level=critical
+
+      - name: Testes automatizados com cobertura (minimo 50%)
+        run: npm test -- --ci
+
+      - name: Guardar relatorio de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura-usuarios-service
+          path: usuarios-service/coverage/
+          retention-days: 7
+
+      - name: Verificar configuracao do SonarCloud
+        id: sonar
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY_USUARIOS }}
+        run: |
+          if [ -z "$SONAR_TOKEN" ] || [ -z "$SONAR_ORGANIZATION" ] || [ -z "$SONAR_PROJECT_KEY" ]; then
+            echo "::warning::SonarCloud nao configurado (secret SONAR_TOKEN e variaveis SONAR_ORGANIZATION/SONAR_PROJECT_KEY_USUARIOS); analise pulada."
+            echo "ativo=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ativo=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Analise SonarCloud
+        if: steps.sonar.outputs.ativo == 'true'
+        uses: SonarSource/sonarqube-scan-action@v7
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: usuarios-service
+          args: >
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY_USUARIOS }}
+
+  versao:
+    name: Versao (Semantic Versioning)
+    runs-on: ubuntu-latest
+    outputs:
+      versao: ${{ steps.calc.outputs.versao }}
+      versao_imagem: ${{ steps.calc.outputs.versao_imagem }}
+      imagem: ${{ steps.calc.outputs.imagem }}
+      tags: ${{ steps.calc.outputs.tags }}
+      ambiente: ${{ steps.calc.outputs.ambiente }}
+      publicar: ${{ steps.calc.outputs.publicar }}
+      tag_git: ${{ steps.calc.outputs.tag_git }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # precisa das tags git para conferir se a versao ja foi publicada
+
+      - name: Calcular versao e tags da imagem
+        id: calc
+        run: |
+          VERSAO=$(node -p "require('./package.json').version")
+          if ! echo "$VERSAO" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Versao '$VERSAO' do package.json nao segue MAJOR.MINOR.PATCH."
+            exit 1
+          fi
+
+          DONO=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
+          IMAGEM="ghcr.io/$DONO/$SERVICO"
+          TAG_GIT="$SERVICO-v$VERSAO"
+          SHA_CURTO=${GITHUB_SHA::7}
+          AMBIENTE=""
+          EXTRAS=""
+
+          case "$GITHUB_REF" in
+            refs/heads/main)
+              # cada versao publicada em HOMOL e imutavel: se a tag ja existe em outro commit, falha
+              if git rev-parse -q --verify "refs/tags/$TAG_GIT" > /dev/null; then
+                COMMIT_DA_TAG=$(git rev-list -n 1 "$TAG_GIT")
+                if [ "$COMMIT_DA_TAG" != "$GITHUB_SHA" ]; then
+                  echo "::error::A versao $VERSAO ja foi publicada (tag $TAG_GIT). Suba a versao no usuarios-service/package.json (MAJOR.MINOR.PATCH)."
+                  exit 1
+                fi
+              fi
+              VERSAO_IMAGEM="$VERSAO"; EXTRAS="homol latest"; AMBIENTE="homol" ;;
+            refs/heads/develop)
+              VERSAO_IMAGEM="$VERSAO-dev.$GITHUB_RUN_NUMBER"; EXTRAS="dev"; AMBIENTE="dev" ;;
+            *)
+              VERSAO_IMAGEM="$VERSAO-build.$GITHUB_RUN_NUMBER" ;;
+          esac
+
+          PUBLICAR=false
+          if [ -n "$AMBIENTE" ] && [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then PUBLICAR=true; fi
+
+          {
+            echo "versao=$VERSAO"
+            echo "versao_imagem=$VERSAO_IMAGEM"
+            echo "imagem=$IMAGEM"
+            echo "ambiente=$AMBIENTE"
+            echo "publicar=$PUBLICAR"
+            echo "tag_git=$TAG_GIT"
+            echo "tags<<FIM"
+            echo "$IMAGEM:$VERSAO_IMAGEM"
+            for extra in $EXTRAS; do echo "$IMAGEM:$extra"; done
+            echo "$IMAGEM:sha-$SHA_CURTO"
+            echo "FIM"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Versao do usuarios-service"
+            echo "- versao (package.json): \`$VERSAO\`"
+            echo "- versao da imagem: \`$VERSAO_IMAGEM\`"
+            echo "- ambiente de destino: \`${AMBIENTE:-nenhum (so build)}\`"
+            echo "- publica a imagem: \`$PUBLICAR\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  imagem:
+    name: Imagem Docker (build e publicacao no GHCR)
+    needs: [ci, versao]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # criar a tag git da versao (main)
+      packages: write # publicar no GitHub Container Registry
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login no GHCR
+        if: needs.versao.outputs.publicar == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build (e push em develop/main)
+        uses: docker/build-push-action@v6
+        with:
+          context: usuarios-service
+          push: ${{ needs.versao.outputs.publicar == 'true' }}
+          tags: ${{ needs.versao.outputs.tags }}
+          build-args: |
+            VERSAO_IMAGEM=${{ needs.versao.outputs.versao_imagem }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.title=usuarios-service
+            org.opencontainers.image.version=${{ needs.versao.outputs.versao_imagem }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=usuarios-service
+          cache-to: type=gha,mode=max,scope=usuarios-service
+
+      - name: Criar tag git da versao (HOMOL)
+        if: needs.versao.outputs.ambiente == 'homol' && needs.versao.outputs.publicar == 'true'
+        env:
+          TAG_GIT: ${{ needs.versao.outputs.tag_git }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG_GIT" > /dev/null; then
+            echo "Tag $TAG_GIT ja existe neste commit."
+          else
+            git tag "$TAG_GIT" "$GITHUB_SHA"
+            git push origin "refs/tags/$TAG_GIT"
+          fi
+
+  deploy-dev:
+    name: Deploy DEV (Render)
+    needs: [versao, imagem]
+    if: needs.versao.outputs.ambiente == 'dev' && needs.versao.outputs.publicar == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: usuarios-dev
+      url: ${{ vars.RENDER_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy da imagem e smoke test
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          RENDER_URL: ${{ vars.RENDER_URL }}
+          IMAGEM: ${{ needs.versao.outputs.imagem }}:${{ needs.versao.outputs.versao_imagem }}
+          VERSAO_ESPERADA: ${{ needs.versao.outputs.versao_imagem }}
+        run: bash ci/deploy-render.sh
+
+  deploy-homol:
+    name: Deploy HOMOL (Render)
+    needs: [versao, imagem]
+    if: needs.versao.outputs.ambiente == 'homol' && needs.versao.outputs.publicar == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: usuarios-homol
+      url: ${{ vars.RENDER_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy da imagem e smoke test
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          RENDER_URL: ${{ vars.RENDER_URL }}
+          IMAGEM: ${{ needs.versao.outputs.imagem }}:${{ needs.versao.outputs.versao_imagem }}
+          VERSAO_ESPERADA: ${{ needs.versao.outputs.versao_imagem }}
+        run: bash ci/deploy-render.sh

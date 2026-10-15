@@ -5,6 +5,7 @@ jest.mock('../src/utils/jwt', () => ({
 
 const usuarioRepository = require('../src/repositories/usuarioRepository');
 const authService = require('../src/services/authService');
+const metricas = require('../src/observabilidade/metricas');
 const { hashSenha } = require('../src/utils/password');
 
 describe('authService.validarRegistro', () => {
@@ -113,5 +114,48 @@ describe('authService.login', () => {
 
     const resultado = await authService.login({ email: 'x@x.com', senha: 'senhaCerta' });
     expect(resultado.token).toBe('token-fake');
+  });
+});
+
+describe('metricas de negocio', () => {
+  let registro;
+  let login;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    delete process.env.USUARIOS_SERVICE_URL;
+    registro = jest.spyOn(metricas, 'registrarRegistro');
+    login = jest.spyOn(metricas, 'registrarLogin');
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  test('registro com sucesso soma pelo papel; recusado nao soma', async () => {
+    usuarioRepository.buscarPorEmail.mockResolvedValueOnce({ id: 1 });
+    await expect(
+      authService.registrar({ nome: 'Ana Souza', email: 'a@a.com', senha: '123456', papel: 'LEILOEIRO' })
+    ).rejects.toThrow();
+    expect(registro).not.toHaveBeenCalled();
+
+    usuarioRepository.buscarPorEmail.mockResolvedValue(null);
+    usuarioRepository.criar.mockResolvedValue({ id: 2, papel: 'LEILOEIRO', senha_hash: 'h' });
+    await authService.registrar({ nome: 'Ana Souza', email: 'a@a.com', senha: '123456', papel: 'LEILOEIRO' });
+    expect(registro).toHaveBeenCalledWith('LEILOEIRO');
+  });
+
+  test('login conta sucesso e falha de credencial', async () => {
+    const senhaHash = await hashSenha('senhaCerta');
+    usuarioRepository.buscarPorEmail.mockResolvedValue({ id: 1, senha_hash: senhaHash });
+
+    await authService.login({ email: 'x@x.com', senha: 'senhaCerta' });
+    await expect(authService.login({ email: 'x@x.com', senha: 'errada' })).rejects.toThrow();
+
+    expect(login.mock.calls).toEqual([['sucesso'], ['falha']]);
+  });
+
+  test('erro de infraestrutura (banco fora) nao conta como falha de login', async () => {
+    usuarioRepository.buscarPorEmail.mockRejectedValue(new Error('ECONNREFUSED'));
+
+    await expect(authService.login({ email: 'x@x.com', senha: '123456' })).rejects.toThrow('ECONNREFUSED');
+
+    expect(login).not.toHaveBeenCalled();
   });
 });

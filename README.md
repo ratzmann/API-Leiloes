@@ -294,3 +294,8 @@ Cada integrante tem o pipeline do próprio serviço em `.github/workflows/`
 
 - **leiloes-service**: `.github/workflows/leiloes-service.yml` — detalhes em
   [`leiloes-service/docs/T2-DECISOES.md`](leiloes-service/docs/T2-DECISOES.md).
+- **auth-service**: `.github/workflows/auth-service.yml` — detalhes em
+  [`auth-service/docs/T2-DECISOES.md`](auth-service/docs/T2-DECISOES.md).
+- **usuarios-service**: `.github/workflows/usuarios-service.yml` — detalhes em
+  [`usuarios-service/docs/T2-DECISOES.md`](usuarios-service/docs/T2-DECISOES.md).
+  Configuração das contas dos dois: [`usuarios-service/docs/GUIA-CONFIGURACAO.md`](usuarios-service/docs/GUIA-CONFIGURACAO.md).

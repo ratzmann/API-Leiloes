@@ -1,5 +1,6 @@
 const licitanteRepository = require('../repositories/licitanteRepository');
 const reservaRepository = require('../repositories/reservaRepository');
+const metricas = require('../observabilidade/metricas');
 const { ErroDeValidacao } = require('../utils/erros');
 
 // compara em centavos pra evitar erro de ponto flutuante
@@ -44,7 +45,7 @@ async function reservar(licitanteId, { valor, referencia }) {
     throw new ErroDeValidacao('Valor da reserva deve ser maior que zero.');
   }
 
-  return reservaRepository.emTransacao(async (tx) => {
+  const resultado = await reservaRepository.emTransacao(async (tx) => {
     const licitante = await tx.travarLicitante(id);
     if (!licitante) {
       throw new ErroDeValidacao('Licitante nao encontrado.', 404);
@@ -72,6 +73,9 @@ async function reservar(licitanteId, { valor, referencia }) {
     const reserva = await tx.criar({ licitanteId: id, valor: Number(valor), referencia });
     return { reserva, criada: true };
   });
+  // so conta depois do commit e so reserva nova (repeticao da saga nao conta)
+  if (resultado.criada) metricas.registrarOperacaoCredito('reservada');
+  return resultado;
 }
 
 // libera a reserva (compensacao da saga ou quando o licitante e superado).
@@ -80,7 +84,8 @@ async function liberar(licitanteId, reservaId) {
   const idLicitante = validarId(licitanteId, 'licitanteId');
   const idReserva = validarId(reservaId, 'reservaId');
 
-  return reservaRepository.emTransacao(async (tx) => {
+  let liberou = false;
+  const resultado = await reservaRepository.emTransacao(async (tx) => {
     const reserva = await tx.buscarPorId(idReserva);
     if (!reserva || Number(reserva.licitante_id) !== idLicitante) {
       throw new ErroDeValidacao('Reserva nao encontrada para este licitante.', 404);
@@ -88,8 +93,11 @@ async function liberar(licitanteId, reservaId) {
     if (reserva.status === 'LIBERADA') {
       return reserva;
     }
+    liberou = true;
     return tx.liberar(idReserva);
   });
+  if (liberou) metricas.registrarOperacaoCredito('liberada');
+  return resultado;
 }
 
 module.exports = { consultarCredito, listarReservas, reservar, liberar };

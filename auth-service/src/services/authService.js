@@ -1,6 +1,7 @@
 const usuarioRepository = require('../repositories/usuarioRepository');
 const { hashSenha, compararSenha } = require('../utils/password');
 const { gerarToken } = require('../utils/jwt');
+const metricas = require('../observabilidade/metricas');
 
 const PAPEIS_VALIDOS = ['LEILOEIRO', 'LICITANTE'];
 
@@ -59,6 +60,7 @@ async function registrar({ nome, email, senha, papel, dadosPerfil }) {
   }
 
   const token = gerarToken(usuario);
+  metricas.registrarRegistro(papel);
   return { usuario: sanitizar(usuario), perfil, token };
 }
 
@@ -85,7 +87,19 @@ async function criarPerfilNoUsuariosService(usuario, papel, dadosPerfil) {
   return resposta.json();
 }
 
-async function login({ email, senha }) {
+// conta sucesso e falha de credencial; erro de infraestrutura (banco fora) nao e "falha de login"
+async function login(dados) {
+  try {
+    const resultado = await autenticar(dados);
+    metricas.registrarLogin('sucesso');
+    return resultado;
+  } catch (err) {
+    if (err instanceof ErroDeValidacao) metricas.registrarLogin('falha');
+    throw err;
+  }
+}
+
+async function autenticar({ email, senha }) {
   if (!email || !senha) {
     throw new ErroDeValidacao('Informe e-mail e senha.');
   }
