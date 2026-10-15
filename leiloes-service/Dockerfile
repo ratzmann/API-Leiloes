@@ -11,7 +11,7 @@
 #   HEALTHCHECK -> o Docker chama o /health;  CMD -> comando que inicia o servico.
 # =============================================================================
 
-FROM node:20-alpine
+FROM node:25-alpine
 
 WORKDIR /app
 ENV NODE_ENV=production
