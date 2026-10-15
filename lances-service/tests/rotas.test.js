@@ -12,9 +12,12 @@ jest.mock('../src/services/lanceService');
 
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
-const app = require('../src/app');
+const criarApp = require('../src/app');
 const lanceService = require('../src/services/lanceService');
 const { ErroDeValidacao } = require('../src/utils/erros');
+
+// app.js e uma fabrica (T2): cria o app com um ambiente de teste, sem Swagger.
+const app = criarApp({ nome: 'teste', versao: '0.0.0', swaggerHabilitado: false });
 
 // token de um licitante logado (perfilId 2)
 const payloadLicitante = { sub: 20, papel: 'LICITANTE', perfilId: 2 };
