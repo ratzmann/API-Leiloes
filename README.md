@@ -320,9 +320,9 @@ de 50%:
 | Serviço | Testes | Cobertura (linhas) |
 |---|---|---|
 | auth-service | 56 | 91% |
-| usuarios-service | 102 | 84% |
-| leiloes-service | 96 | 88% |
-| lances-service | 90 | 82% |
+| usuarios-service | 113 | 85% |
+| leiloes-service | 107 | 89% |
+| lances-service | 98 | 82% |
 
 Os testes unitários também cobrem os clients HTTP (`tests/usuariosClient.test.js`,
 com o `fetch` simulado) e, nos serviços com T2, a parte nova: `/health`, `/docs`

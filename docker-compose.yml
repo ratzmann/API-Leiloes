@@ -150,15 +150,19 @@ services:
     networks:
       - leilao-net
 
-  # Obs.: usuarios, leiloes e lances NAO recebem JWT_SECRET/JWT_ISSUER: eles so
-  # DECODIFICAM o token (quem confere a assinatura e o Kong). So o auth-service,
-  # que ASSINA os tokens, precisa do segredo.
+  # Obs.: usuarios, leiloes e lances tambem recebem JWT_SECRET/JWT_ISSUER: o
+  # auth-service ASSINA os tokens e os outros CONFEREM a assinatura (alem do Kong),
+  # porque no deploy do T2 nao ha Kong na frente.
   usuarios-service:
     build: ./usuarios-service
     container_name: usuarios-service
     environment:
       PORT: 3002
       APP_ENV: local
+      # o mesmo segredo e emissor do auth-service: o extrairUsuario.js confere a
+      # assinatura do token (jwt.verify)
+      JWT_SECRET: ${JWT_SECRET:-super-segredo-trabalho-microsservicos}
+      JWT_ISSUER: sistema-leilao-auth
       DB_HOST: usuarios-db
       DB_PORT: 5432
       DB_USER: usuarios_user
@@ -176,6 +180,10 @@ services:
     environment:
       PORT: 3003
       APP_ENV: local
+      # o mesmo segredo e emissor do auth-service: o extrairUsuario.js confere a
+      # assinatura do token (jwt.verify)
+      JWT_SECRET: ${JWT_SECRET:-super-segredo-trabalho-microsservicos}
+      JWT_ISSUER: sistema-leilao-auth
       DB_HOST: leiloes-db
       DB_PORT: 5432
       DB_USER: leiloes_user
@@ -199,6 +207,10 @@ services:
       # Mesma porta do leiloes-service, sem conflito: cada container e isolado.
       PORT: 3003
       APP_ENV: local
+      # o mesmo segredo e emissor do auth-service: o extrairUsuario.js confere a
+      # assinatura do token (jwt.verify)
+      JWT_SECRET: ${JWT_SECRET:-super-segredo-trabalho-microsservicos}
+      JWT_ISSUER: sistema-leilao-auth
       DB_HOST: lances-db
       DB_PORT: 5432
       DB_USER: lances_user

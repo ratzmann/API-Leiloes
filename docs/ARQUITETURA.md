@@ -180,8 +180,8 @@ Um **JSON Web Token** é um "crachá digital" no formato `xxxxx.yyyyy.zzzzz`:
 4. Cliente guarda o token e envia em toda requisição:
        Authorization: Bearer <token>
 5. Kong confere o token usando o MESMO segredo (consumer no kong.yml)
-6. Serviço recebe a requisição e apenas DECODIFICA o token
-   (middlewares/extrairUsuario.js) para saber quem está logado
+6. Serviço recebe a requisição e CONFERE o token de novo (jwt.verify em
+   middlewares/extrairUsuario.js) para saber, com segurança, quem está logado
 7. O service decide se aquele usuário PODE fazer aquilo (autorização)
 ```
 
@@ -202,9 +202,13 @@ Um **JSON Web Token** é um "crachá digital" no formato `xxxxx.yyyyy.zzzzz`:
 Sem login → `401`; sem permissão → `403`. Assim ninguém cria leilão para outro
 leiloeiro, nem dá lance (e gasta o crédito) de outro licitante.
 
-Por que dá para confiar num token só **decodificado**? Porque o Kong já
-conferiu a assinatura e os serviços não têm porta exposta — só se chega a eles
-pelo Kong ou pela rede interna do Docker.
+Por que o serviço confere o token **de novo**, se o Kong já conferiu? No
+docker-compose só se chega aos serviços pelo Kong ou pela rede interna, mas no
+deploy do T2 (Render) cada serviço fica exposto na internet **sem o Kong na
+frente**. Se o serviço só lesse o token, qualquer pessoa poderia montar um token
+falso ("sou o leiloeiro 1"). Com o `jwt.verify`, só vale o token assinado com o
+`JWT_SECRET` do auth-service: token forjado ou vencido recebe `401`. É a ideia de
+**defesa em profundidade**: mais de uma barreira.
 
 > `sub` ≠ `perfilId`: o usuário 7 do auth-db pode ser o licitante 3 do
 > usuarios-db. As regras de autorização usam o `perfilId`.
@@ -406,10 +410,10 @@ métrica ficar abaixo de 50%.
 | Serviço | Testes | Cobertura (linhas) |
 |---|---|---|
 | auth-service | 56 | 91% |
-| usuarios-service | 102 | 84% |
-| leiloes-service | 96 | 88% |
-| lances-service | 90 | 82% |
-| **Total** | **344** | |
+| usuarios-service | 113 | 85% |
+| leiloes-service | 107 | 89% |
+| lances-service | 98 | 82% |
+| **Total** | **374** | |
 
 Como rodar:
 

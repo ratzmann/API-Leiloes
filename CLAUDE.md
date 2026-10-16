@@ -69,8 +69,10 @@ Roteiro da apresentação: [`docs/APRESENTACAO.md`](docs/APRESENTACAO.md).
   - registro: se o perfil falhar, o usuário é apagado (`authService.registrar`);
   - lance: Saga orquestrada (`sagas/registrarLanceSaga.js`);
   - cancelamento de leilão: libera as reservas do leilão; é idempotente e pode ser repetido.
-- O Kong é o único ponto de entrada público e valida o JWT; os serviços só **decodificam**
-  o token (`middlewares/extrairUsuario.js`).
+- O Kong é o único ponto de entrada público e valida o JWT; os serviços **também conferem
+  a assinatura** (`jwt.verify` em `middlewares/extrairUsuario.js`, com o `JWT_SECRET` e o
+  `JWT_ISSUER` do auth-service): token inválido ou vencido → `401`; sem token, a chamada
+  segue (chamadas internas); sem `JWT_SECRET` configurado, chamada com token → `500`.
 - **Autorização** fica nos `services/`, usando `papel` e `perfilId` do token
   (`req.usuarioAutenticado`). Sem login → `401`; sem permissão → `403`.
   - leilão: só o leiloeiro logado cadastra (em nome próprio) e só o dono altera;
@@ -86,8 +88,8 @@ Roteiro da apresentação: [`docs/APRESENTACAO.md`](docs/APRESENTACAO.md).
 - **Serviço sozinho (T2)**: no deploy isolado não há `USUARIOS_SERVICE_URL`. Aí o auth só cria
   a credencial e o leiloes não valida o leiloeiro nem libera reservas
   (`usuariosClient.estaConfigurado()`); com a URL, valem todas as regras.
-- Os serviços só **decodificam** o JWT. Na nuvem não há Kong na frente: o plano do T2 prevê
-  trocar por `jwt.verify` no `extrairUsuario.js` (ainda não feito).
+- Na nuvem (T2) não há Kong na frente: é por isso que os serviços conferem o token sozinhos.
+  Usuarios, leiloes e lances precisam do mesmo `JWT_SECRET`/`JWT_ISSUER` do auth-service.
 - **Arquivos idênticos entre serviços** (duplicação intencional: cada microsserviço é
   independente). Ao mudar um, copie para os outros:
   - nos 4 serviços: `config/db.js`, `utils/erros.js`, `db/migrar.js`, `middlewares/tratarErros.js`;
@@ -127,7 +129,7 @@ powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
 docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000
 ```
 
-- Estado atual: 344 testes unitários (cobertura de linhas entre 82% e 91%), 72 passos no
+- Estado atual: 374 testes unitários (cobertura de linhas entre 82% e 91%), 72 passos no
   ponta a ponta e 62 requisições (92 conferências) na coleção Postman, todos passando.
 - A coleção e o roteiro manual (`testes/roteiro-de-testes.md`, bash) geram dados novos a
   cada execução; ao mudar uma regra, atualize os dois junto com o `testar-tudo.ps1`.
@@ -136,6 +138,7 @@ docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-
   - regras: `tests/<modulo>.test.js`, com repositories e clients mockados (`__mocks__/`);
   - camada HTTP: `tests/rotas.test.js` (supertest, services mockados);
   - clients: `tests/usuariosClient.test.js` (`fetch` mockado);
+  - token: `tests/extrairUsuario.test.js` (idêntico em usuarios, leiloes e lances);
   - T2: `app.test.js` (`/health`, `/docs`, `/metrics`), `ambiente.test.js`, `db.test.js`,
     `migrar.test.js` e `metricas.test.js`.
 - O pipeline de cada serviço com T2 roda `npm ci`, `npm audit --omit=dev --audit-level=critical`,

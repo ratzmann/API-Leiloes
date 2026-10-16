@@ -132,7 +132,7 @@ como artefato do job.
 ```
 
 Requisição chegando: métricas (início do cronômetro) → `express.json` →
-`extrairUsuario` (decodifica o JWT, sem validar; quem valida é o Kong) → rota →
+`extrairUsuario` (confere a assinatura do JWT com `jwt.verify`; o Kong também confere) → rota →
 no fim da resposta, soma em `usuarios_http_requisicoes_total` e
 `usuarios_http_duracao_segundos`, com a rota **padronizada** (`/licitantes/:id`).
 

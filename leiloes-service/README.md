@@ -19,7 +19,7 @@ routes/  →  controllers/  →  services/  →  repositories/  →  Postgres
 | `services/` | **Regras de negócio** — é onde a lógica do leilão vive. |
 | `repositories/` | Único ponto que fala SQL com o Postgres. |
 | `clients/` | Comunicação REST com outros microsserviços. |
-| `middlewares/`, `utils/` | Apoio (decodificar JWT, validadores, erros). |
+| `middlewares/`, `utils/` | Apoio (conferir o JWT, validadores, erros). |
 
 Essa separação é o que permite testar as regras de negócio sem banco e sem
 rede: os testes trocam `repositories/` e `clients/` por mocks.

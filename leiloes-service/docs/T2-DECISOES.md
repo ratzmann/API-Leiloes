@@ -355,7 +355,9 @@ está na seção 5.
   `imagem` ganha `packages: write` (publicar) e `contents: write` (criar a tag).
 - O `.env.example` perdeu `JWT_SECRET`/`JWT_ISSUER`: o leiloes-service **não**
   usa o segredo (só decodifica o token; quem valida a assinatura é o Kong).
-  Menos segredo espalhado.
+  Menos segredo espalhado. *Atualização (16/10/2026):* com o `jwt.verify` (item de
+  segurança do plano do T2), o serviço passou a conferir a assinatura e voltou a
+  precisar do `JWT_SECRET`/`JWT_ISSUER`, inclusive no Render.
 
 ### D15. Commits e o que **não** foi feito
 

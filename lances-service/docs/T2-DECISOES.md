@@ -168,8 +168,9 @@ próprio) → Saga (4 passos, com compensação) → no fim, a Saga soma em
 - **Plano gratuito do Render:** um serviço parado "dorme" e leva até ~1 min para
   acordar, mais do que o tempo máximo das chamadas da Saga (`SERVICOS_TIMEOUT_MS`,
   3 s). Antes da demonstração, abra o `/health` do leiloes e do usuarios.
-- **Sem o Kong na nuvem**, os serviços só decodificam o JWT (quem confere a
-  assinatura é o Kong). O plano do T2 prevê trocar por `jwt.verify`.
+- **Sem o Kong na nuvem**, os serviços conferem a assinatura do JWT sozinhos
+  (`jwt.verify`, item de segurança do plano do T2): por isso o `JWT_SECRET` tem de
+  ser o mesmo em todos os serviços do ambiente.
 - A execução real no GitHub, no Render e no SonarCloud não foi testada aqui.
 
 ---

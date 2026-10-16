@@ -72,15 +72,15 @@ O pacote é publicado no nome do dono do repositório:
 ## 4. Render: dois serviços web
 
 Para cada linha: **New + → Web Service → Existing Image**, Instance Type
-**Free**, **Advanced → Health Check Path `/health`**. Hoje o lances só
-*decodifica* o token, então o `JWT_SECRET` ainda não é usado; deixe-o igual ao dos
-outros serviços **daquele ambiente** (combine com o Lucas), porque ele passa a
-ser necessário quando o `jwt.verify` do plano do T2 entrar.
+**Free**, **Advanced → Health Check Path `/health`**. O lances confere a
+assinatura do token (`jwt.verify`): o `JWT_SECRET` precisa ser **igual** ao dos
+outros serviços **daquele ambiente** (combine com o Lucas). Sem ele, toda chamada
+com token responde 500.
 
 | Name | Image URL | Variáveis |
 |---|---|---|
-| `lances-service-dev` | `ghcr.io/ratzmann/lances-service:dev` | `APP_ENV=dev`, `DATABASE_URL`=lances_dev, `DB_SSL=true`, `LEILOES_SERVICE_URL=https://leiloes-service-dev.onrender.com`, `USUARIOS_SERVICE_URL=https://usuarios-service-dev.onrender.com`, `SAGA_PERMITIR_FALHA_SIMULADA=true`, `JWT_SECRET`=segredo DEV |
-| `lances-service-homol` | `ghcr.io/ratzmann/lances-service:homol` | `APP_ENV=homol`, `DATABASE_URL`=lances_homol, `DB_SSL=true`, `LEILOES_SERVICE_URL=https://leiloes-service-homol.onrender.com`, `USUARIOS_SERVICE_URL=https://usuarios-service-homol.onrender.com`, `SAGA_PERMITIR_FALHA_SIMULADA=false`, `JWT_SECRET`=segredo HOMOL |
+| `lances-service-dev` | `ghcr.io/ratzmann/lances-service:dev` | `APP_ENV=dev`, `DATABASE_URL`=lances_dev, `DB_SSL=true`, `LEILOES_SERVICE_URL=https://leiloes-service-dev.onrender.com`, `USUARIOS_SERVICE_URL=https://usuarios-service-dev.onrender.com`, `SAGA_PERMITIR_FALHA_SIMULADA=true`, `JWT_SECRET`=segredo DEV, `JWT_ISSUER=sistema-leilao-auth` |
+| `lances-service-homol` | `ghcr.io/ratzmann/lances-service:homol` | `APP_ENV=homol`, `DATABASE_URL`=lances_homol, `DB_SSL=true`, `LEILOES_SERVICE_URL=https://leiloes-service-homol.onrender.com`, `USUARIOS_SERVICE_URL=https://usuarios-service-homol.onrender.com`, `SAGA_PERMITIR_FALHA_SIMULADA=false`, `JWT_SECRET`=segredo HOMOL, `JWT_ISSUER=sistema-leilao-auth` |
 
 - [ ] Teste cada um:
   - `/health` deve mostrar o `ambiente` certo;
@@ -183,7 +183,7 @@ gh pr create --base main --head develop           # merge -> deploy HOMOL
 | Deploy: `400` | Image URL do serviço não é `ghcr.io/ratzmann/lances-service:<tag>` | corrija a Image URL no Render |
 | Deploy: "versao ... nao apareceu a tempo" | o serviço não subiu | veja os **Logs** no Render (geralmente `DATABASE_URL`) |
 | Todo lance responde `503` | `LEILOES_SERVICE_URL`/`USUARIOS_SERVICE_URL` errados, ou serviços dormindo | confira as URLs; abra o `/health` dos dois antes |
-| Lance responde `401` | falta o header `Authorization: Bearer <token>` | faça login no auth-service e envie o token |
+| Lance responde `401` | falta o header `Authorization: Bearer <token>`, ou o `JWT_SECRET` do lances é diferente do auth-service | faça login no auth-service e envie o token; use o mesmo segredo em todos do ambiente |
 | Lance responde `403` | o token não é de LICITANTE, ou o `licitanteId` do corpo é de outra pessoa | dê lance com um licitante, em nome próprio |
 | `X-Simular-Falha` não tem efeito | `SAGA_PERMITIR_FALHA_SIMULADA` não é `true` | ligue só no DEV |
 | Sonar: `Project not found` | key/organização divergentes | etapas 5 e 6.1 |

@@ -21,6 +21,8 @@ const app = criarApp({ nome: 'teste', versao: '0.0.0', swaggerHabilitado: false 
 
 // token de um licitante logado (perfilId 2)
 const payloadLicitante = { sub: 20, papel: 'LICITANTE', perfilId: 2 };
+// o middleware confere a assinatura (jwt.verify): o teste usa o mesmo segredo
+process.env.JWT_SECRET = 'segredo-qualquer';
 const bearer = `Bearer ${jwt.sign(payloadLicitante, 'segredo-qualquer')}`;
 
 beforeEach(() => {
