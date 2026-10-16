@@ -88,6 +88,14 @@ describe('leilaoService.validarDados', () => {
     ).toThrow('Incremento minimo nao pode ser maior que o lance inicial.');
   });
 
+  test('compara em centavos: incremento igual ao lance inicial passa, mesmo com erro de ponto flutuante', () => {
+    // 0.1 + 0.2 = 0.30000000000000004 em JavaScript: comparando em decimais,
+    // o incremento pareceria maior que o lance inicial de 0.3
+    expect(() =>
+      leilaoService.validarDados(leilaoValido({ lanceInicial: 0.3, incrementoMinimo: 0.1 + 0.2 }))
+    ).not.toThrow();
+  });
+
   test('rejeita data de fim anterior a data de inicio', () => {
     expect(() =>
       leilaoService.validarDados(leilaoValido({ dataInicio: emHoras(26), dataFim: emHoras(24) }))

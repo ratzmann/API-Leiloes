@@ -30,6 +30,7 @@ const {
   paraData,
   numeroPositivo,
   inteiroPositivo,
+  centavos,
   statusValido,
   transicaoPermitida,
   periodosSobrepoem,
@@ -63,7 +64,8 @@ function validarDados({
   if (!numeroPositivo(incrementoMinimo)) {
     throw new ErroDeValidacao('Incremento minimo deve ser maior que zero.');
   }
-  if (Number(incrementoMinimo) > Number(lanceInicial)) {
+  // Dinheiro e comparado em centavos (inteiros), nunca em decimais.
+  if (centavos(incrementoMinimo) > centavos(lanceInicial)) {
     throw new ErroDeValidacao('Incremento minimo nao pode ser maior que o lance inicial.');
   }
   if (!dataValida(dataInicio) || !dataValida(dataFim)) {
