@@ -1,3 +1,10 @@
+// =============================================================================
+// tests/db.test.js  -  testes da CONEXAO com o banco (T2)
+// -----------------------------------------------------------------------------
+// opcoesDeConexao (config/db.js): DATABASE_URL na nuvem (Neon/Render) ou as
+// variaveis DB_* no docker-compose, e o SSL ligado por DB_SSL=true.
+// =============================================================================
+
 const { opcoesDeConexao } = require('../src/config/db');
 
 describe('opcoesDeConexao', () => {

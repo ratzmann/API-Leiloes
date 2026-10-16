@@ -1,5 +1,13 @@
+// =============================================================================
+// tests/metricas.test.js  -  testes das METRICAS do auth-service (T2)
+// -----------------------------------------------------------------------------
+// Confere os contadores de negocio e o rotulo de rota usado nas metricas HTTP
+// (sempre o PADRAO da rota, nunca a URL com o id).
+// =============================================================================
+
 const metricas = require('../src/observabilidade/metricas');
 
+/** Le o valor atual de uma metrica (com os rotulos pedidos) no registro. */
 async function valorDe(nome, rotulos = {}) {
   const { values } = await metricas.registro.getSingleMetric(nome).get();
   const item = values.find((v) =>

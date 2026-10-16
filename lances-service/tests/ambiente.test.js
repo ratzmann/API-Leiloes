@@ -1,3 +1,11 @@
+// =============================================================================
+// tests/ambiente.test.js  -  testes do AMBIENTE (T2)
+// -----------------------------------------------------------------------------
+// APP_ENV, NODE_ENV, SWAGGER_ENABLED e VERSAO_IMAGEM decidem o nome do ambiente,
+// a versao e se o Swagger liga (config/ambiente.js). Sem servidor e sem banco.
+// (Arquivo identico nos 4 servicos.)
+// =============================================================================
+
 const { carregarAmbiente } = require('../src/config/ambiente');
 const { version } = require('../package.json');
 

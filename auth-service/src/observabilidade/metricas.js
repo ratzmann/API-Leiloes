@@ -1,6 +1,20 @@
-// Metricas no formato do Prometheus (biblioteca prom-client).
-// O Prometheus le GET /metrics a cada 15 s e o Grafana desenha os graficos
-// (ver a pasta observabilidade/ na raiz do servico).
+// =============================================================================
+// observabilidade/metricas.js  -  METRICAS do auth-service para o Prometheus
+// -----------------------------------------------------------------------------
+// T2 (observabilidade). Usa a biblioteca prom-client. O Prometheus le
+// GET /metrics a cada 15 s e o Grafana desenha os graficos (ver a pasta
+// observabilidade/ na raiz do servico).
+//
+// Tres grupos de metricas, todas com o prefixo auth_:
+//   1. do processo Node (CPU, memoria, event loop), coletadas sozinhas;
+//   2. HTTP: quantas requisicoes e quanto tempo, por metodo, rota e status;
+//   3. de NEGOCIO:
+//        auth_registros_total{papel}   registros feitos com sucesso;
+//        auth_logins_total{resultado}  logins com sucesso ou com credencial errada.
+//
+// Quem chama: app.js (middlewares e GET /metrics) e services/authService.js (contadores).
+// =============================================================================
+
 const client = require('prom-client');
 
 // Registro proprio (em vez do global) pra controlar exatamente o que e exposto.
@@ -39,14 +53,19 @@ const logins = new client.Counter({
   registers: [registro],
 });
 
-// Rotulos fixos em TODAS as metricas: de qual servico, ambiente e versao vieram.
+/**
+ * Rotulos fixos em TODAS as metricas: de qual servico, ambiente e versao vieram.
+ * Recebe { ambiente, versao } (de config/ambiente.js).
+ */
 function definirRotulosPadrao({ ambiente, versao }) {
   registro.setDefaultLabels({ service: 'auth-service', ambiente, versao });
 }
 
-// Usa o PADRAO da rota registrada no Express, nunca a URL real: cada URL
-// diferente (ex.: /qualquer-coisa) criaria uma serie nova no Prometheus
-// ("explosao de cardinalidade").
+/**
+ * Devolve o PADRAO da rota registrada no Express, nunca a URL real: cada URL
+ * diferente (ex.: /qualquer-coisa) criaria uma serie nova no Prometheus
+ * ("explosao de cardinalidade"). Sem rota (404) devolve 'nao_encontrada'.
+ */
 function rotaDaRequisicao(req) {
   if (req.route && req.route.path) {
     const caminho = req.route.path === '/' ? '' : req.route.path;
@@ -56,7 +75,10 @@ function rotaDaRequisicao(req) {
   return 'nao_encontrada';
 }
 
-// Middleware: mede cada requisicao quando a resposta termina ('finish').
+/**
+ * Middleware que mede cada requisicao quando a resposta termina ('finish'):
+ * conta a requisicao e registra quanto tempo ela levou.
+ */
 function medirRequisicoes(req, res, next) {
   // a leitura do proprio Prometheus nao conta como trafego da aplicacao
   if (req.path === '/metrics') return next();
@@ -74,17 +96,25 @@ function medirRequisicoes(req, res, next) {
   return next();
 }
 
+/**
+ * GET /metrics: responde todas as metricas no formato de texto do Prometheus.
+ */
 async function responderMetricas(req, res) {
   res.set('Content-Type', registro.contentType);
   res.end(await registro.metrics());
 }
 
-// papel: 'LEILOEIRO' | 'LICITANTE'
+/**
+ * Conta um registro feito com sucesso, pelo papel: 'LEILOEIRO' | 'LICITANTE'.
+ */
 function registrarRegistro(papel) {
   registros.inc({ papel });
 }
 
-// resultado: 'sucesso' | 'falha'
+/**
+ * Conta um login pelo resultado: 'sucesso' | 'falha' (credencial errada;
+ * erro de infraestrutura, como banco fora do ar, nao conta).
+ */
 function registrarLogin(resultado) {
   logins.inc({ resultado });
 }

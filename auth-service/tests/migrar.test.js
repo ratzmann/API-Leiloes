@@ -1,3 +1,10 @@
+// =============================================================================
+// tests/migrar.test.js  -  testes da MIGRACAO do banco (T2)
+// -----------------------------------------------------------------------------
+// db/migrar.js roda o init.sql; se o banco ainda nao responde, tenta de novo e
+// desiste depois do limite de tentativas. Usa um banco falso (jest.fn).
+// =============================================================================
+
 const migrar = require('../src/db/migrar');
 
 beforeEach(() => jest.spyOn(console, 'warn').mockImplementation(() => {}));
