@@ -5,7 +5,11 @@
 //   - reservarCredito -> PASSO 2 (bloqueia o valor do lance)
 //   - liberarReserva  -> COMPENSACAO do passo 2 e PASSO 4 (devolve o valor)
 // As rotas chamadas (/licitantes/:id/reservas) sao internas: o Kong bloqueia
-// quem vem de fora, mas este servico chama direto pela rede do Docker.
+// quem vem de fora e o usuarios-service exige a chave interna (header
+// X-Chave-Interna, que o clients/http.js manda sozinho). Este servico chama
+// direto pela rede do Docker.
+//
+// Quem chama: sagas/registrarLanceSaga.js | Quem e chamado: clients/http.js
 // =============================================================================
 
 const { requisicao, urlBase, ServicoIndisponivel } = require('./http');

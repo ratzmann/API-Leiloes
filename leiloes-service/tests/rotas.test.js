@@ -5,7 +5,8 @@
 // o caminho HTTP: rota -> controller -> service, com o STATUS certo.
 //   - supertest faz requisicoes HTTP de verdade contra o `app` do Express;
 //   - o leilaoService e mockado (jest.mock): sem banco e sem outros servicos;
-//   - o token e gerado com jwt.sign so para o middleware ter o que decodificar.
+//   - o token e gerado com jwt.sign e o mesmo JWT_SECRET do teste, porque o
+//     middleware extrairUsuario confere a assinatura (jwt.verify).
 // =============================================================================
 
 jest.mock('../src/services/leilaoService');

@@ -70,7 +70,8 @@ function criarApp(ambiente) {
   // lembrarPrefixo guarda o prefixo para as metricas (ver observabilidade/metricas.js).
   app.use('/leiloeiros', metricas.lembrarPrefixo, leiloeiroRoutes);
   app.use('/licitantes', metricas.lembrarPrefixo, licitanteRoutes);
-  // Interna: o Kong nao tem rota /reservas, entao so a rede do Docker alcanca.
+  // Interna: o Kong nao tem rota /reservas, entao so a rede do Docker alcanca;
+  // e a rota ainda exige a chave interna (middlewares/exigirChaveInterna.js).
   app.use('/reservas', metricas.lembrarPrefixo, reservaRoutes);
 
   // Nenhuma rota atendeu: 404.

@@ -195,7 +195,8 @@ async function garantirAgendaLivre(leiloeiroId, dataInicio, dataFim, ignorarId =
  * AUTORIZACAO do cadastro: decide EM NOME DE QUAL leiloeiro o leilao sera criado.
  *
  * Autenticacao x autorizacao:
- *   - autenticacao = "quem e voce?"  -> o Kong confere o token JWT;
+ *   - autenticacao = "quem e voce?"  -> o Kong e o middleware extrairUsuario
+ *                                     conferem o token JWT;
  *   - autorizacao  = "voce PODE fazer isto?" -> esta funcao.
  *
  *   - sem usuario logado                             -> 401

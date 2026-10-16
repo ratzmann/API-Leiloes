@@ -2,7 +2,8 @@
 // utils/autorizacao.js  -  "voce PODE mexer neste cadastro?"
 // -----------------------------------------------------------------------------
 // Autenticacao x autorizacao:
-//   - autenticacao = "quem e voce?"  -> o Kong confere o token JWT;
+//   - autenticacao = "quem e voce?"  -> o Kong e o middleware extrairUsuario
+//                                       conferem o token JWT;
 //   - autorizacao  = "voce PODE fazer isto?" -> esta funcao.
 //
 // Regras:

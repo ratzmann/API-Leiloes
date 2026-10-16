@@ -1,11 +1,12 @@
 // =============================================================================
 // tests/leilaoService.test.js  -  testes das regras do leilao
 // -----------------------------------------------------------------------------
-// Cobre as regras 1 a 8: dados do evento, data futura, leiloeiro existente
-// (usuarios-service mockado, incluindo servico fora do ar -> 503), agenda livre,
-// transicoes de status, edicao/remocao so enquanto AGENDADO e a Regra 7
-// (autorizacao: so o leiloeiro logado cadastra, e so o dono altera) e a Regra 8
-// (cancelar devolve o credito reservado, com repeticao segura se falhar).
+// Cobre as regras 1 a 8: dados do evento (dinheiro comparado em centavos), data
+// futura (no cadastro e na edicao), leiloeiro existente (usuarios-service
+// mockado, incluindo servico fora do ar -> 503), agenda livre, transicoes de
+// status, edicao/remocao so enquanto AGENDADO, a Regra 7 (autorizacao: so o
+// leiloeiro logado cadastra, e so o dono altera) e a Regra 8 (cancelar devolve
+// o credito reservado, com repeticao segura se falhar).
 // COMO LER UM TESTE (Jest):
 //   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
 //   test('descricao', () => { ... })    um cenario (chamado tambem de it);

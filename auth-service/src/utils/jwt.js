@@ -13,21 +13,27 @@
 // Atencao: o payload NAO e criptografado, so codificado (qualquer um le).
 // Por isso nunca colocamos senha ou dado sigiloso dentro do token.
 //
-// Quem VALIDA o token nas rotas protegidas e o Kong (plugin jwt), que conhece
-// o mesmo segredo (ver kong/kong.yml, secao consumers). Por isso o "issuer"
-// (claim iss) precisa ser igual a "key" configurada no Kong.
+// Quem VALIDA o token: o Kong (plugin jwt, ver kong/kong.yml, secao consumers)
+// e, de novo, cada servico que recebe o token (usuarios, leiloes e lances, no
+// middlewares/extrairUsuario.js, com jwt.verify). Todos conhecem o mesmo
+// segredo, e o "issuer" (claim iss) precisa ser igual a "key" do Kong e ao
+// JWT_ISSUER dos servicos.
+//
+// Quem chama: services/authService.js (gerarToken, no registro e no login)
 // =============================================================================
 
 // Biblioteca que sabe criar (sign) e conferir (verify) tokens JWT.
 const jwt = require('jsonwebtoken');
 
 // Configuracoes lidas das variaveis de ambiente (docker-compose.yml).
-// SECRET: a "chave" da assinatura - precisa ser a mesma configurada no Kong.
+// SECRET: a "chave" da assinatura - precisa ser a mesma do Kong e dos servicos.
 const SECRET = process.env.JWT_SECRET;
 // ISSUER: "quem emitiu" o token (claim iss). O Kong usa esse valor para achar
-// qual segredo usar na conferencia (key_claim_name: iss no kong.yml).
+// qual segredo usar na conferencia (key_claim_name: iss no kong.yml), e os
+// servicos conferem se ele e o esperado (JWT_ISSUER).
 const ISSUER = process.env.JWT_ISSUER;
-// Tempo de validade do token ('2h' = duas horas). Depois disso o Kong recusa.
+// Tempo de validade do token ('2h' = duas horas). Depois disso o Kong e os
+// servicos recusam o token (401).
 const EXPIRES_IN = process.env.JWT_EXPIRES_IN || '2h';
 
 /**
@@ -63,6 +69,7 @@ function gerarToken(usuario) {
   );
 }
 
-// Nao ha funcao de "verificar token" aqui: quem confere assinatura e
-// validade dos tokens e o Kong, antes de a requisicao chegar aos servicos.
+// Nao ha funcao de "verificar token" aqui: o auth-service so EMITE tokens.
+// Quem confere assinatura e validade e o Kong e o extrairUsuario.js dos outros
+// servicos.
 module.exports = { gerarToken };
