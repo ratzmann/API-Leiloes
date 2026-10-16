@@ -33,7 +33,7 @@ function criarApp(ambiente) {
 
   // Converte o corpo JSON das requisicoes em objeto (req.body).
   app.use(express.json());
-  // Decodifica o token JWT (se houver) em req.usuarioAutenticado.
+  // Confere o token JWT (se houver) e guarda quem esta logado em req.usuarioAutenticado.
   app.use(extrairUsuario);
 
   // Healthcheck com versao e ambiente: o smoke test do pipeline confere que a

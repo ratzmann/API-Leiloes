@@ -31,6 +31,8 @@ const app = criarApp({ nome: 'teste', versao: '0.0.0', swaggerHabilitado: false 
 
 // token de um licitante logado (perfilId 3) no formato "Bearer <token>"
 const payloadLicitante = { sub: 30, papel: 'LICITANTE', perfilId: 3 };
+// o middleware confere a assinatura (jwt.verify): o teste usa o mesmo segredo
+process.env.JWT_SECRET = 'segredo-qualquer';
 const bearer = `Bearer ${jwt.sign(payloadLicitante, 'segredo-qualquer')}`;
 
 beforeEach(() => {
@@ -239,11 +241,14 @@ describe('rota interna /reservas (cancelamento de leilao)', () => {
 });
 
 describe('middleware extrairUsuario', () => {
-  test('token malformado nao derruba a requisicao (usuario fica vazio)', async () => {
-    leiloeiroService.atualizar.mockResolvedValue({ id: 7 });
-    const res = await request(app).put('/leiloeiros/7').set('Authorization', 'Bearer nao-e-um-jwt').send({});
-    expect(res.status).toBe(200);
-    expect(leiloeiroService.atualizar).toHaveBeenCalledWith(7, {}, null);
+  test('token malformado ou forjado responde 401 no formato { erro } e nao chega ao service', async () => {
+    const forjado = `Bearer ${jwt.sign(payloadLicitante, 'segredo-falso')}`;
+    for (const cabecalho of ['Bearer nao-e-um-jwt', forjado]) {
+      const res = await request(app).put('/leiloeiros/7').set('Authorization', cabecalho).send({});
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ erro: 'Token invalido ou expirado.' });
+    }
+    expect(leiloeiroService.atualizar).not.toHaveBeenCalled();
   });
 });
 

@@ -21,6 +21,8 @@ const app = criarApp({ nome: 'teste', versao: '0.0.0', swaggerHabilitado: false 
 
 // token de um leiloeiro logado (perfilId 1)
 const payloadLeiloeiro = { sub: 10, papel: 'LEILOEIRO', perfilId: 1 };
+// o middleware confere a assinatura (jwt.verify): o teste usa o mesmo segredo
+process.env.JWT_SECRET = 'segredo-qualquer';
 const bearer = `Bearer ${jwt.sign(payloadLeiloeiro, 'segredo-qualquer')}`;
 const comUsuario = expect.objectContaining(payloadLeiloeiro);
 
