@@ -1,3 +1,11 @@
+// =============================================================================
+// tests/app.test.js  -  testes da parte do T2 no app do auth-service
+// -----------------------------------------------------------------------------
+// /health com versao e ambiente (usado pelo smoke test do deploy), Swagger so no
+// DEV e /metrics com a rota padronizada. Repositorios e clients sao trocados por
+// mocks (jest.mock): sem banco e sem rede.
+// =============================================================================
+
 jest.mock('../src/repositories/usuarioRepository');
 
 const request = require('supertest');

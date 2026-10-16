@@ -1,6 +1,12 @@
-// Especificacao OpenAPI 3 do usuarios-service, mostrada pelo Swagger UI em /docs.
-// Escrita a mao (objeto JS) pra nao precisar de biblioteca de YAML nem de anotacoes.
-// So e publicada nos ambientes com Swagger ligado (ver config/ambiente.js).
+// =============================================================================
+// docs/openapi.js  -  ESPECIFICACAO OpenAPI 3 do usuarios-service (Swagger)
+// -----------------------------------------------------------------------------
+// T2. Mostrada pelo Swagger UI em /docs, so nos ambientes com Swagger ligado
+// (local e dev; ver config/ambiente.js). Escrita a mao (objeto JS) pra nao
+// precisar de biblioteca de YAML nem de anotacoes no codigo.
+//
+// Quem chama: app.js (criarDocumentoOpenApi(versao)) e tests/app.test.js.
+// =============================================================================
 
 const erro = (descricao) => ({
   description: descricao,
@@ -32,8 +38,12 @@ const corpo = (schema) => ({
   content: { 'application/json': { schema } },
 });
 
-// CRUD igual para /leiloeiros e /licitantes; muda o nome, os schemas e o texto
-// do 403 (o licitante tambem nao altera o proprio limite de credito)
+/**
+ * Monta as rotas iguais de /leiloeiros e /licitantes (listar, cadastrar, buscar,
+ * atualizar e remover). Recebe o nome da tag, os schemas de entrada, edicao e
+ * saida e o texto do 403 (o licitante tambem nao altera o proprio limite de
+ * credito). Devolve { colecao, item }, os dois caminhos prontos.
+ */
 function crud({ tag, singular, entrada, edicao, saida, semPermissao }) {
   const id = parametroId(`Id do ${singular}`);
   const soOProprio = erro(semPermissao);
@@ -95,6 +105,10 @@ function crud({ tag, singular, entrada, edicao, saida, semPermissao }) {
   };
 }
 
+/**
+ * Monta e devolve o documento OpenAPI (rotas, corpos e respostas de cada uma).
+ * Recebe `versao` (a versao da imagem, mostrada no topo do Swagger).
+ */
 function criarDocumentoOpenApi(versao) {
   const leiloeiros = crud({
     tag: 'Leiloeiros',

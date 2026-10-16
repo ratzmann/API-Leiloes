@@ -1,6 +1,12 @@
-// Especificacao OpenAPI 3 do auth-service, mostrada pelo Swagger UI em /docs.
-// Escrita a mao (objeto JS) pra nao precisar de biblioteca de YAML nem de anotacoes.
-// So e publicada nos ambientes com Swagger ligado (ver config/ambiente.js).
+// =============================================================================
+// docs/openapi.js  -  ESPECIFICACAO OpenAPI 3 do auth-service (Swagger)
+// -----------------------------------------------------------------------------
+// T2. Mostrada pelo Swagger UI em /docs, so nos ambientes com Swagger ligado
+// (local e dev; ver config/ambiente.js). Escrita a mao (objeto JS) pra nao
+// precisar de biblioteca de YAML nem de anotacoes no codigo.
+//
+// Quem chama: app.js (criarDocumentoOpenApi(versao)) e tests/app.test.js.
+// =============================================================================
 
 const erro = (descricao) => ({
   description: descricao,
@@ -12,6 +18,10 @@ const json = (descricao, nome) => ({
   content: { 'application/json': { schema: { $ref: `#/components/schemas/${nome}` } } },
 });
 
+/**
+ * Monta e devolve o documento OpenAPI (rotas, corpos e respostas de cada uma).
+ * Recebe `versao` (a versao da imagem, mostrada no topo do Swagger).
+ */
 function criarDocumentoOpenApi(versao) {
   return {
     openapi: '3.0.3',
