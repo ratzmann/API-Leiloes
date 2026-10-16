@@ -83,14 +83,19 @@ Roteiro da apresentação: [`docs/APRESENTACAO.md`](docs/APRESENTACAO.md).
 - **Privacidade (LGPD)**: dados pessoais (CPF, e-mail, telefone, limite) só para o próprio dono;
   os demais recebem os campos públicos (`visaoPara` em `utils/autorizacao.js`).
 - **Rotas internas** (só entre serviços):
-  - `POST /licitantes/:id/reservas...` e `POST /leiloeiros|/licitantes`: o Kong responde `403`;
-  - `/reservas/leilao/:id/liberar`: o Kong nem tem rota `/reservas`.
+  - `/licitantes/:id/reservas...` e `POST /leiloeiros|/licitantes`: o Kong responde `403`;
+  - `/reservas/leilao/:id/liberar`: o Kong nem tem rota `/reservas`;
+  - além do Kong, o usuarios-service exige a **chave interna** nessas rotas
+    (`middlewares/exigirChaveInterna.js`): os clients mandam o header `X-Chave-Interna`
+    com a `CHAVE_INTERNA` (`clients/http.js`). Sem a chave → `403`; sem `CHAVE_INTERNA`
+    configurada no usuarios → `500` (rotas internas desligadas, nunca abertas).
 - A Admin API do Kong (8001) é publicada só em `127.0.0.1`.
 - **Serviço sozinho (T2)**: no deploy isolado não há `USUARIOS_SERVICE_URL`. Aí o auth só cria
   a credencial e o leiloes não valida o leiloeiro nem libera reservas
   (`usuariosClient.estaConfigurado()`); com a URL, valem todas as regras.
-- Na nuvem (T2) não há Kong na frente: é por isso que os serviços conferem o token sozinhos.
-  Usuarios, leiloes e lances precisam do mesmo `JWT_SECRET`/`JWT_ISSUER` do auth-service.
+- Na nuvem (T2) não há Kong na frente: é por isso que os serviços conferem o token e a
+  chave interna sozinhos. Usuarios, leiloes e lances precisam do mesmo
+  `JWT_SECRET`/`JWT_ISSUER` do auth-service, e os 4 serviços, da mesma `CHAVE_INTERNA`.
 - **Arquivos idênticos entre serviços** (duplicação intencional: cada microsserviço é
   independente). Ao mudar um, copie para os outros:
   - nos 4 serviços: `config/db.js`, `utils/erros.js`, `db/migrar.js`, `middlewares/tratarErros.js`;

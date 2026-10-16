@@ -32,6 +32,9 @@ services:
       DB_USER: usuarios_user
       DB_PASSWORD: usuarios_pass
       DB_NAME: usuarios_db
+      # rotas internas (criar perfil, reservas): o gerar-trafego.ps1 manda esta
+      # chave no header X-Chave-Interna, como fariam os outros servicos
+      CHAVE_INTERNA: ${CHAVE_INTERNA:-chave-interna-trabalho-microsservicos}
     ports:
       - "3002:3002"
     depends_on:

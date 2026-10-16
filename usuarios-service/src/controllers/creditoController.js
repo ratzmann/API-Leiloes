@@ -5,7 +5,8 @@
 // interna /reservas/leilao/:leilaoId/liberar (cancelamento de leilao).
 // As rotas de reserva sao chamadas por outros servicos (a SAGA do
 // lances-service e o leiloes-service), e nao pelo usuario final - o Kong
-// bloqueia /licitantes/:id/reservas e nem expoe /reservas.
+// bloqueia /licitantes/:id/reservas e nem expoe /reservas, e as rotas exigem a
+// chave interna (middlewares/exigirChaveInterna.js) antes de chegar aqui.
 //
 // Lembrete do papel do controller: ler req -> chamar service -> responder res.
 // Quem chama: routes/licitanteRoutes.js e routes/reservaRoutes.js

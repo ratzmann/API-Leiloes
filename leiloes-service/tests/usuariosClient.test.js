@@ -48,6 +48,17 @@ describe('usuariosClient.liberarReservasDoLeilao (Regra 8)', () => {
     expect(opcoes.method).toBe('POST');
   });
 
+  test('manda a chave interna (X-Chave-Interna) quando CHAVE_INTERNA esta configurada', async () => {
+    global.fetch.mockResolvedValue(resposta(200, { leilaoId: 4, liberadas: 0 }));
+    process.env.CHAVE_INTERNA = 'chave-de-teste';
+    await usuariosClient.liberarReservasDoLeilao(4);
+    delete process.env.CHAVE_INTERNA;
+    await usuariosClient.liberarReservasDoLeilao(4);
+
+    expect(global.fetch.mock.calls[0][1].headers['X-Chave-Interna']).toBe('chave-de-teste');
+    expect(global.fetch.mock.calls[1][1].headers).not.toHaveProperty('X-Chave-Interna');
+  });
+
   test('resposta diferente de 200 vira ServicoIndisponivel', async () => {
     global.fetch.mockResolvedValue(resposta(400, { erro: 'leilaoId invalido.' }));
     await expect(usuariosClient.liberarReservasDoLeilao(4)).rejects.toBeInstanceOf(usuariosClient.ServicoIndisponivel);

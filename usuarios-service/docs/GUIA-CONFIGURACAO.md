@@ -72,16 +72,20 @@ gh pr create --base main --head develop --title "Release auth-service 1.1.0 e us
 Gere **um** segredo de JWT por ambiente (ex.: `openssl rand -hex 32`). O mesmo
 valor vai em **todos os serviços daquele ambiente** (auth, usuarios, leiloes e
 lances): o auth assina o token e os outros o leem.
+Gere também **uma** `CHAVE_INTERNA` por ambiente (o mesmo comando), igual nos
+4 serviços daquele ambiente: é a chave das rotas internas do usuarios-service
+(criar perfil, reservar e liberar crédito). Sem ela no usuarios, o registro e os
+lances falham (essas rotas respondem `500`).
 
 Para cada linha da tabela: **New + → Web Service → Existing Image**, Instance
 Type **Free**, **Advanced → Health Check Path `/health`**.
 
 | Name | Image URL | Variáveis |
 |---|---|---|
-| `usuarios-service-dev` | `ghcr.io/ratzmann/usuarios-service:dev` | `APP_ENV=dev`, `DATABASE_URL`=usuarios_dev, `DB_SSL=true`, `JWT_SECRET`=segredo DEV, `JWT_ISSUER=sistema-leilao-auth` |
-| `usuarios-service-homol` | `ghcr.io/ratzmann/usuarios-service:homol` | `APP_ENV=homol`, `DATABASE_URL`=usuarios_homol, `DB_SSL=true`, `JWT_SECRET`=segredo HOMOL, `JWT_ISSUER=sistema-leilao-auth` |
-| `auth-service-dev` | `ghcr.io/ratzmann/auth-service:dev` | `APP_ENV=dev`, `DATABASE_URL`=auth_dev, `DB_SSL=true`, `JWT_SECRET`=segredo DEV, `JWT_ISSUER=sistema-leilao-auth`, `JWT_EXPIRES_IN=2h`, `USUARIOS_SERVICE_URL=https://usuarios-service-dev.onrender.com` |
-| `auth-service-homol` | `ghcr.io/ratzmann/auth-service:homol` | `APP_ENV=homol`, `DATABASE_URL`=auth_homol, `DB_SSL=true`, `JWT_SECRET`=segredo HOMOL, `JWT_ISSUER=sistema-leilao-auth`, `JWT_EXPIRES_IN=2h`, `USUARIOS_SERVICE_URL=https://usuarios-service-homol.onrender.com` |
+| `usuarios-service-dev` | `ghcr.io/ratzmann/usuarios-service:dev` | `APP_ENV=dev`, `DATABASE_URL`=usuarios_dev, `DB_SSL=true`, `JWT_SECRET`=segredo DEV, `JWT_ISSUER=sistema-leilao-auth`, `CHAVE_INTERNA`=chave DEV |
+| `usuarios-service-homol` | `ghcr.io/ratzmann/usuarios-service:homol` | `APP_ENV=homol`, `DATABASE_URL`=usuarios_homol, `DB_SSL=true`, `JWT_SECRET`=segredo HOMOL, `JWT_ISSUER=sistema-leilao-auth`, `CHAVE_INTERNA`=chave HOMOL |
+| `auth-service-dev` | `ghcr.io/ratzmann/auth-service:dev` | `APP_ENV=dev`, `DATABASE_URL`=auth_dev, `DB_SSL=true`, `JWT_SECRET`=segredo DEV, `JWT_ISSUER=sistema-leilao-auth`, `CHAVE_INTERNA`=chave DEV, `JWT_EXPIRES_IN=2h`, `USUARIOS_SERVICE_URL=https://usuarios-service-dev.onrender.com` |
+| `auth-service-homol` | `ghcr.io/ratzmann/auth-service:homol` | `APP_ENV=homol`, `DATABASE_URL`=auth_homol, `DB_SSL=true`, `JWT_SECRET`=segredo HOMOL, `JWT_ISSUER=sistema-leilao-auth`, `CHAVE_INTERNA`=chave HOMOL, `JWT_EXPIRES_IN=2h`, `USUARIOS_SERVICE_URL=https://usuarios-service-homol.onrender.com` |
 
 Crie o **usuarios primeiro**, porque o auth aponta para ele.
 
@@ -90,7 +94,8 @@ Crie o **usuarios primeiro**, porque o auth aponta para ele.
   - `/docs` abre o Swagger no **DEV** e dá **404** no **HOMOL**.
 - [ ] Em cada serviço: **Settings → Deploy Hook → copie a URL** (é secreta).
 - [ ] Avise o Thiago: o `USUARIOS_SERVICE_URL` do leiloes pode apontar para o
-      `usuarios-service-dev` / `-homol`, e o `JWT_SECRET` precisa ser o mesmo.
+      `usuarios-service-dev` / `-homol`, e o `JWT_SECRET` e a `CHAVE_INTERNA`
+      precisam ser os mesmos.
 
 > Se o Render der outro endereço (nome em uso), use o endereço real nas etapas
 > 6 e 9 e no `USUARIOS_SERVICE_URL` do auth.

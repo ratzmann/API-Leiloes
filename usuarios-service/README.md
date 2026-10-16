@@ -47,3 +47,4 @@ Variáveis:
 | `DATABASE_URL` + `DB_SSL=true` | banco gerenciado (Neon); substitui as `DB_*` |
 | `VERSAO_IMAGEM` | gravada pelo pipeline no build da imagem (ex.: `1.1.0-dev.14`) |
 | `JWT_SECRET`, `JWT_ISSUER` | os mesmos do auth-service |
+| `CHAVE_INTERNA` | exigida nas rotas internas (criar perfil, reservar e liberar crédito) no header `X-Chave-Interna`; a mesma em todos os serviços do ambiente; sem ela, essas rotas respondem `500` |

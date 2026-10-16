@@ -1,15 +1,18 @@
 # Gera trafego no usuarios-service para movimentar os graficos do Grafana.
 #   powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1
-#   powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1 -BaseUrl https://usuarios-service-dev.onrender.com -Rodadas 10
+#   powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1 -BaseUrl https://usuarios-service-dev.onrender.com -ChaveInterna <chave do DEV> -Rodadas 10
 #
 # Fala direto com o servico (sem o Kong): cadastros, credito da saga e alguns erros de proposito.
+# Cadastros e reservas sao rotas INTERNAS: o script manda a chave interna no header
+# X-Chave-Interna, como fazem os outros servicos (padrao: a do docker-compose).
 param(
     [string]$BaseUrl = "http://localhost:3002",
+    [string]$ChaveInterna = "chave-interna-trabalho-microsservicos",
     [int]$Rodadas = 20
 )
 
 function Chamar($metodo, $rota, $corpo = $null) {
-    $parametros = @{ Uri = "$BaseUrl$rota"; Method = $metodo; ContentType = "application/json" }
+    $parametros = @{ Uri = "$BaseUrl$rota"; Method = $metodo; ContentType = "application/json"; Headers = @{ "X-Chave-Interna" = $ChaveInterna } }
     if ($corpo) { $parametros.Body = ($corpo | ConvertTo-Json) }
     try {
         $resposta = Invoke-RestMethod @parametros

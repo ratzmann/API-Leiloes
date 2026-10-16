@@ -49,6 +49,17 @@ describe('usuariosClient.criarPerfil', () => {
     });
   });
 
+  test('manda a chave interna (X-Chave-Interna) quando CHAVE_INTERNA esta configurada', async () => {
+    global.fetch.mockResolvedValue(resposta(201, { id: 3 }));
+    process.env.CHAVE_INTERNA = 'chave-de-teste';
+    await usuariosClient.criarPerfil(usuario, 'LICITANTE', {});
+    delete process.env.CHAVE_INTERNA;
+    await usuariosClient.criarPerfil(usuario, 'LICITANTE', {});
+
+    expect(global.fetch.mock.calls[0][1].headers['X-Chave-Interna']).toBe('chave-de-teste');
+    expect(global.fetch.mock.calls[1][1].headers).not.toHaveProperty('X-Chave-Interna');
+  });
+
   test('leiloeiro: POST /leiloeiros', async () => {
     global.fetch.mockResolvedValue(resposta(201, { id: 5 }));
     await usuariosClient.criarPerfil(usuario, 'LEILOEIRO', {});

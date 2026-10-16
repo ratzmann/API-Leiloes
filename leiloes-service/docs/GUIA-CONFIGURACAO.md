@@ -109,6 +109,7 @@ Escolha **um** caminho:
 | `DB_SSL` | `true` |
 | `JWT_SECRET` | o mesmo segredo do auth-service DEV (o serviço confere a assinatura do token) |
 | `JWT_ISSUER` | `sistema-leilao-auth` |
+| `CHAVE_INTERNA` | a chave interna do ambiente DEV, a mesma dos outros serviços (usada para liberar o crédito ao cancelar, quando há `USUARIOS_SERVICE_URL`) |
 
 - [ ] **Advanced → Health Check Path**: `/health`.
 - [ ] **Deploy Web Service**. Espere o log mostrar
@@ -126,8 +127,8 @@ Igual ao DEV, com estas diferenças:
 - [ ] Image URL: `ghcr.io/ratzmann/leiloes-service:homol`.
 - [ ] Name: **`leiloes-service-homol`**.
 - [ ] Variáveis: `APP_ENV=homol`, `DATABASE_URL` do **`leiloes_homol`**,
-      `DB_SSL=true`, `JWT_SECRET` (o do auth-service HOMOL) e
-      `JWT_ISSUER=sistema-leilao-auth`. Opcional: `USUARIOS_SERVICE_URL=<URL do usuarios-service
+      `DB_SSL=true`, `JWT_SECRET` (o do auth-service HOMOL),
+      `JWT_ISSUER=sistema-leilao-auth` e `CHAVE_INTERNA` (a do ambiente HOMOL). Opcional: `USUARIOS_SERVICE_URL=<URL do usuarios-service
       do colega>`; sem ela, o serviço não valida o leiloeiro.
 - [ ] Teste:
   - `/health` deve mostrar `"ambiente":"homol"`, `"versao":"1.1.0"`;

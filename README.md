@@ -65,7 +65,10 @@ Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro
   está configurado com o mesmo segredo HS256 (`JWT_SECRET`) usado para
   assinar os tokens. As rotas de reserva de crédito
   (`/licitantes/:id/reservas`) e a criação de perfis (`POST /leiloeiros`,
-  `POST /licitantes`) são internas e o Kong as bloqueia com `403`.
+  `POST /licitantes`) são internas e o Kong as bloqueia com `403`. Como na
+  nuvem (T2) não há Kong na frente, o próprio usuarios-service também exige
+  nessas rotas a **chave interna** (header `X-Chave-Interna`, variável
+  `CHAVE_INTERNA`), que só os outros serviços conhecem.
 
 ## Padrões de microsserviços
 
@@ -371,7 +374,8 @@ para `.env` e ajuste `DB_HOST` etc.
 | `PORT` | os 4 serviços | porta HTTP do serviço (3001 a 3003) |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | os 4 serviços | conexão com o banco do serviço (docker-compose) |
 | `DATABASE_URL`, `DB_SSL` | os 4 serviços | banco em nuvem (Neon/Render): a URL substitui as `DB_*`; `DB_SSL=true` liga o SSL |
-| `JWT_SECRET`, `JWT_ISSUER`, `JWT_EXPIRES_IN` | só o auth-service | assinar os tokens (iguais aos do `kong.yml`) |
+| `JWT_SECRET`, `JWT_ISSUER`, `JWT_EXPIRES_IN` | auth-service (os 3 primeiros também em usuarios, leiloes e lances) | o auth assina os tokens e os outros conferem a assinatura (iguais aos do `kong.yml`) |
+| `CHAVE_INTERNA` | os 4 serviços | chave das rotas internas do usuarios-service (criar perfil, reservar e liberar crédito): os outros a mandam no header `X-Chave-Interna`; a mesma em todos os serviços do ambiente |
 | `USUARIOS_SERVICE_URL`, `LEILOES_SERVICE_URL` | quem chama esses serviços | endereço interno (rede do Docker). Vazio no auth ou no leiloes = serviço rodando sozinho (deploy do T2): o auth só cria a credencial e o leiloes não valida o leiloeiro nem libera reservas |
 | `SERVICOS_TIMEOUT_MS` | auth, leiloes e lances | tempo máximo das chamadas entre serviços (padrão 3000) |
 | `SAGA_PERMITIR_FALHA_SIMULADA` | lances-service | libera o header `X-Simular-Falha` (só para demo) |

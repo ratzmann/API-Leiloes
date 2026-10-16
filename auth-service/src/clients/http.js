@@ -3,7 +3,15 @@
 // -----------------------------------------------------------------------------
 // Todos os clients deste servico (arquivos *Client.js) usam estas funcoes para
 // chamar outros microsservicos por REST, direto pela rede do Docker. Assim a
-// logica de URL, timeout e erro de rede fica num lugar so.
+// logica de URL, timeout, erro de rede e chave interna fica num lugar so.
+//
+// CHAVE INTERNA: as rotas internas do usuarios-service (criar perfil, reservar
+// e liberar credito) so aceitam quem manda o header X-Chave-Interna com o
+// valor da variavel CHAVE_INTERNA (ver usuarios-service/src/middlewares/
+// exigirChaveInterna.js). Toda chamada feita por aqui ja leva esse header.
+//
+// Quem chama: os clients/*Client.js deste servico (e a Saga, no lances-service,
+// que usa o ServicoIndisponivel).
 // (Arquivo identico em auth, leiloes e lances: cada servico tem a sua copia.)
 // =============================================================================
 
@@ -37,6 +45,19 @@ function urlBase(variavel) {
 }
 
 /**
+ * Monta os headers de toda chamada a outro servico: JSON na ida e na volta e,
+ * se CHAVE_INTERNA estiver configurada, o header X-Chave-Interna com ela.
+ * Le a variavel a cada chamada (os testes trocam o valor).
+ */
+function headersDaChamada() {
+  const headers = { Accept: 'application/json', 'Content-Type': 'application/json' };
+  if (process.env.CHAVE_INTERNA) {
+    headers['X-Chave-Interna'] = process.env.CHAVE_INTERNA;
+  }
+  return headers;
+}
+
+/**
  * Faz uma requisicao HTTP com timeout.
  * @param servico  nome do servico (so para as mensagens de erro)
  * @param url      endereco completo
@@ -56,7 +77,7 @@ async function requisicao(servico, url, { method = 'GET', body } = {}) {
   try {
     const resposta = await fetch(url, {
       method,
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      headers: headersDaChamada(),
       // So envia corpo se houver um (GET nao tem corpo).
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,

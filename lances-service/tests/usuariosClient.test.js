@@ -32,6 +32,17 @@ describe('usuariosClient.reservarCredito (passo 2 da Saga, Regra 6)', () => {
     expect(JSON.parse(opcoes.body)).toEqual({ valor: 1500, referencia: 'saga-7', leilaoId: 4 });
   });
 
+  test('manda a chave interna (X-Chave-Interna) quando CHAVE_INTERNA esta configurada', async () => {
+    global.fetch.mockResolvedValue(resposta(201, { id: 9 }));
+    process.env.CHAVE_INTERNA = 'chave-de-teste';
+    await usuariosClient.reservarCredito(3, 1500, 'saga-7', 4);
+    delete process.env.CHAVE_INTERNA;
+    await usuariosClient.reservarCredito(3, 1500, 'saga-7', 4);
+
+    expect(global.fetch.mock.calls[0][1].headers['X-Chave-Interna']).toBe('chave-de-teste');
+    expect(global.fetch.mock.calls[1][1].headers).not.toHaveProperty('X-Chave-Interna');
+  });
+
   test('200 (referencia repetida: a reserva ja existia) tambem devolve a reserva', async () => {
     global.fetch.mockResolvedValue(resposta(200, { id: 9 }));
     await expect(usuariosClient.reservarCredito(3, 1500, 'saga-7', 4)).resolves.toEqual({ id: 9 });

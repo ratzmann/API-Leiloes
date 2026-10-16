@@ -102,8 +102,10 @@ O endereço do `usuarios-service` **nunca** aparece no código: vem da variável
 de ambiente `USUARIOS_SERVICE_URL` (definida no `docker-compose.yml`), igual ao
 que o `auth-service` já fazia. A chamada vai direto ao container na rede
 interna do Docker, sem passar pelo Kong, e tem timeout
-(`USUARIOS_SERVICE_TIMEOUT_MS`, padrão 3s) para não travar o cadastro quando o
-outro serviço demora a responder.
+(`SERVICOS_TIMEOUT_MS`, padrão 3s) para não travar o cadastro quando o
+outro serviço demora a responder. A liberação do crédito ao cancelar usa uma rota
+interna do usuarios-service, por isso leva a chave interna (`CHAVE_INTERNA`, no
+header `X-Chave-Interna`).
 
 O caminho inverso também está pronto: o microsserviço de **lances** consulta
 `GET /leiloes/:id/disponibilidade` para saber se pode aceitar um lance,

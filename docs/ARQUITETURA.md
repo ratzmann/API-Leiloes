@@ -187,7 +187,8 @@ Um **JSON Web Token** é um "crachá digital" no formato `xxxxx.yyyyy.zzzzz`:
 
 ### Autenticação × autorização
 
-- **Autenticação** — "quem é você?": o Kong confere se o token é autêntico.
+- **Autenticação** — "quem é você?": o Kong confere se o token é autêntico, e os
+  serviços conferem de novo (`jwt.verify`, explicado logo abaixo).
 - **Autorização** — "você **pode** fazer isto?": decidido nos `services/`, usando
   `papel` e `perfilId` do token.
 
@@ -197,7 +198,7 @@ Um **JSON Web Token** é um "crachá digital" no formato `xxxxx.yyyyy.zzzzz`:
 | Editar, abrir, encerrar, cancelar, remover leilão | só o **dono** do leilão | `leilaoService.garantirDono` |
 | Dar lance | só `LICITANTE`, em nome próprio | `lanceService.autorizarLicitante` |
 | Alterar/remover cadastro de leiloeiro ou licitante | só o **próprio** (e o licitante não muda o próprio limite) | `usuarios-service/src/utils/autorizacao.js` |
-| Criar perfil (`POST /leiloeiros`, `/licitantes`) | só o auth-service, no registro | Kong bloqueia de fora (403) |
+| Criar perfil (`POST /leiloeiros`, `/licitantes`) | só o auth-service, no registro | Kong bloqueia de fora (403); o usuarios-service exige a chave interna (`middlewares/exigirChaveInterna.js`) |
 
 Sem login → `401`; sem permissão → `403`. Assim ninguém cria leilão para outro
 leiloeiro, nem dá lance (e gasta o crédito) de outro licitante.
@@ -228,9 +229,23 @@ calcula o hash da senha digitada e compara com o guardado.
 
 ### Rotas internas
 
-`/licitantes/:id/reservas` mexe no crédito e só deve ser chamada pela Saga. O
-Kong tem uma rota com expressão regular que responde **403** para quem vem de
-fora; a Saga chama o serviço direto pela rede interna, sem passar pelo Kong.
+Algumas rotas do usuarios-service só devem ser chamadas por **outros serviços**,
+nunca pelo usuário: criar perfil (`POST /leiloeiros`, `POST /licitantes`, pelo
+auth-service), reservar e liberar crédito (`/licitantes/:id/reservas...`, pela
+Saga) e liberar o crédito de um leilão cancelado (`/reservas/leilao/:id/liberar`,
+pelo leiloes-service). Elas chegam **sem token**, porque quem chama é um serviço.
+
+São duas barreiras (defesa em profundidade, como no token):
+
+1. **Kong**: responde **403** para quem vem de fora (e nem tem a rota `/reservas`).
+   Os serviços se chamam direto pela rede interna, sem passar pelo Kong.
+2. **Chave interna**: na nuvem (T2) não há Kong na frente, então qualquer pessoa
+   com a URL do serviço chegaria nessas rotas. Por isso o usuarios-service também
+   exige o header `X-Chave-Interna` com o valor da variável `CHAVE_INTERNA`
+   (`middlewares/exigirChaveInterna.js`). Os clients dos outros serviços mandam o
+   header sozinhos (`clients/http.js`). Sem a chave → **403**; com o
+   `CHAVE_INTERNA` faltando no usuarios → **500**: as rotas ficam desligadas, nunca
+   abertas. A chave é a mesma nos 4 serviços do ambiente, como o `JWT_SECRET`.
 
 ---
 
@@ -521,7 +536,7 @@ Duplicar esses arquivos de apoio em cada serviço é **intencional**
 Tudo passa pelo Kong em `http://localhost:8000`. Com exceção de `/auth/*`, as
 rotas exigem `Authorization: Bearer <token>` (sem token → `401`, respondido pelo
 próprio Kong). "Interna" = chamada só entre serviços, pela rede do Docker; de
-fora, o Kong responde `403`.
+fora, o Kong responde `403`, e o serviço ainda exige a chave interna (`X-Chave-Interna`).
 
 ### auth-service (`/auth`, público)
 
@@ -542,7 +557,7 @@ fora, o Kong responde `403`.
 | `POST` | `/licitantes` | **interna** | Cria o perfil (auth-service, no registro). |
 | `PUT` / `DELETE` | `/licitantes/:id` | o próprio | Atualiza (nome, telefone; não o limite) / remove. |
 | `GET` | `/licitantes/:id/credito` | o próprio | Limite, reservado e disponível (dado pessoal: `403` para os demais). |
-| `GET` | `/licitantes/:id/reservas` | logado | Histórico de reservas. |
+| `GET` | `/licitantes/:id/reservas` | **interna** | Histórico de reservas. |
 | `POST` | `/licitantes/:id/reservas` | **interna** | Reserva crédito (Saga, passo 2). |
 | `POST` | `/licitantes/:id/reservas/:reservaId/liberar` | **interna** | Libera a reserva (compensação / passo 4). |
 | `POST` | `/reservas/leilao/:leilaoId/liberar` | **interna** | Libera todas as reservas de um leilão cancelado (o Kong nem tem essa rota). |
