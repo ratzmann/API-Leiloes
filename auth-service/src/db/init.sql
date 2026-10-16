@@ -3,7 +3,9 @@
 -- -----------------------------------------------------------------------------
 -- O Postgres executa este arquivo automaticamente na PRIMEIRA vez que o
 -- container do banco sobe (o docker-compose.yml o coloca na pasta
--- /docker-entrypoint-initdb.d/). Linhas que comecam com -- sao comentarios SQL.
+-- /docker-entrypoint-initdb.d/), e o db/migrar.js o roda de novo toda vez que
+-- o servico inicia (na nuvem o banco chega vazio). Por isso tudo usa
+-- IF NOT EXISTS. Linhas que comecam com -- sao comentarios SQL.
 --
 -- Este banco guarda so as CREDENCIAIS (e-mail + senha criptografada + papel).
 -- Os dados de dominio (CPF, credito, registro profissional) ficam no

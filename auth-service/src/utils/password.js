@@ -9,6 +9,8 @@
 //     duas pessoas com a mesma senha tem hashes diferentes;
 //   - e e propositalmente LENTO, o que atrapalha quem tenta adivinhar senhas
 //     testando milhoes de combinacoes.
+//
+// Quem chama: services/authService.js | Quem e chamado: biblioteca bcryptjs
 // =============================================================================
 
 // bcryptjs = implementacao do bcrypt em JavaScript puro.

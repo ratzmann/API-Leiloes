@@ -8,6 +8,7 @@
 // Quem chama: app.js (criarDocumentoOpenApi(versao)) e tests/app.test.js.
 // =============================================================================
 
+/** Resposta de erro no formato da API ({ erro }), com a `descricao` recebida. */
 const erro = (descricao) => ({
   description: descricao,
   content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } },
@@ -19,6 +20,7 @@ const semLogin = erro('Sem login: falta o token de LEILOEIRO (Authorization: Bea
 const soODono = erro('Sem permissao: so o leiloeiro dono do leilao pode alterar');
 const idInvalido = erro('Id invalido (nao e um inteiro positivo)');
 
+/** Resposta JSON com um Leilao, com a `descricao` recebida. */
 const leilaoJson = (descricao) => ({
   description: descricao,
   content: { 'application/json': { schema: { $ref: '#/components/schemas/Leilao' } } },
@@ -239,7 +241,7 @@ function criarDocumentoOpenApi(versao) {
         },
         put: {
           tags: ['Leiloes'],
-          summary: 'Edita um leilao ainda AGENDADO (Regras 6 e 7)',
+          summary: 'Edita um leilao ainda AGENDADO (Regras 1, 2, 6 e 7)',
           parameters: [parametroId],
           requestBody: {
             required: true,
@@ -249,7 +251,7 @@ function criarDocumentoOpenApi(versao) {
           },
           responses: {
             200: leilaoJson('Leilao atualizado'),
-            400: erro('Dados ou id invalidos'),
+            400: erro('Dados ou id invalidos, ou data de inicio movida para o passado (Regra 2)'),
             401: semLogin,
             403: soODono,
             404: erro('Leilao nao encontrado'),

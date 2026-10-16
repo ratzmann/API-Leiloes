@@ -124,7 +124,10 @@ async function responderMetricas(req, res) {
   res.end(await registro.metrics());
 }
 
-/** Conta um lance gravado (chamado pela Saga quando o passo 3 da certo). */
+/**
+ * Conta um lance gravado. A Saga chama no fim da execucao, quando o passo 3
+ * (gravar o lance) deu certo - com ou sem pendencia no passo 4.
+ */
 function registrarLanceGravado() {
   lancesRegistrados.inc();
 }

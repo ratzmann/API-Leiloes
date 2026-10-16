@@ -4,6 +4,8 @@
 // Usado no PASSO 1 da Saga: antes de mexer em credito, pergunta ao
 // leiloes-service se o leilao existe e esta aceitando lances.
 // Chamada: GET {LEILOES_SERVICE_URL}/leiloes/:id/disponibilidade
+//
+// Quem chama: sagas/registrarLanceSaga.js | Quem e chamado: clients/http.js
 // =============================================================================
 
 const { requisicao, urlBase, ServicoIndisponivel } = require('./http');

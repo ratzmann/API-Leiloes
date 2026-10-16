@@ -9,6 +9,8 @@
 //      outro licitante pode ter dado um lance maior.
 // Nao acessa banco nem rede: recebe tudo por parametro. Facil de testar
 // (ver tests/regrasDoLance.test.js).
+//
+// Quem chama: sagas/registrarLanceSaga.js (passos 1 e 3)
 // =============================================================================
 
 const { ErroDeValidacao } = require('../utils/erros');

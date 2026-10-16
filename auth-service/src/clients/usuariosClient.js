@@ -5,6 +5,8 @@
 // Assim o authService nao precisa saber detalhes de HTTP (URL, timeout,
 // status): ele so chama criarPerfil(...) como se fosse uma funcao qualquer.
 // Nos testes, este arquivo e trocado pelo mock clients/__mocks__/usuariosClient.js.
+//
+// Quem chama: services/authService.js | Quem e chamado: clients/http.js
 // =============================================================================
 
 const { requisicao, urlBase, ServicoIndisponivel } = require('./http');
@@ -23,7 +25,9 @@ function estaConfigurado() {
  * Pede ao usuarios-service para criar o perfil de dominio do usuario:
  * POST {USUARIOS_SERVICE_URL}/leiloeiros  (papel LEILOEIRO) ou
  * POST {USUARIOS_SERVICE_URL}/licitantes  (papel LICITANTE).
- * A chamada vai direto pela rede do Docker (a rota e interna: o Kong bloqueia).
+ * A chamada vai direto pela rede do Docker. A rota e interna: o Kong bloqueia
+ * quem vem de fora, e o usuarios-service exige a chave interna (o header
+ * X-Chave-Interna, que o clients/http.js manda sozinho).
  * O `dadosPerfil` traz so os dados do perfil (cpf, limiteCredito,
  * registroProfissional, telefone); usuarioId, nome e e-mail vem SEMPRE do
  * usuario recem-criado, mesmo que o cliente tente manda-los no dadosPerfil.

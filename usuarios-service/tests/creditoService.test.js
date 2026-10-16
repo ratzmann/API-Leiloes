@@ -1,9 +1,10 @@
 // =============================================================================
 // tests/creditoService.test.js  -  testes do credito (reservas da Saga)
 // -----------------------------------------------------------------------------
-// Cobre: consulta de credito, reserva com e sem saldo (409), idempotencia pela
-// referencia (mesma saga nao reserva duas vezes), liberacao repetida sem erro e
-// liberacao de todas as reservas de um leilao cancelado.
+// Cobre: consulta de credito (so o proprio licitante: 401/403, LGPD), reserva
+// com e sem saldo (409), idempotencia pela referencia (mesma saga nao reserva
+// duas vezes), liberacao repetida sem erro e liberacao de todas as reservas de
+// um leilao cancelado.
 // A transacao (emTransacao) e simulada pelo mock do reservaRepository.
 // COMO LER UM TESTE (Jest):
 //   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;

@@ -8,11 +8,13 @@
 // Quem chama: app.js (criarDocumentoOpenApi(versao)) e tests/app.test.js.
 // =============================================================================
 
+/** Resposta de erro no formato da API ({ erro }), com a `descricao` recebida. */
 const erro = (descricao) => ({
   description: descricao,
   content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } },
 });
 
+/** Resposta JSON com a `descricao` e o schema `nome` (de components.schemas). */
 const json = (descricao, nome) => ({
   description: descricao,
   content: { 'application/json': { schema: { $ref: `#/components/schemas/${nome}` } } },

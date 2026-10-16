@@ -185,7 +185,7 @@ Chamar GET "/licitantes/$($maria.perfil.id)/credito" $null $TM                  
 - **Testes unitários** (Jest) em cada serviço, com banco e rede trocados por
   mocks; testes de regras (services, Saga) e da camada HTTP (supertest).
   Cobertura (linhas) sobre todo o `src/`: auth 91%, usuarios 85%, leiloes 89%,
-  lances 91% — o `npm test` falha se cair abaixo de 50%. São 405 testes.
+  lances 91% — o `npm test` falha se cair abaixo de 50%. São 406 testes.
 - **Teste ponta a ponta**: 75 passos reais pelo Kong.
 
 **Mostrar:** a saída do `testar-unitarios.ps1` (resumo com os 4 serviços).

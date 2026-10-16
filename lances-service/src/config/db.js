@@ -3,7 +3,7 @@
 // -----------------------------------------------------------------------------
 // Cria um "pool" (piscina) de conexoes: algumas conexoes ficam abertas e sao
 // "emprestadas" a cada consulta, o que e bem mais rapido do que abrir uma nova
-// a cada vez. Quem usa: repositories/ e db/migrar.js.
+// a cada vez.
 //
 // Cada microsservico tem O PROPRIO banco (auth-db, usuarios-db, leiloes-db,
 // lances-db) e so ele acessa esse banco. Quem precisa de dados de outro servico
@@ -13,6 +13,8 @@
 //   - na nuvem (Neon/Render) o provedor entrega uma DATABASE_URL pronta;
 //   - no docker-compose continuam as variaveis DB_* separadas.
 // DB_SSL=true liga o SSL, exigido pelos bancos gerenciados.
+//
+// Quem chama: repositories/*.js e db/migrar.js | Quem e chamado: biblioteca pg
 // (Arquivo identico nos 4 servicos: cada microsservico tem a sua copia.)
 // =============================================================================
 

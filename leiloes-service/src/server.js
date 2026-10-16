@@ -3,7 +3,8 @@
 // -----------------------------------------------------------------------------
 // Mesma sequencia nos 4 servicos:
 //   1. carrega as variaveis de ambiente e o ambiente (DEV, HOMOL...);
-//   2. roda a migracao (cria/atualiza a tabela leiloes a partir do init.sql);
+//   2. roda a migracao (cria a tabela leiloes, se ainda nao existir, a partir
+//      do init.sql);
 //   3. so entao abre a porta HTTP.
 // Se o banco nao ficar pronto, encerra com erro (exit 1): no Render o container
 // e reiniciado e o erro aparece no log.

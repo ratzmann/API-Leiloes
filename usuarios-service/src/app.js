@@ -18,6 +18,10 @@
 //   5. as rotas;
 //   6. o "pega tudo" do 404;
 //   7. o tratamento de erros.
+//
+// Quem chama: server.js (e os testes)
+// Quem e chamado: routes/*Routes.js, middlewares/ (extrairUsuario e tratarErros),
+//                 observabilidade/metricas.js, docs/openapi.js
 // =============================================================================
 
 const express = require('express');
@@ -70,7 +74,8 @@ function criarApp(ambiente) {
   // lembrarPrefixo guarda o prefixo para as metricas (ver observabilidade/metricas.js).
   app.use('/leiloeiros', metricas.lembrarPrefixo, leiloeiroRoutes);
   app.use('/licitantes', metricas.lembrarPrefixo, licitanteRoutes);
-  // Interna: o Kong nao tem rota /reservas, entao so a rede do Docker alcanca.
+  // Interna: o Kong nao tem rota /reservas, entao so a rede do Docker alcanca;
+  // e a rota ainda exige a chave interna (middlewares/exigirChaveInterna.js).
   app.use('/reservas', metricas.lembrarPrefixo, reservaRoutes);
 
   // Nenhuma rota atendeu: 404.

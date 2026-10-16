@@ -19,6 +19,8 @@
 //   - GET: livres (o lances-service consulta a disponibilidade sem token);
 //   - POST: so um LEILOEIRO, e o leilao fica em nome dele (perfilId do token);
 //   - PUT, PATCH e DELETE: so o leiloeiro DONO do leilao (403 para os demais).
+//
+// Quem chama: app.js | Quem e chamado: controllers/leilaoController.js
 // =============================================================================
 
 const { Router } = require('express');

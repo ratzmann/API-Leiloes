@@ -8,6 +8,7 @@
 // Quem chama: app.js (criarDocumentoOpenApi(versao)) e tests/app.test.js.
 // =============================================================================
 
+/** Resposta de erro no formato da API ({ erro }), com a `descricao` recebida. */
 const erro = (descricao) => ({
   description: descricao,
   content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } },
@@ -18,13 +19,27 @@ const erro = (descricao) => ({
 const semLogin = erro('Sem login: falta o token (Authorization: Bearer)');
 const idInvalido = erro('Id invalido (nao e um inteiro positivo)');
 
+// Rotas internas (so os outros servicos chamam): exigem o header X-Chave-Interna
+// (middlewares/exigirChaveInterna.js); sem ele ou com a chave errada -> 403.
+const chaveInterna = {
+  name: 'X-Chave-Interna',
+  in: 'header',
+  required: true,
+  schema: { type: 'string' },
+  description: 'Chave interna (CHAVE_INTERNA): so os servicos do sistema a conhecem',
+};
+const semChave = erro('Rota interna: falta a chave interna (X-Chave-Interna) ou ela esta errada');
+
+/** Resposta JSON com a `descricao` e o `schema` recebidos. */
 const json = (descricao, schema) => ({
   description: descricao,
   content: { 'application/json': { schema } },
 });
 
+/** Referencia ($ref) a um schema de components.schemas, pelo `nome`. */
 const ref = (nome) => ({ $ref: `#/components/schemas/${nome}` });
 
+/** Parametro de caminho `id` (inteiro >= 1), com a `descricao` recebida. */
 const parametroId = (descricao) => ({
   name: 'id',
   in: 'path',
@@ -33,6 +48,7 @@ const parametroId = (descricao) => ({
   description: descricao,
 });
 
+/** Corpo JSON obrigatorio da requisicao, com o `schema` recebido. */
 const corpo = (schema) => ({
   required: true,
   content: { 'application/json': { schema } },
@@ -56,11 +72,13 @@ function crud({ tag, singular, entrada, edicao, saida, semPermissao }) {
       },
       post: {
         tags: [tag],
-        summary: `Cadastra um ${singular} (uso interno: o auth-service chama no registro; pelo Kong, 403)`,
+        summary: `Cadastra um ${singular} (rota interna: o auth-service chama no registro, com a chave interna; pelo Kong, 403)`,
+        parameters: [chaveInterna],
         requestBody: corpo(ref(entrada)),
         responses: {
           201: json(`${singular} criado`, ref(saida)),
           400: erro('Dados invalidos'),
+          403: semChave,
           409: erro('E-mail ou documento ja cadastrado'),
         },
       },
@@ -139,8 +157,9 @@ function criarDocumentoOpenApi(versao) {
         'do licitante usado pela saga de lance. Pelo Kong, as rotas exigem um JWT ' +
         '(Authorization: Bearer). Consultas sao livres, mas os dados pessoais (CPF, e-mail, ' +
         'telefone, limite) so aparecem para o proprio dono (LGPD); alterar ou remover um ' +
-        'cadastro exige o token do proprio (sem token: 401; de outra pessoa: 403). A criacao de ' +
-        'perfis e as reservas de credito sao rotas internas: pelo Kong respondem 403. ' +
+        'cadastro, e consultar o credito, exige o token do proprio (sem token: 401; de outra ' +
+        'pessoa: 403). A criacao de perfis e as reservas de credito sao rotas internas: pelo ' +
+        'Kong respondem 403, e o servico exige o header X-Chave-Interna (sem ele, 403). ' +
         'Swagger disponivel apenas no DEV.',
     },
     servers: [{ url: '/' }],
@@ -285,14 +304,14 @@ function criarDocumentoOpenApi(versao) {
       '/licitantes/{id}/reservas': {
         get: {
           tags: ['Credito'],
-          summary: 'Lista as reservas de credito do licitante (rota interna: pelo Kong, 403)',
-          parameters: [idLicitante],
-          responses: { 200: json('Reservas', { type: 'array', items: ref('Reserva') }) },
+          summary: 'Lista as reservas de credito do licitante (rota interna, com a chave interna; pelo Kong, 403)',
+          parameters: [idLicitante, chaveInterna],
+          responses: { 200: json('Reservas', { type: 'array', items: ref('Reserva') }), 403: semChave },
         },
         post: {
           tags: ['Credito'],
-          summary: 'Reserva credito (passo 2 da saga; o Kong bloqueia chamadas de fora)',
-          parameters: [idLicitante],
+          summary: 'Reserva credito (passo 2 da saga; rota interna, com a chave interna; pelo Kong, 403)',
+          parameters: [idLicitante, chaveInterna],
           requestBody: corpo({
             type: 'object',
             required: ['valor'],
@@ -305,6 +324,7 @@ function criarDocumentoOpenApi(versao) {
             201: json('Reserva criada', ref('Reserva')),
             200: json('Mesma referencia: devolve a reserva ja existente', ref('Reserva')),
             400: erro('Valor invalido'),
+            403: semChave,
             404: erro('Licitante nao encontrado'),
             409: erro('Credito insuficiente'),
           },
@@ -313,13 +333,15 @@ function criarDocumentoOpenApi(versao) {
       '/licitantes/{id}/reservas/{reservaId}/liberar': {
         post: {
           tags: ['Credito'],
-          summary: 'Libera a reserva (compensacao da saga; idempotente)',
+          summary: 'Libera a reserva (compensacao e passo 4 da saga; idempotente; rota interna, com a chave interna)',
           parameters: [
             idLicitante,
+            chaveInterna,
             { name: 'reservaId', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
           ],
           responses: {
             200: json('Reserva liberada', ref('Reserva')),
+            403: semChave,
             404: erro('Reserva nao encontrada para este licitante'),
           },
         },
@@ -329,9 +351,10 @@ function criarDocumentoOpenApi(versao) {
           tags: ['Credito'],
           summary:
             'Libera todas as reservas de um leilao cancelado (uso interno do leiloes-service, ' +
-            'Regra 8; idempotente). O Kong nao tem rota /reservas.',
+            'Regra 8; idempotente; exige a chave interna). O Kong nao tem rota /reservas.',
           security: [],
           parameters: [
+            chaveInterna,
             { name: 'leilaoId', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
           ],
           responses: {
@@ -344,6 +367,7 @@ function criarDocumentoOpenApi(versao) {
               },
             }),
             400: erro('leilaoId invalido'),
+            403: semChave,
           },
         },
       },

@@ -14,7 +14,8 @@
 //   5. e-mail e telefone so aparecem para o proprio leiloeiro (LGPD)          -> listar / consultar
 //
 // Quem chama: controllers/leiloeiroController.js
-// Quem e chamado: repositories/leiloeiroRepository.js, utils/validadores.js
+// Quem e chamado: repositories/leiloeiroRepository.js, utils/validadores.js,
+//                 utils/autorizacao.js
 // =============================================================================
 
 const leiloeiroRepository = require('../repositories/leiloeiroRepository');

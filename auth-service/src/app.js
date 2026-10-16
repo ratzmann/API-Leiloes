@@ -15,6 +15,9 @@
 // Caminho de uma requisicao dentro deste servico:
 //   Kong -> app.js -> routes/authRoutes.js -> controllers/authController.js
 //        -> services/authService.js -> repositories/usuarioRepository.js -> Postgres
+//
+// Quem chama: server.js (e os testes) | Quem e chamado: routes/authRoutes.js,
+//             middlewares/tratarErros.js, observabilidade/metricas.js, docs/openapi.js
 // =============================================================================
 
 // Importa a biblioteca Express (instalada via npm, listada no package.json).

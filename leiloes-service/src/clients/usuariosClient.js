@@ -6,6 +6,8 @@
 // ele so chama buscarLeiloeiro(id) como se fosse uma funcao qualquer.
 // URL, timeout e erros de rede ficam no helper clients/http.js.
 // Nos testes, este arquivo e trocado pelo mock clients/__mocks__/usuariosClient.js.
+//
+// Quem chama: services/leilaoService.js | Quem e chamado: clients/http.js
 // =============================================================================
 
 const { requisicao, urlBase, ServicoIndisponivel } = require('./http');

@@ -16,6 +16,8 @@
 //                                         vai so para o log (nao expor por dentro)
 //
 // Registrado no app.js DEPOIS das rotas: app.use(criarTratadorDeErros('...')).
+//
+// Quem chama: app.js | Quem e chamado: utils/erros.js
 // (Arquivo identico nos 4 servicos: cada microsservico tem a sua copia.)
 // =============================================================================
 

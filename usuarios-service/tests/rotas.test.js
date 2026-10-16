@@ -10,8 +10,10 @@
 //     sem abrir porta e sem precisar do Docker;
 //   - os SERVICES sao mockados (jest.mock): assim nao ha banco nem regra de
 //     negocio aqui, so a "traducao" HTTP <-> service;
-//   - o token e gerado com jwt.sign so para o middleware extrairUsuario ter o
-//     que decodificar (quem confere a assinatura de verdade e o Kong).
+//   - o token e gerado com jwt.sign e o mesmo JWT_SECRET do teste, porque o
+//     middleware extrairUsuario confere a assinatura (jwt.verify);
+//   - as rotas internas recebem o header X-Chave-Interna com a CHAVE_INTERNA
+//     do teste (middlewares/exigirChaveInterna.js).
 // =============================================================================
 
 jest.mock('../src/services/leiloeiroService');

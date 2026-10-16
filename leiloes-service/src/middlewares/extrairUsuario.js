@@ -22,6 +22,8 @@
 //   disponibilidade no leiloes-service). Quem exige usuario logado sao as
 //   regras de negocio, nos services. Token PRESENTE e invalido, porem, e 401.
 //
+// Quem chama: app.js (antes das rotas)
+// Quem e chamado: biblioteca jsonwebtoken (jwt.verify), utils/erros.js
 // (Arquivo identico em usuarios, leiloes e lances: cada servico tem a sua copia.)
 // =============================================================================
 

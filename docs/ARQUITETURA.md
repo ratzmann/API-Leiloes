@@ -425,10 +425,10 @@ métrica ficar abaixo de 50%.
 | Serviço | Testes | Cobertura (linhas) |
 |---|---|---|
 | auth-service | 58 | 91% |
-| usuarios-service | 121 | 85% |
+| usuarios-service | 122 | 85% |
 | leiloes-service | 111 | 89% |
 | lances-service | 115 | 91% |
-| **Total** | **405** | |
+| **Total** | **406** | |
 
 Como rodar:
 

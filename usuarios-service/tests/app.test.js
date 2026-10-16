@@ -114,4 +114,19 @@ describe('Swagger documenta a autorizacao e as rotas internas', () => {
     expect(documento.components.schemas.LicitanteEdicao.properties).not.toHaveProperty('limiteCredito');
     expect(documento.paths).toHaveProperty('/reservas/leilao/{leilaoId}/liberar');
   });
+
+  test('as rotas internas declaram o header X-Chave-Interna e o 403 sem a chave', () => {
+    const internas = [
+      documento.paths['/leiloeiros'].post,
+      documento.paths['/licitantes'].post,
+      documento.paths['/licitantes/{id}/reservas'].get,
+      documento.paths['/licitantes/{id}/reservas'].post,
+      documento.paths['/licitantes/{id}/reservas/{reservaId}/liberar'].post,
+      documento.paths['/reservas/leilao/{leilaoId}/liberar'].post,
+    ];
+    internas.forEach((operacao) => {
+      expect(operacao.parameters.map((p) => p.name)).toContain('X-Chave-Interna');
+      expect(operacao.responses).toHaveProperty('403');
+    });
+  });
 });
