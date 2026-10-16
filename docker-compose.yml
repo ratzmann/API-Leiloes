@@ -126,6 +126,9 @@ services:
     # Variaveis de ambiente: chegam no codigo como process.env.NOME.
     environment:
       PORT: 3001
+      # ambiente (T2): 'local' liga o Swagger em /docs e vira o rotulo das metricas
+      # (ver src/config/ambiente.js); sem ele o ambiente aparece como 'desconhecido'.
+      APP_ENV: local
       # "auth-db" e o nome do container do banco (resolvido pela rede do Docker).
       DB_HOST: auth-db
       DB_PORT: 5432
@@ -155,6 +158,7 @@ services:
     container_name: usuarios-service
     environment:
       PORT: 3002
+      APP_ENV: local
       DB_HOST: usuarios-db
       DB_PORT: 5432
       DB_USER: usuarios_user
@@ -171,6 +175,7 @@ services:
     container_name: leiloes-service
     environment:
       PORT: 3003
+      APP_ENV: local
       DB_HOST: leiloes-db
       DB_PORT: 5432
       DB_USER: leiloes_user
@@ -193,6 +198,7 @@ services:
     environment:
       # Mesma porta do leiloes-service, sem conflito: cada container e isolado.
       PORT: 3003
+      APP_ENV: local
       DB_HOST: lances-db
       DB_PORT: 5432
       DB_USER: lances_user
