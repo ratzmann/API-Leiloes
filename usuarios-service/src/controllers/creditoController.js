@@ -5,7 +5,8 @@
 // interna /reservas/leilao/:leilaoId/liberar (cancelamento de leilao).
 // As rotas de reserva sao chamadas por outros servicos (a SAGA do
 // lances-service e o leiloes-service), e nao pelo usuario final - o Kong
-// bloqueia /licitantes/:id/reservas e nem expoe /reservas.
+// bloqueia /licitantes/:id/reservas e nem expoe /reservas, e as rotas exigem a
+// chave interna (middlewares/exigirChaveInterna.js) antes de chegar aqui.
 //
 // Lembrete do papel do controller: ler req -> chamar service -> responder res.
 // Quem chama: routes/licitanteRoutes.js e routes/reservaRoutes.js
@@ -17,11 +18,12 @@ const creditoService = require('../services/creditoService');
 /**
  * GET /licitantes/:id/credito  ->  { licitanteId, limite, reservado, disponivel }
  * req.params.id e o ":id" da URL (sempre chega como TEXTO, ex.: "3").
+ * Repassa quem esta logado: so o proprio licitante ve o credito (LGPD).
  */
 async function consultar(req, res, next) {
   try {
     // res.json(...) sem res.status(...) responde com 200 (OK) por padrao.
-    res.json(await creditoService.consultarCredito(req.params.id));
+    res.json(await creditoService.consultarCredito(req.params.id, req.usuarioAutenticado));
   } catch (err) {
     next(err);
   }

@@ -88,6 +88,14 @@ describe('leilaoService.validarDados', () => {
     ).toThrow('Incremento minimo nao pode ser maior que o lance inicial.');
   });
 
+  test('compara em centavos: incremento igual ao lance inicial passa, mesmo com erro de ponto flutuante', () => {
+    // 0.1 + 0.2 = 0.30000000000000004 em JavaScript: comparando em decimais,
+    // o incremento pareceria maior que o lance inicial de 0.3
+    expect(() =>
+      leilaoService.validarDados(leilaoValido({ lanceInicial: 0.3, incrementoMinimo: 0.1 + 0.2 }))
+    ).not.toThrow();
+  });
+
   test('rejeita data de fim anterior a data de inicio', () => {
     expect(() =>
       leilaoService.validarDados(leilaoValido({ dataInicio: emHoras(26), dataFim: emHoras(24) }))
@@ -299,6 +307,25 @@ describe('leilaoService.atualizar', () => {
 
     expect(resultado.titulo).toBe('Leilao novo');
     expect(leilaoRepository.atualizar).toHaveBeenCalledTimes(1);
+  });
+
+  test('Regra 2 tambem na edicao: recusa mover o inicio para o passado', async () => {
+    leilaoRepository.buscarPorId.mockResolvedValue({
+      id: 1,
+      status: 'AGENDADO',
+      leiloeiro_id: 1,
+      titulo: 'Leilao antigo',
+      quantidade_bois: 10,
+      lance_inicial: 1000,
+      incremento_minimo: 50,
+      data_inicio: emHoras(24),
+      data_fim: emHoras(26),
+    });
+
+    await expect(
+      leilaoService.atualizar(1, { dataInicio: emHoras(-2) }, leiloeiro1)
+    ).rejects.toMatchObject({ codigo: 400, message: 'Data de inicio deve estar no futuro.' });
+    expect(leilaoRepository.atualizar).not.toHaveBeenCalled();
   });
 });
 

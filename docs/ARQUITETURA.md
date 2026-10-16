@@ -187,7 +187,8 @@ Um **JSON Web Token** é um "crachá digital" no formato `xxxxx.yyyyy.zzzzz`:
 
 ### Autenticação × autorização
 
-- **Autenticação** — "quem é você?": o Kong confere se o token é autêntico.
+- **Autenticação** — "quem é você?": o Kong confere se o token é autêntico, e os
+  serviços conferem de novo (`jwt.verify`, explicado logo abaixo).
 - **Autorização** — "você **pode** fazer isto?": decidido nos `services/`, usando
   `papel` e `perfilId` do token.
 
@@ -197,7 +198,7 @@ Um **JSON Web Token** é um "crachá digital" no formato `xxxxx.yyyyy.zzzzz`:
 | Editar, abrir, encerrar, cancelar, remover leilão | só o **dono** do leilão | `leilaoService.garantirDono` |
 | Dar lance | só `LICITANTE`, em nome próprio | `lanceService.autorizarLicitante` |
 | Alterar/remover cadastro de leiloeiro ou licitante | só o **próprio** (e o licitante não muda o próprio limite) | `usuarios-service/src/utils/autorizacao.js` |
-| Criar perfil (`POST /leiloeiros`, `/licitantes`) | só o auth-service, no registro | Kong bloqueia de fora (403) |
+| Criar perfil (`POST /leiloeiros`, `/licitantes`) | só o auth-service, no registro | Kong bloqueia de fora (403); o usuarios-service exige a chave interna (`middlewares/exigirChaveInterna.js`) |
 
 Sem login → `401`; sem permissão → `403`. Assim ninguém cria leilão para outro
 leiloeiro, nem dá lance (e gasta o crédito) de outro licitante.
@@ -228,9 +229,23 @@ calcula o hash da senha digitada e compara com o guardado.
 
 ### Rotas internas
 
-`/licitantes/:id/reservas` mexe no crédito e só deve ser chamada pela Saga. O
-Kong tem uma rota com expressão regular que responde **403** para quem vem de
-fora; a Saga chama o serviço direto pela rede interna, sem passar pelo Kong.
+Algumas rotas do usuarios-service só devem ser chamadas por **outros serviços**,
+nunca pelo usuário: criar perfil (`POST /leiloeiros`, `POST /licitantes`, pelo
+auth-service), reservar e liberar crédito (`/licitantes/:id/reservas...`, pela
+Saga) e liberar o crédito de um leilão cancelado (`/reservas/leilao/:id/liberar`,
+pelo leiloes-service). Elas chegam **sem token**, porque quem chama é um serviço.
+
+São duas barreiras (defesa em profundidade, como no token):
+
+1. **Kong**: responde **403** para quem vem de fora (e nem tem a rota `/reservas`).
+   Os serviços se chamam direto pela rede interna, sem passar pelo Kong.
+2. **Chave interna**: na nuvem (T2) não há Kong na frente, então qualquer pessoa
+   com a URL do serviço chegaria nessas rotas. Por isso o usuarios-service também
+   exige o header `X-Chave-Interna` com o valor da variável `CHAVE_INTERNA`
+   (`middlewares/exigirChaveInterna.js`). Os clients dos outros serviços mandam o
+   header sozinhos (`clients/http.js`). Sem a chave → **403**; com o
+   `CHAVE_INTERNA` faltando no usuarios → **500**: as rotas ficam desligadas, nunca
+   abertas. A chave é a mesma nos 4 serviços do ambiente, como o `JWT_SECRET`.
 
 ---
 
@@ -409,11 +424,11 @@ métrica ficar abaixo de 50%.
 
 | Serviço | Testes | Cobertura (linhas) |
 |---|---|---|
-| auth-service | 56 | 91% |
-| usuarios-service | 113 | 85% |
-| leiloes-service | 107 | 89% |
-| lances-service | 98 | 82% |
-| **Total** | **374** | |
+| auth-service | 58 | 91% |
+| usuarios-service | 121 | 85% |
+| leiloes-service | 111 | 89% |
+| lances-service | 115 | 91% |
+| **Total** | **405** | |
 
 Como rodar:
 
@@ -421,8 +436,8 @@ Como rodar:
 |---|---|---|
 | Unitários dos 4 serviços, com resumo | `powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1` | Não (usa Node local ou Docker) |
 | Unitários de um serviço | `cd <servico> && npm install && npm test` | Não |
-| Ponta a ponta (72 passos pelo Kong) | `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` | Sim |
-| Coleção Postman (62 requisições com conferência automática) | no Postman (Runner) ou `docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000` | Sim |
+| Ponta a ponta (75 passos pelo Kong) | `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` | Sim |
+| Coleção Postman (65 requisições com conferência automática) | no Postman (Runner) ou `docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000` | Sim |
 | Manual | `testes/roteiro-de-testes.md` (curl, no Git Bash ou Linux) | Sim |
 
 ---
@@ -476,9 +491,6 @@ Duplicar esses arquivos de apoio em cada serviço é **intencional**
   (ou "desativar" em vez de apagar) evitaria dados órfãos entre os serviços.
 - **401 do Kong**: o plugin JWT responde `{ "message": ... }`; padronizar para
   `{ "erro": ... }` exigiria um plugin em Lua ou a versão Enterprise.
-- **Crédito visível a qualquer logado**: `GET /licitantes/:id/credito` ainda
-  mostra limite e reservado de qualquer licitante (o teste ponta a ponta usa
-  isso para conferir a Saga); poderia seguir a mesma regra de privacidade.
 
 **Evoluções (do README)**
 
@@ -524,7 +536,7 @@ Duplicar esses arquivos de apoio em cada serviço é **intencional**
 Tudo passa pelo Kong em `http://localhost:8000`. Com exceção de `/auth/*`, as
 rotas exigem `Authorization: Bearer <token>` (sem token → `401`, respondido pelo
 próprio Kong). "Interna" = chamada só entre serviços, pela rede do Docker; de
-fora, o Kong responde `403`.
+fora, o Kong responde `403`, e o serviço ainda exige a chave interna (`X-Chave-Interna`).
 
 ### auth-service (`/auth`, público)
 
@@ -544,8 +556,8 @@ fora, o Kong responde `403`.
 | `GET` | `/licitantes`, `/licitantes/:id` | logado | Lista / detalha licitantes (CPF, e-mail, telefone e limite só para o próprio). |
 | `POST` | `/licitantes` | **interna** | Cria o perfil (auth-service, no registro). |
 | `PUT` / `DELETE` | `/licitantes/:id` | o próprio | Atualiza (nome, telefone; não o limite) / remove. |
-| `GET` | `/licitantes/:id/credito` | logado | Limite, reservado e disponível. |
-| `GET` | `/licitantes/:id/reservas` | logado | Histórico de reservas. |
+| `GET` | `/licitantes/:id/credito` | o próprio | Limite, reservado e disponível (dado pessoal: `403` para os demais). |
+| `GET` | `/licitantes/:id/reservas` | **interna** | Histórico de reservas. |
 | `POST` | `/licitantes/:id/reservas` | **interna** | Reserva crédito (Saga, passo 2). |
 | `POST` | `/licitantes/:id/reservas/:reservaId/liberar` | **interna** | Libera a reserva (compensação / passo 4). |
 | `POST` | `/reservas/leilao/:leilaoId/liberar` | **interna** | Libera todas as reservas de um leilão cancelado (o Kong nem tem essa rota). |

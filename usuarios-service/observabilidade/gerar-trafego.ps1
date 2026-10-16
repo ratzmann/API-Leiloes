@@ -1,15 +1,18 @@
 # Gera trafego no usuarios-service para movimentar os graficos do Grafana.
 #   powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1
-#   powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1 -BaseUrl https://usuarios-service-dev.onrender.com -Rodadas 10
+#   powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1 -BaseUrl https://usuarios-service-dev.onrender.com -ChaveInterna <chave do DEV> -Rodadas 10
 #
 # Fala direto com o servico (sem o Kong): cadastros, credito da saga e alguns erros de proposito.
+# Cadastros e reservas sao rotas INTERNAS: o script manda a chave interna no header
+# X-Chave-Interna, como fazem os outros servicos (padrao: a do docker-compose).
 param(
     [string]$BaseUrl = "http://localhost:3002",
+    [string]$ChaveInterna = "chave-interna-trabalho-microsservicos",
     [int]$Rodadas = 20
 )
 
 function Chamar($metodo, $rota, $corpo = $null) {
-    $parametros = @{ Uri = "$BaseUrl$rota"; Method = $metodo; ContentType = "application/json" }
+    $parametros = @{ Uri = "$BaseUrl$rota"; Method = $metodo; ContentType = "application/json"; Headers = @{ "X-Chave-Interna" = $ChaveInterna } }
     if ($corpo) { $parametros.Body = ($corpo | ConvertTo-Json) }
     try {
         $resposta = Invoke-RestMethod @parametros
@@ -59,7 +62,9 @@ for ($i = 1; $i -le $Rodadas; $i++) {
     if ($licitante.ok) {
         Contar "licitantes"
         $id = $licitante.corpo.id
+        # o credito e dado pessoal (LGPD): sem o token do proprio licitante -> 401
         Chamar GET "/licitantes/$id/credito" | Out-Null
+        Contar "credito sem login 401"
 
         # saga: reserva, repete a mesma referencia (idempotente) e as vezes libera
         $reserva = Chamar POST "/licitantes/$id/reservas" @{ valor = 2500; referencia = "trafego-$sufixo" }

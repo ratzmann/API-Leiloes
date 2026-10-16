@@ -75,12 +75,13 @@ Para cada linha: **New + → Web Service → Existing Image**, Instance Type
 **Free**, **Advanced → Health Check Path `/health`**. O lances confere a
 assinatura do token (`jwt.verify`): o `JWT_SECRET` precisa ser **igual** ao dos
 outros serviços **daquele ambiente** (combine com o Lucas). Sem ele, toda chamada
-com token responde 500.
+com token responde 500. A `CHAVE_INTERNA` também é a mesma do ambiente: sem ela, o
+usuarios-service recusa as reservas de crédito da Saga.
 
 | Name | Image URL | Variáveis |
 |---|---|---|
-| `lances-service-dev` | `ghcr.io/ratzmann/lances-service:dev` | `APP_ENV=dev`, `DATABASE_URL`=lances_dev, `DB_SSL=true`, `LEILOES_SERVICE_URL=https://leiloes-service-dev.onrender.com`, `USUARIOS_SERVICE_URL=https://usuarios-service-dev.onrender.com`, `SAGA_PERMITIR_FALHA_SIMULADA=true`, `JWT_SECRET`=segredo DEV, `JWT_ISSUER=sistema-leilao-auth` |
-| `lances-service-homol` | `ghcr.io/ratzmann/lances-service:homol` | `APP_ENV=homol`, `DATABASE_URL`=lances_homol, `DB_SSL=true`, `LEILOES_SERVICE_URL=https://leiloes-service-homol.onrender.com`, `USUARIOS_SERVICE_URL=https://usuarios-service-homol.onrender.com`, `SAGA_PERMITIR_FALHA_SIMULADA=false`, `JWT_SECRET`=segredo HOMOL, `JWT_ISSUER=sistema-leilao-auth` |
+| `lances-service-dev` | `ghcr.io/ratzmann/lances-service:dev` | `APP_ENV=dev`, `DATABASE_URL`=lances_dev, `DB_SSL=true`, `LEILOES_SERVICE_URL=https://leiloes-service-dev.onrender.com`, `USUARIOS_SERVICE_URL=https://usuarios-service-dev.onrender.com`, `SAGA_PERMITIR_FALHA_SIMULADA=true`, `JWT_SECRET`=segredo DEV, `JWT_ISSUER=sistema-leilao-auth`, `CHAVE_INTERNA`=chave DEV |
+| `lances-service-homol` | `ghcr.io/ratzmann/lances-service:homol` | `APP_ENV=homol`, `DATABASE_URL`=lances_homol, `DB_SSL=true`, `LEILOES_SERVICE_URL=https://leiloes-service-homol.onrender.com`, `USUARIOS_SERVICE_URL=https://usuarios-service-homol.onrender.com`, `SAGA_PERMITIR_FALHA_SIMULADA=false`, `JWT_SECRET`=segredo HOMOL, `JWT_ISSUER=sistema-leilao-auth`, `CHAVE_INTERNA`=chave HOMOL |
 
 - [ ] Teste cada um:
   - `/health` deve mostrar o `ambiente` certo;

@@ -53,6 +53,16 @@ function inteiroPositivo(valor) {
   return Number.isInteger(numero) && numero > 0;
 }
 
+/**
+ * Converte reais em centavos inteiros (ex.: 10.5 -> 1050), para comparar
+ * valores em dinheiro sem erro de ponto flutuante: em JavaScript,
+ * 0.1 + 0.2 da 0.30000000000000004, mas 10 + 20 centavos da 30 exatos.
+ * Math.round arredonda para o inteiro mais proximo.
+ */
+function centavos(valor) {
+  return Math.round(Number(valor) * 100);
+}
+
 /** true se o status estiver na lista STATUS_VALIDOS. */
 function statusValido(status) {
   return STATUS_VALIDOS.includes(status);
@@ -85,6 +95,7 @@ module.exports = {
   paraData,
   numeroPositivo,
   inteiroPositivo,
+  centavos,
   statusValido,
   transicaoPermitida,
   periodosSobrepoem,

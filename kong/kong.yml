@@ -64,8 +64,9 @@ services:
         plugins:
           # request-termination: o Kong responde ele mesmo (403 Forbidden) e a
           # requisicao NUNCA chega ao servico. So a Saga, de dentro da rede do
-          # Docker, consegue chamar essas rotas. `body` + `content_type` definem
-          # a resposta no mesmo formato de erro da API: {"erro": "..."}.
+          # Docker, consegue chamar essas rotas (e o usuarios-service ainda exige
+          # a chave interna, header X-Chave-Interna). `body` + `content_type`
+          # definem a resposta no mesmo formato de erro da API: {"erro": "..."}.
           - name: request-termination
             config:
               status_code: 403

@@ -13,15 +13,19 @@
 //      muda o resultado (importante porque, em rede, uma chamada pode ser
 //      repetida sem querer, por exemplo apos um timeout);
 //   3. leilao CANCELADO devolve o credito de todas as reservas dele.
+// A CONSULTA do credito (limite, reservado, disponivel) e dado pessoal: so o
+// proprio licitante ve (Regra 6 do licitante, LGPD).
 //
 // Quem chama: controllers/creditoController.js
-// Quem e chamado: repositories/licitanteRepository.js e reservaRepository.js
+// Quem e chamado: repositories/licitanteRepository.js, repositories/reservaRepository.js,
+//                 utils/autorizacao.js
 // =============================================================================
 
 const licitanteRepository = require('../repositories/licitanteRepository');
 const reservaRepository = require('../repositories/reservaRepository');
 const metricas = require('../observabilidade/metricas');
 const { ErroDeValidacao } = require('../utils/erros');
+const { ehOProprio } = require('../utils/autorizacao');
 
 /**
  * Converte reais em centavos inteiros, para comparar sem erro de ponto flutuante.
@@ -48,14 +52,23 @@ function validarId(id, nome) {
 }
 
 /**
- * Calcula o resumo de credito do licitante.
+ * Regra 6 do licitante (LGPD): calcula o resumo de credito, que so o PROPRIO
+ * licitante pode ver. Ordem: id valido (400) -> existe (404) -> logado (401)
+ * -> e o dono (403), a mesma da edicao do cadastro.
+ * @param usuario  quem esta logado (payload do token)
  * @returns { licitanteId, limite, reservado, disponivel }  (valores em reais)
  */
-async function consultarCredito(licitanteId) {
+async function consultarCredito(licitanteId, usuario) {
   const id = validarId(licitanteId, 'licitanteId');
   const licitante = await licitanteRepository.buscarPorId(id);
   if (!licitante) {
     throw new ErroDeValidacao('Licitante nao encontrado.', 404);
+  }
+  if (!usuario) {
+    throw new ErroDeValidacao('Faca login para consultar o credito.', 401);
+  }
+  if (!ehOProprio(usuario, 'LICITANTE', id)) {
+    throw new ErroDeValidacao('Voce so pode consultar o seu proprio credito.', 403);
   }
 
   const limite = centavos(licitante.limite_credito);

@@ -12,9 +12,11 @@
 //   4. so o proprio licitante altera ou remove o cadastro -> atualizar / remover
 //   5. o licitante NAO altera o proprio limite de credito -> atualizar
 //   6. CPF, e-mail, telefone e limite so para o proprio (LGPD) -> listar / consultar
+//      (o resumo de credito tambem: creditoService.consultarCredito)
 //
 // Quem chama: controllers/licitanteController.js
-// Quem e chamado: repositories/licitanteRepository.js, utils/validadores.js
+// Quem e chamado: repositories/licitanteRepository.js, utils/validadores.js,
+//                 utils/autorizacao.js
 // =============================================================================
 
 const licitanteRepository = require('../repositories/licitanteRepository');

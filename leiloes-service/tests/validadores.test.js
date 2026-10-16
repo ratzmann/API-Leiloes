@@ -17,10 +17,19 @@ const {
   dataValida,
   numeroPositivo,
   inteiroPositivo,
+  centavos,
   statusValido,
   transicaoPermitida,
   periodosSobrepoem,
 } = require('../src/utils/validadores');
+
+describe('centavos', () => {
+  test('converte reais em centavos inteiros, inclusive texto e decimais', () => {
+    expect(centavos(10.5)).toBe(1050);
+    expect(centavos('5000.00')).toBe(500000);
+    expect(centavos(0.1 + 0.2)).toBe(centavos(0.3));
+  });
+});
 
 describe('dataValida', () => {
   test('aceita string ISO e objeto Date', () => {

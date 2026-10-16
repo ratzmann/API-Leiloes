@@ -48,5 +48,6 @@ Variáveis:
 | `VERSAO_IMAGEM` | gravada pelo pipeline no build da imagem (ex.: `1.1.0-dev.14`) |
 | `JWT_SECRET`, `JWT_ISSUER`, `JWT_EXPIRES_IN` | assinatura do token; o segredo é o mesmo em todos os serviços do ambiente |
 | `USUARIOS_SERVICE_URL` | onde criar o perfil; vazio = registra só a credencial |
+| `CHAVE_INTERNA` | vai no header `X-Chave-Interna` ao criar o perfil (rota interna do usuarios-service); a mesma em todos os serviços do ambiente |
 
 Ao iniciar, o serviço roda `src/db/migrar.js` (cria a tabela se não existir).

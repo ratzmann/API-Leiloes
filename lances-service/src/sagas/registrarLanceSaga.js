@@ -43,6 +43,8 @@ const { ErroDeValidacao } = require('../utils/erros');
 const { validarValorDoLance } = require('../services/regrasDoLance');
 // Contadores de negocio para o Prometheus (T2): lances gravados e sagas por status.
 const metricas = require('../observabilidade/metricas');
+// Espera entre as tentativas do passo 4 (variavel de ambiente lida na camada config/).
+const configSaga = require('../config/saga');
 
 // Nomes dos passos, centralizados num objeto para evitar erro de digitacao
 // (usamos PASSOS.RESERVA em vez de escrever 'reservar-credito' em varios lugares).
@@ -54,13 +56,9 @@ const PASSOS = {
   LIBERAR_SUPERADO: 'liberar-credito-superado',
 };
 
-// O passo 4 e "repetivel": tenta ate 3 vezes antes de desistir.
+// O passo 4 e "repetivel": tenta ate 3 vezes antes de desistir, esperando
+// configSaga.esperaEntreTentativasMs() entre uma tentativa e outra.
 const TENTATIVAS_PASSO_REPETIVEL = 3;
-/**
- * Espera entre tentativas, em ms (padrao 300). E uma FUNCAO (e nao uma constante)
- * para ler a variavel de ambiente na hora - os testes a zeram para rodar rapido.
- */
-const esperaEntreTentativas = () => Number(process.env.SAGA_ESPERA_REPETICAO_MS ?? 300);
 
 /** Erro usado apenas na demonstracao (header X-Simular-Falha). */
 class FalhaSimulada extends Error {
@@ -260,7 +258,7 @@ async function liberarCreditoSuperado(saga, simularFalha = null) {
       ultimoErro = err;
       // Espera um pouco antes de tentar de novo (menos na ultima tentativa).
       if (tentativa < TENTATIVAS_PASSO_REPETIVEL) {
-        await new Promise((resolve) => setTimeout(resolve, esperaEntreTentativas()));
+        await new Promise((resolve) => setTimeout(resolve, configSaga.esperaEntreTentativasMs()));
       }
     }
   }

@@ -397,17 +397,18 @@ $script:dataInicioAoVivo = $null
 $script:sagaCompensadaId = 0
 $script:sagaPendenteId = 0
 
-function Credito-Reservado([int]$LicitanteId) {
-    $r = Invoke-Api GET "/licitantes/$LicitanteId/credito" -Token $T
-    if ($r.StatusCode -ne 200) { return -1 }
-    return [double]$r.Json.reservado
-}
-
 # cada licitante da lances com o PROPRIO token (Regra 7 do lances-service);
 # por padrao, o lance de B usa o token de B e qualquer outro usa o token de A
 function Token-Do([int]$LicitanteId) {
     if ($LicitanteId -eq $script:licitanteBId) { return $script:tokenB }
     return $script:tokenA
+}
+
+# o credito e dado pessoal (Regra 6 do licitante, LGPD): cada um consulta o seu
+function Credito-Reservado([int]$LicitanteId) {
+    $r = Invoke-Api GET "/licitantes/$LicitanteId/credito" -Token (Token-Do $LicitanteId)
+    if ($r.StatusCode -ne 200) { return -1 }
+    return [double]$r.Json.reservado
 }
 
 function Lance([int]$LicitanteId, [double]$Valor, [int]$LeilaoId = $script:leilaoAoVivoId, [string]$Falha = "", [string]$Token = "") {
@@ -740,6 +741,35 @@ Run-Step -Nome "72. Id nao numerico (/leiloes/abc, /licitantes/abc, /lances/abc)
         if ($r.StatusCode -ne 400) { return $r }
     }
     return Invoke-Api GET "/leiloes?leiloeiroId=abc" -Token $script:tokenA
+}
+
+# 73. O dadosPerfil do registro nao troca o e-mail nem o dono do perfil: o
+# auth-service sempre manda os do usuario recem-criado ao usuarios-service
+Run-Step -Nome "73. Registro ignora e-mail/usuarioId vindos no dadosPerfil (espera 200)" -CodigoEsperado 200 -Acao {
+    $email = "perfil$(Get-Random -Maximum 100000000)@teste.com"
+    $r = Invoke-Api POST "/auth/registrar" @{ nome = "Teste Perfil"; email = $email; senha = "senha123"; papel = "LICITANTE"; dadosPerfil = @{ cpf = (Novo-Cpf); email = "outro-$email"; usuarioId = 1 } }
+    if ($r.StatusCode -ne 201) { return $r }
+    $perfil = Invoke-Api GET "/licitantes/$($r.Json.perfil.id)" -Token $r.Json.token
+    if ($perfil.Json.email -ne $email -or [int]$perfil.Json.usuario_id -ne [int]$r.Json.usuario.id) { return @{ StatusCode = 500 } }
+    return $perfil
+}
+
+# 74. O credito (limite, reservado, disponivel) tambem e dado pessoal (Regra 6
+# do licitante): A nao ve o de B e o leiloeiro nao ve o de ninguem
+Run-Step -Nome "74. Licitante A e leiloeiro nao veem o credito de B (espera 403)" -CodigoEsperado 403 -Acao {
+    $leiloeiro = Invoke-Api GET "/licitantes/$($script:licitanteBId)/credito" -Token $script:tokenLeiloeiro
+    if ($leiloeiro.StatusCode -ne 403) { return $leiloeiro }
+    return (Invoke-Api GET "/licitantes/$($script:licitanteBId)/credito" -Token $script:tokenA)
+}
+
+# 75. Regra 2 tambem na edicao: nao da para mover o inicio de um leilao para o passado
+Run-Step -Nome "75. Editar leilao movendo o inicio para o passado (espera 400)" -CodigoEsperado 400 -Acao {
+    $ini = $amanha.AddDays(10).AddHours(9).ToString("yyyy-MM-ddTHH:mm:ssZ")
+    $fimL = $amanha.AddDays(10).AddHours(12).ToString("yyyy-MM-ddTHH:mm:ssZ")
+    $body = Novo-Leilao -LeiloeiroId $script:leiloeiroId -Titulo "Leilao para editar" -LanceInicial 1000 -Incremento 50 -Inicio $ini -Fim $fimL
+    $novo = Invoke-Api POST "/leiloes" ($body | ConvertFrom-Json) -Token $script:tokenLeiloeiro
+    if ($novo.StatusCode -ne 201) { return @{ StatusCode = 500 } }
+    return (Invoke-Api PUT "/leiloes/$($novo.Json.id)" @{ dataInicio = "2020-01-01T10:00:00Z" } -Token $script:tokenLeiloeiro)
 }
 
 Write-Host "==========================================================================" -ForegroundColor Cyan

@@ -34,6 +34,10 @@ const payloadLicitante = { sub: 30, papel: 'LICITANTE', perfilId: 3 };
 // o middleware confere a assinatura (jwt.verify): o teste usa o mesmo segredo
 process.env.JWT_SECRET = 'segredo-qualquer';
 const bearer = `Bearer ${jwt.sign(payloadLicitante, 'segredo-qualquer')}`;
+// as rotas internas exigem a chave interna (middlewares/exigirChaveInterna.js);
+// os testes delas mandam o header X-Chave-Interna com este valor
+const CHAVE = 'chave-de-teste';
+process.env.CHAVE_INTERNA = CHAVE;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -88,6 +92,7 @@ describe('rotas /leiloeiros', () => {
     leiloeiroService.cadastrar.mockResolvedValue({ id: 9 });
     const res = await request(app)
       .post('/leiloeiros')
+      .set('X-Chave-Interna', CHAVE)
       .send({ nome: 'Carlos', email: 'c@c.com', registroProfissional: 'JUCESC-000123', campoExtra: 'x' });
     expect(res.status).toBe(201);
     expect(leiloeiroService.cadastrar).toHaveBeenCalledWith({
@@ -144,10 +149,10 @@ describe('rotas /licitantes', () => {
 
   test('POST /licitantes responde 201; dado invalido responde 400', async () => {
     licitanteService.cadastrar.mockResolvedValueOnce({ id: 3 });
-    expect((await request(app).post('/licitantes').send({ nome: 'Maria' })).status).toBe(201);
+    expect((await request(app).post('/licitantes').set('X-Chave-Interna', CHAVE).send({ nome: 'Maria' })).status).toBe(201);
 
     licitanteService.cadastrar.mockRejectedValueOnce(new ErroDeValidacao('CPF invalido.'));
-    const res = await request(app).post('/licitantes').send({ nome: 'Maria' });
+    const res = await request(app).post('/licitantes').set('X-Chave-Interna', CHAVE).send({ nome: 'Maria' });
     expect(res.status).toBe(400);
     expect(res.body.erro).toBe('CPF invalido.');
   });
@@ -179,17 +184,20 @@ describe('rotas de credito (/licitantes/:id/credito e /reservas)', () => {
     creditoService.consultarCredito.mockResolvedValue({ disponivel: 100 });
     creditoService.listarReservas.mockResolvedValue([]);
 
-    expect((await request(app).get('/licitantes/3/credito')).body).toEqual({ disponivel: 100 });
-    expect((await request(app).get('/licitantes/3/reservas')).status).toBe(200);
-    expect(creditoService.consultarCredito).toHaveBeenCalledWith('3');
+    expect((await request(app).get('/licitantes/3/credito').set('Authorization', bearer)).body).toEqual({
+      disponivel: 100,
+    });
+    expect((await request(app).get('/licitantes/3/reservas').set('X-Chave-Interna', CHAVE)).status).toBe(200);
+    // repassa quem esta logado: o service decide se e o proprio licitante (LGPD)
+    expect(creditoService.consultarCredito).toHaveBeenCalledWith('3', expect.objectContaining(payloadLicitante));
   });
 
   test('POST reservas: 201 quando cria, 200 quando a referencia ja existia (idempotencia)', async () => {
     creditoService.reservar.mockResolvedValueOnce({ reserva: { id: 1 }, criada: true });
     creditoService.reservar.mockResolvedValueOnce({ reserva: { id: 1 }, criada: false });
 
-    const primeira = await request(app).post('/licitantes/3/reservas').send({ valor: 100, referencia: 'saga-1' });
-    const repetida = await request(app).post('/licitantes/3/reservas').send({ valor: 100, referencia: 'saga-1' });
+    const primeira = await request(app).post('/licitantes/3/reservas').set('X-Chave-Interna', CHAVE).send({ valor: 100, referencia: 'saga-1' });
+    const repetida = await request(app).post('/licitantes/3/reservas').set('X-Chave-Interna', CHAVE).send({ valor: 100, referencia: 'saga-1' });
 
     expect(primeira.status).toBe(201);
     expect(repetida.status).toBe(200);
@@ -200,8 +208,8 @@ describe('rotas de credito (/licitantes/:id/credito e /reservas)', () => {
     creditoService.reservar.mockRejectedValue(new ErroDeValidacao('Credito insuficiente', 409));
     creditoService.liberar.mockResolvedValue({ id: 1, status: 'LIBERADA' });
 
-    expect((await request(app).post('/licitantes/3/reservas').send({ valor: 1e9 })).status).toBe(409);
-    const res = await request(app).post('/licitantes/3/reservas/1/liberar');
+    expect((await request(app).post('/licitantes/3/reservas').set('X-Chave-Interna', CHAVE).send({ valor: 1e9 })).status).toBe(409);
+    const res = await request(app).post('/licitantes/3/reservas/1/liberar').set('X-Chave-Interna', CHAVE);
     expect(res.status).toBe(200);
     expect(creditoService.liberar).toHaveBeenCalledWith('3', '1');
   });
@@ -212,15 +220,15 @@ describe('rotas de credito (/licitantes/:id/credito e /reservas)', () => {
     creditoService.liberar.mockRejectedValue(new Error('bug'));
 
     expect((await request(app).get('/licitantes/3/credito')).status).toBe(500);
-    expect((await request(app).get('/licitantes/3/reservas')).status).toBe(500);
-    expect((await request(app).post('/licitantes/3/reservas/1/liberar')).status).toBe(500);
+    expect((await request(app).get('/licitantes/3/reservas').set('X-Chave-Interna', CHAVE)).status).toBe(500);
+    expect((await request(app).post('/licitantes/3/reservas/1/liberar').set('X-Chave-Interna', CHAVE)).status).toBe(500);
   });
 });
 
 describe('rota interna /reservas (cancelamento de leilao)', () => {
   test('POST /reservas/leilao/:leilaoId/liberar responde 200 com o resumo', async () => {
     creditoService.liberarPorLeilao.mockResolvedValue({ leilaoId: 4, liberadas: 1, reservas: [] });
-    const res = await request(app).post('/reservas/leilao/4/liberar');
+    const res = await request(app).post('/reservas/leilao/4/liberar').set('X-Chave-Interna', CHAVE);
     expect(res.status).toBe(200);
     expect(res.body.liberadas).toBe(1);
     expect(creditoService.liberarPorLeilao).toHaveBeenCalledWith('4');
@@ -228,15 +236,48 @@ describe('rota interna /reservas (cancelamento de leilao)', () => {
 
   test('id invalido responde 400; erro inesperado responde 500', async () => {
     creditoService.liberarPorLeilao.mockRejectedValueOnce(new ErroDeValidacao('leilaoId deve ser um numero inteiro positivo.'));
-    expect((await request(app).post('/reservas/leilao/abc/liberar')).status).toBe(400);
+    expect((await request(app).post('/reservas/leilao/abc/liberar').set('X-Chave-Interna', CHAVE)).status).toBe(400);
     creditoService.liberarPorLeilao.mockRejectedValueOnce(new Error('bug'));
-    expect((await request(app).post('/reservas/leilao/4/liberar')).status).toBe(500);
+    expect((await request(app).post('/reservas/leilao/4/liberar').set('X-Chave-Interna', CHAVE)).status).toBe(500);
   });
 
   test('POST de reserva repassa o leilaoId do corpo', async () => {
     creditoService.reservar.mockResolvedValue({ reserva: { id: 1 }, criada: true });
-    await request(app).post('/licitantes/3/reservas').send({ valor: 100, referencia: 'saga-1', leilaoId: 4 });
+    await request(app).post('/licitantes/3/reservas').set('X-Chave-Interna', CHAVE).send({ valor: 100, referencia: 'saga-1', leilaoId: 4 });
     expect(creditoService.reservar).toHaveBeenCalledWith('3', { valor: 100, referencia: 'saga-1', leilaoId: 4 });
+  });
+});
+
+describe('rotas internas exigem a chave interna (X-Chave-Interna)', () => {
+  const internas = [
+    ['post', '/leiloeiros'],
+    ['post', '/licitantes'],
+    ['get', '/licitantes/3/reservas'],
+    ['post', '/licitantes/3/reservas'],
+    ['post', '/licitantes/3/reservas/1/liberar'],
+    ['post', '/reservas/leilao/4/liberar'],
+  ];
+
+  test('sem a chave ou com a chave errada: 403 e o service nem e chamado', async () => {
+    for (const [metodo, rota] of internas) {
+      const semChave = await request(app)[metodo](rota).send({});
+      const chaveErrada = await request(app)[metodo](rota).set('X-Chave-Interna', 'outra').send({});
+      expect([rota, semChave.status, chaveErrada.status]).toEqual([rota, 403, 403]);
+      expect(semChave.body).toEqual({ erro: 'Rota interna: so os servicos do sistema podem chamar.' });
+    }
+    expect(leiloeiroService.cadastrar).not.toHaveBeenCalled();
+    expect(licitanteService.cadastrar).not.toHaveBeenCalled();
+    expect(creditoService.listarReservas).not.toHaveBeenCalled();
+    expect(creditoService.reservar).not.toHaveBeenCalled();
+    expect(creditoService.liberar).not.toHaveBeenCalled();
+    expect(creditoService.liberarPorLeilao).not.toHaveBeenCalled();
+  });
+
+  test('as rotas de usuario (GET, PUT, DELETE e o credito) nao pedem a chave', async () => {
+    licitanteService.consultar.mockResolvedValue({ id: 3 });
+    creditoService.consultarCredito.mockResolvedValue({ disponivel: 100 });
+    expect((await request(app).get('/licitantes/3').set('Authorization', bearer)).status).toBe(200);
+    expect((await request(app).get('/licitantes/3/credito').set('Authorization', bearer)).status).toBe(200);
   });
 });
 

@@ -6,10 +6,12 @@
 // devolvido ao cliente para ele poder consultar o que aconteceu
 // (GET /lances/sagas/:id).
 //
-// Quem chama: routes/lanceRoutes.js | Quem e chamado: services/lanceService.js
+// Quem chama: routes/lanceRoutes.js
+// Quem e chamado: services/lanceService.js, config/saga.js (demonstracao de falhas)
 // =============================================================================
 
 const lanceService = require('../services/lanceService');
+const configSaga = require('../config/saga');
 
 /** GET /lances  ->  todos os lances (mais recentes primeiro). */
 async function listar(req, res, next) {
@@ -63,17 +65,15 @@ async function buscarMaiorPorLeilao(req, res, next) {
  *
  * Header opcional (so para demonstracao): X-Simular-Falha: <nome-do-passo>
  * forca uma falha naquele passo, para mostrar a compensacao funcionando.
+ * So vale com SAGA_PERMITIR_FALHA_SIMULADA=true (config/saga.js); sem isso o
+ * header e ignorado (seguranca em producao).
  */
 async function registrar(req, res, next) {
   try {
     const { leilaoId, valor, licitanteId } = req.body;
 
-    // forca uma falha num passo da saga, pra mostrar a compensacao.
-    // so funciona com SAGA_PERMITIR_FALHA_SIMULADA=true
-    // req.get('Nome') le um header da requisicao. Se a variavel de ambiente
-    // nao estiver ligada, o header e ignorado (seguranca em producao).
-    const simularFalha =
-      process.env.SAGA_PERMITIR_FALHA_SIMULADA === 'true' ? req.get('X-Simular-Falha') || null : null;
+    // req.get('Nome') le um header da requisicao.
+    const simularFalha = configSaga.falhaSimuladaPermitida() ? req.get('X-Simular-Falha') || null : null;
 
     const lance = await lanceService.registrarLance({
       leilaoId,

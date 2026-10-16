@@ -143,6 +143,9 @@ services:
       JWT_EXPIRES_IN: 2h
       # Endereco interno do usuarios-service (para criar o perfil no registro).
       USUARIOS_SERVICE_URL: http://usuarios-service:3002
+      # Chave das rotas internas do usuarios-service (ver usuarios-service/src/
+      # middlewares/exigirChaveInterna.js): IGUAL em auth, usuarios, leiloes e lances.
+      CHAVE_INTERNA: ${CHAVE_INTERNA:-chave-interna-trabalho-microsservicos}
     # depends_on: ordem de subida. Aqui: so sobe quando o banco estiver saudavel.
     depends_on:
       auth-db:
@@ -163,6 +166,9 @@ services:
       # assinatura do token (jwt.verify)
       JWT_SECRET: ${JWT_SECRET:-super-segredo-trabalho-microsservicos}
       JWT_ISSUER: sistema-leilao-auth
+      # exigida nas rotas internas (criar perfil, reservar e liberar credito):
+      # os outros servicos a mandam no header X-Chave-Interna
+      CHAVE_INTERNA: ${CHAVE_INTERNA:-chave-interna-trabalho-microsservicos}
       DB_HOST: usuarios-db
       DB_PORT: 5432
       DB_USER: usuarios_user
@@ -191,6 +197,8 @@ services:
       DB_NAME: leiloes_db
       # Para validar o leiloeiro antes de cadastrar um leilao.
       USUARIOS_SERVICE_URL: http://usuarios-service:3002
+      # para chamar a rota interna que libera o credito ao cancelar um leilao
+      CHAVE_INTERNA: ${CHAVE_INTERNA:-chave-interna-trabalho-microsservicos}
     depends_on:
       leiloes-db:
         condition: service_healthy
@@ -219,6 +227,8 @@ services:
       # saga do lance: consulta o leilao e reserva/libera credito
       LEILOES_SERVICE_URL: http://leiloes-service:3003
       USUARIOS_SERVICE_URL: http://usuarios-service:3002
+      # para chamar as rotas internas de reserva e liberacao de credito
+      CHAVE_INTERNA: ${CHAVE_INTERNA:-chave-interna-trabalho-microsservicos}
       # libera o header X-Simular-Falha (so pra demo e testes)
       SAGA_PERMITIR_FALHA_SIMULADA: "true"
     depends_on:

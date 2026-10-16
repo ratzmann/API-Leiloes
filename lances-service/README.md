@@ -58,3 +58,5 @@ Variáveis:
 | `SERVICOS_TIMEOUT_MS` | tempo máximo de cada chamada a outro serviço (padrão 3000) |
 | `SAGA_PERMITIR_FALHA_SIMULADA` | `true` libera o header `X-Simular-Falha` (só para demo; `false` em HOMOL) |
 | `SAGA_ESPERA_REPETICAO_MS` | espera entre as tentativas do passo 4 da Saga (padrão 300) |
+| `JWT_SECRET`, `JWT_ISSUER` | os mesmos do auth-service (o serviço confere a assinatura do token) |
+| `CHAVE_INTERNA` | vai no header `X-Chave-Interna` nas reservas e liberações de crédito (rotas internas do usuarios-service); a mesma em todos os serviços do ambiente |

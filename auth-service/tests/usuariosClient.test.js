@@ -31,6 +31,35 @@ describe('usuariosClient.criarPerfil', () => {
     expect(JSON.parse(opcoes.body)).toEqual({ usuarioId: 7, nome: 'Ana Souza', email: 'a@a.com', cpf: '52998224725' });
   });
 
+  test('dadosPerfil nao troca o dono, o nome nem o e-mail do perfil', async () => {
+    global.fetch.mockResolvedValue(resposta(201, { id: 3 }));
+
+    await usuariosClient.criarPerfil(usuario, 'LICITANTE', {
+      cpf: '52998224725',
+      usuarioId: 1,
+      nome: 'Outra Pessoa',
+      email: 'outro@x.com',
+    });
+
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toEqual({
+      usuarioId: 7,
+      nome: 'Ana Souza',
+      email: 'a@a.com',
+      cpf: '52998224725',
+    });
+  });
+
+  test('manda a chave interna (X-Chave-Interna) quando CHAVE_INTERNA esta configurada', async () => {
+    global.fetch.mockResolvedValue(resposta(201, { id: 3 }));
+    process.env.CHAVE_INTERNA = 'chave-de-teste';
+    await usuariosClient.criarPerfil(usuario, 'LICITANTE', {});
+    delete process.env.CHAVE_INTERNA;
+    await usuariosClient.criarPerfil(usuario, 'LICITANTE', {});
+
+    expect(global.fetch.mock.calls[0][1].headers['X-Chave-Interna']).toBe('chave-de-teste');
+    expect(global.fetch.mock.calls[1][1].headers).not.toHaveProperty('X-Chave-Interna');
+  });
+
   test('leiloeiro: POST /leiloeiros', async () => {
     global.fetch.mockResolvedValue(resposta(201, { id: 5 }));
     await usuariosClient.criarPerfil(usuario, 'LEILOEIRO', {});

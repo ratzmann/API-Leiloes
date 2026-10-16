@@ -65,7 +65,10 @@ Trabalho de Microsserviços: **cadastro de leiloeiros e licitantes**, **cadastro
   está configurado com o mesmo segredo HS256 (`JWT_SECRET`) usado para
   assinar os tokens. As rotas de reserva de crédito
   (`/licitantes/:id/reservas`) e a criação de perfis (`POST /leiloeiros`,
-  `POST /licitantes`) são internas e o Kong as bloqueia com `403`.
+  `POST /licitantes`) são internas e o Kong as bloqueia com `403`. Como na
+  nuvem (T2) não há Kong na frente, o próprio usuarios-service também exige
+  nessas rotas a **chave interna** (header `X-Chave-Interna`, variável
+  `CHAVE_INTERNA`), que só os outros serviços conhecem.
 
 ## Padrões de microsserviços
 
@@ -106,7 +109,7 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 | `GET /lances/sagas` | últimas sagas executadas |
 | `GET /lances/sagas/:id` | uma saga, passo a passo |
 | `POST /lances/sagas/:id/reprocessar` | tenta de novo o passo 4 de uma saga pendente |
-| `GET /licitantes/:id/credito` | limite, reservado e disponível do licitante |
+| `GET /licitantes/:id/credito` | limite, reservado e disponível do licitante (só o próprio) |
 
 ## Regras de negócio implementadas
 
@@ -128,7 +131,8 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 5. O licitante **não** altera o próprio limite de crédito (`403`) — o limite é
    definido no cadastro.
 6. **Privacidade (LGPD)**: CPF, e-mail, telefone e limite de crédito só aparecem
-   para o próprio licitante; os demais veem apenas `id` e `nome`.
+   para o próprio licitante; os demais veem apenas `id` e `nome`. O resumo de
+   crédito (`GET /licitantes/:id/credito`) também é só do próprio (`403` para os demais).
 
 > Perfis são criados só pelo registro (`POST /auth/registrar`): o Kong
 > responde `403` a `POST /leiloeiros` e `POST /licitantes` vindos de fora.
@@ -144,7 +148,7 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 1. Validação do evento: título, lote (≥ 1 boi), lance inicial e incremento
    mínimo maiores que zero (e incremento nunca maior que o lance inicial),
    datas ISO 8601 com fim depois do início e duração mínima de 30 minutos.
-2. Data de início obrigatoriamente no futuro.
+2. Data de início obrigatoriamente no futuro (no cadastro e na edição).
 3. O leilão só é gravado se o `leiloeiroId` existir de fato — verificado por
    chamada REST ao `usuarios-service`.
 4. Um leiloeiro não pode ter dois leilões ativos com períodos sobrepostos.
@@ -333,7 +337,7 @@ Ponta a ponta, com a stack no ar (PowerShell):
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
 ```
-72 passos pelo Kong: autenticação, usuários, leilões, a Saga de lances —
+75 passos pelo Kong: autenticação, usuários, leilões, a Saga de lances —
 caminho feliz, recusas, compensação, pendência e reprocessamento —, a
 autorização (ninguém age em nome de outra pessoa nem altera o cadastro alheio),
 o cancelamento de leilão devolvendo o crédito reservado, o registro desfeito
@@ -370,7 +374,8 @@ para `.env` e ajuste `DB_HOST` etc.
 | `PORT` | os 4 serviços | porta HTTP do serviço (3001 a 3003) |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | os 4 serviços | conexão com o banco do serviço (docker-compose) |
 | `DATABASE_URL`, `DB_SSL` | os 4 serviços | banco em nuvem (Neon/Render): a URL substitui as `DB_*`; `DB_SSL=true` liga o SSL |
-| `JWT_SECRET`, `JWT_ISSUER`, `JWT_EXPIRES_IN` | só o auth-service | assinar os tokens (iguais aos do `kong.yml`) |
+| `JWT_SECRET`, `JWT_ISSUER`, `JWT_EXPIRES_IN` | auth-service (os 3 primeiros também em usuarios, leiloes e lances) | o auth assina os tokens e os outros conferem a assinatura (iguais aos do `kong.yml`) |
+| `CHAVE_INTERNA` | os 4 serviços | chave das rotas internas do usuarios-service (criar perfil, reservar e liberar crédito): os outros a mandam no header `X-Chave-Interna`; a mesma em todos os serviços do ambiente |
 | `USUARIOS_SERVICE_URL`, `LEILOES_SERVICE_URL` | quem chama esses serviços | endereço interno (rede do Docker). Vazio no auth ou no leiloes = serviço rodando sozinho (deploy do T2): o auth só cria a credencial e o leiloes não valida o leiloeiro nem libera reservas |
 | `SERVICOS_TIMEOUT_MS` | auth, leiloes e lances | tempo máximo das chamadas entre serviços (padrão 3000) |
 | `SAGA_PERMITIR_FALHA_SIMULADA` | lances-service | libera o header `X-Simular-Falha` (só para demo) |
