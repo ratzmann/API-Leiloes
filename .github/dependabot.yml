@@ -17,7 +17,7 @@ updates:
       dependencias-de-desenvolvimento:
         dependency-type: development
 
-  # leiloes-service: imagem base do Dockerfile (node:20-alpine)
+  # leiloes-service: imagem base do Dockerfile (node:24-alpine; versao maior so LTS, par)
   - package-ecosystem: docker
     directory: /leiloes-service
     target-branch: develop
@@ -41,7 +41,7 @@ updates:
       dependencias-de-desenvolvimento:
         dependency-type: development
 
-  # auth-service: imagem base do Dockerfile (node:20-alpine)
+  # auth-service: imagem base do Dockerfile (node:24-alpine; versao maior so LTS, par)
   - package-ecosystem: docker
     directory: /auth-service
     target-branch: develop
@@ -65,7 +65,7 @@ updates:
       dependencias-de-desenvolvimento:
         dependency-type: development
 
-  # usuarios-service: imagem base do Dockerfile (node:20-alpine)
+  # usuarios-service: imagem base do Dockerfile (node:24-alpine; versao maior so LTS, par)
   - package-ecosystem: docker
     directory: /usuarios-service
     target-branch: develop
@@ -89,7 +89,7 @@ updates:
       dependencias-de-desenvolvimento:
         dependency-type: development
 
-  # lances-service: imagem base do Dockerfile (node:20-alpine)
+  # lances-service: imagem base do Dockerfile (node:24-alpine; versao maior so LTS, par)
   - package-ecosystem: docker
     directory: /lances-service
     target-branch: develop
