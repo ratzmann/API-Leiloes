@@ -69,3 +69,28 @@ describe('GET /metrics', () => {
     expect(resposta.text).not.toMatch(/rota="\/metrics"/);
   });
 });
+
+// A documentacao precisa acompanhar as regras do T1: toda rota de escrita
+// protegida declara 401 (sem login) e 403 (sem permissao), e toda rota com {id}
+// declara 400 (id invalido).
+describe('Swagger documenta a autorizacao e a validacao de id', () => {
+  const documento = require('../src/docs/openapi')('teste');
+  const operacoes = Object.entries(documento.paths).flatMap(([caminho, metodos]) =>
+    Object.entries(metodos).map(([metodo, operacao]) => ({ caminho, metodo, operacao }))
+  );
+
+  test('POST, PUT, PATCH e DELETE em /leiloes declaram 401 e 403', () => {
+    const escrita = operacoes.filter((o) => o.caminho.startsWith('/leiloes') && o.metodo !== 'get');
+    expect(escrita.length).toBeGreaterThan(0);
+    escrita.forEach(({ operacao }) => expect(Object.keys(operacao.responses)).toEqual(expect.arrayContaining(['401', '403'])));
+  });
+
+  test('rotas com {id} declaram 400', () => {
+    const comId = operacoes.filter((o) => o.caminho.includes('{id}'));
+    comId.forEach(({ operacao }) => expect(operacao.responses).toHaveProperty('400'));
+  });
+
+  test('leiloeiroId e opcional no cadastro (vem do token)', () => {
+    expect(documento.components.schemas.LeilaoEntrada.required).not.toContain('leiloeiroId');
+  });
+});

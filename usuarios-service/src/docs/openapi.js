@@ -7,6 +7,11 @@ const erro = (descricao) => ({
   content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } },
 });
 
+// Respostas da autorizacao e da validacao (revisao do T1): sem token -> 401;
+// cadastro de outra pessoa -> 403; id que nao e inteiro positivo -> 400.
+const semLogin = erro('Sem login: falta o token (Authorization: Bearer)');
+const idInvalido = erro('Id invalido (nao e um inteiro positivo)');
+
 const json = (descricao, schema) => ({
   description: descricao,
   content: { 'application/json': { schema } },
@@ -27,19 +32,21 @@ const corpo = (schema) => ({
   content: { 'application/json': { schema } },
 });
 
-// CRUD igual para /leiloeiros e /licitantes; muda o nome e os schemas
-function crud({ tag, singular, entrada, saida }) {
+// CRUD igual para /leiloeiros e /licitantes; muda o nome, os schemas e o texto
+// do 403 (o licitante tambem nao altera o proprio limite de credito)
+function crud({ tag, singular, entrada, edicao, saida, semPermissao }) {
   const id = parametroId(`Id do ${singular}`);
+  const soOProprio = erro(semPermissao);
   return {
     colecao: {
       get: {
         tags: [tag],
-        summary: `Lista os ${tag.toLowerCase()}`,
+        summary: `Lista os ${tag.toLowerCase()} (dados pessoais so do proprio cadastro, LGPD)`,
         responses: { 200: json('Lista', { type: 'array', items: ref(saida) }) },
       },
       post: {
         tags: [tag],
-        summary: `Cadastra um ${singular}`,
+        summary: `Cadastra um ${singular} (uso interno: o auth-service chama no registro; pelo Kong, 403)`,
         requestBody: corpo(ref(entrada)),
         responses: {
           201: json(`${singular} criado`, ref(saida)),
@@ -51,26 +58,38 @@ function crud({ tag, singular, entrada, saida }) {
     item: {
       get: {
         tags: [tag],
-        summary: `Busca um ${singular} pelo id`,
+        summary: `Busca um ${singular} pelo id (dados pessoais so para o proprio, LGPD)`,
         parameters: [id],
-        responses: { 200: json(singular, ref(saida)), 404: erro(`${singular} nao encontrado`) },
+        responses: {
+          200: json(singular, ref(saida)),
+          400: idInvalido,
+          404: erro(`${singular} nao encontrado`),
+        },
       },
       put: {
         tags: [tag],
-        summary: `Atualiza um ${singular}`,
+        summary: `Atualiza o proprio cadastro de ${singular}`,
         parameters: [id],
-        requestBody: corpo(ref(entrada)),
+        requestBody: corpo(ref(edicao)),
         responses: {
           200: json(`${singular} atualizado`, ref(saida)),
-          400: erro('Dados invalidos'),
+          400: erro('Dados ou id invalidos'),
+          401: semLogin,
+          403: soOProprio,
           404: erro(`${singular} nao encontrado`),
         },
       },
       delete: {
         tags: [tag],
-        summary: `Remove um ${singular}`,
+        summary: `Remove o proprio cadastro de ${singular}`,
         parameters: [id],
-        responses: { 204: { description: 'Removido' }, 404: erro(`${singular} nao encontrado`) },
+        responses: {
+          204: { description: 'Removido' },
+          400: idInvalido,
+          401: semLogin,
+          403: soOProprio,
+          404: erro(`${singular} nao encontrado`),
+        },
       },
     },
   };
@@ -81,13 +100,18 @@ function criarDocumentoOpenApi(versao) {
     tag: 'Leiloeiros',
     singular: 'leiloeiro',
     entrada: 'LeiloeiroEntrada',
+    edicao: 'LeiloeiroEdicao',
     saida: 'Leiloeiro',
+    semPermissao: 'Sem permissao: so o proprio leiloeiro altera ou remove o cadastro',
   });
   const licitantes = crud({
     tag: 'Licitantes',
     singular: 'licitante',
     entrada: 'LicitanteEntrada',
+    edicao: 'LicitanteEdicao',
     saida: 'Licitante',
+    semPermissao:
+      'Sem permissao: so o proprio licitante altera ou remove o cadastro, e ele nao altera o proprio limite de credito',
   });
   const idLicitante = parametroId('Id do licitante');
 
@@ -99,7 +123,11 @@ function criarDocumentoOpenApi(versao) {
       description:
         'Cadastro de leiloeiros e licitantes do sistema de Leilao de Bois, com o credito ' +
         'do licitante usado pela saga de lance. Pelo Kong, as rotas exigem um JWT ' +
-        '(Authorization: Bearer). Swagger disponivel apenas no DEV.',
+        '(Authorization: Bearer). Consultas sao livres, mas os dados pessoais (CPF, e-mail, ' +
+        'telefone, limite) so aparecem para o proprio dono (LGPD); alterar ou remover um ' +
+        'cadastro exige o token do proprio (sem token: 401; de outra pessoa: 403). A criacao de ' +
+        'perfis e as reservas de credito sao rotas internas: pelo Kong respondem 403. ' +
+        'Swagger disponivel apenas no DEV.',
     },
     servers: [{ url: '/' }],
     tags: [
@@ -165,6 +193,22 @@ function criarDocumentoOpenApi(versao) {
             criado_em: { type: 'string', format: 'date-time' },
           },
         },
+        LeiloeiroEdicao: {
+          type: 'object',
+          description: 'Edicao parcial: so os campos enviados mudam',
+          properties: {
+            nome: { type: 'string', minLength: 3, example: 'Carlos Pereira' },
+            telefone: { type: 'string', example: '47988887777' },
+          },
+        },
+        LicitanteEdicao: {
+          type: 'object',
+          description: 'Edicao parcial. limiteCredito e recusado (403): o licitante nao altera o proprio limite',
+          properties: {
+            nome: { type: 'string', minLength: 3, example: 'Maria Compradora' },
+            telefone: { type: 'string', example: '47988880000' },
+          },
+        },
         Credito: {
           type: 'object',
           properties: {
@@ -215,13 +259,17 @@ function criarDocumentoOpenApi(versao) {
           tags: ['Credito'],
           summary: 'Limite, reservado e disponivel do licitante',
           parameters: [idLicitante],
-          responses: { 200: json('Credito', ref('Credito')), 404: erro('Licitante nao encontrado') },
+          responses: {
+            200: json('Credito', ref('Credito')),
+            400: idInvalido,
+            404: erro('Licitante nao encontrado'),
+          },
         },
       },
       '/licitantes/{id}/reservas': {
         get: {
           tags: ['Credito'],
-          summary: 'Lista as reservas de credito do licitante',
+          summary: 'Lista as reservas de credito do licitante (rota interna: pelo Kong, 403)',
           parameters: [idLicitante],
           responses: { 200: json('Reservas', { type: 'array', items: ref('Reserva') }) },
         },
@@ -257,6 +305,29 @@ function criarDocumentoOpenApi(versao) {
           responses: {
             200: json('Reserva liberada', ref('Reserva')),
             404: erro('Reserva nao encontrada para este licitante'),
+          },
+        },
+      },
+      '/reservas/leilao/{leilaoId}/liberar': {
+        post: {
+          tags: ['Credito'],
+          summary:
+            'Libera todas as reservas de um leilao cancelado (uso interno do leiloes-service, ' +
+            'Regra 8; idempotente). O Kong nao tem rota /reservas.',
+          security: [],
+          parameters: [
+            { name: 'leilaoId', in: 'path', required: true, schema: { type: 'integer', minimum: 1 } },
+          ],
+          responses: {
+            200: json('Resumo da liberacao', {
+              type: 'object',
+              properties: {
+                leilaoId: { type: 'integer', example: 4 },
+                liberadas: { type: 'integer', example: 2 },
+                reservas: { type: 'array', items: ref('Reserva') },
+              },
+            }),
+            400: erro('leilaoId invalido'),
           },
         },
       },

@@ -7,6 +7,12 @@ const erro = (descricao) => ({
   content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } },
 });
 
+// Respostas da autorizacao (revisao do T1): sem token -> 401; papel errado ou
+// leilao de outra pessoa -> 403. Id que nao e inteiro positivo -> 400.
+const semLogin = erro('Sem login: falta o token de LEILOEIRO (Authorization: Bearer)');
+const soODono = erro('Sem permissao: so o leiloeiro dono do leilao pode alterar');
+const idInvalido = erro('Id invalido (nao e um inteiro positivo)');
+
 const leilaoJson = (descricao) => ({
   description: descricao,
   content: { 'application/json': { schema: { $ref: '#/components/schemas/Leilao' } } },
@@ -20,8 +26,9 @@ const parametroId = {
   description: 'Id do leilao',
 };
 
-// atalhos PATCH /leiloes/{id}/abrir|encerrar|cancelar (Regra 5)
-function atalhoDeStatus(resumo) {
+// atalhos PATCH /leiloes/{id}/abrir|encerrar|cancelar (Regras 5 e 7);
+// `extras` acrescenta respostas de um atalho so (ex.: o 503 do cancelar)
+function atalhoDeStatus(resumo, extras = {}) {
   return {
     patch: {
       tags: ['Ciclo de vida'],
@@ -29,8 +36,12 @@ function atalhoDeStatus(resumo) {
       parameters: [parametroId],
       responses: {
         200: leilaoJson('Leilao com o novo status'),
+        400: idInvalido,
+        401: semLogin,
+        403: soODono,
         404: erro('Leilao nao encontrado'),
         409: erro('Transicao de status nao permitida'),
+        ...extras,
       },
     },
   };
@@ -44,7 +55,11 @@ function criarDocumentoOpenApi(versao) {
       version: versao,
       description:
         'Cadastro de leilao (evento) do sistema de Leilao de Bois. Pelo Kong, as rotas ' +
-        '/leiloes exigem um JWT (Authorization: Bearer). Swagger disponivel apenas no DEV.',
+        '/leiloes exigem um JWT (Authorization: Bearer). No servico, as consultas (GET) sao ' +
+        'livres; cadastrar exige um token de LEILOEIRO (o leilao fica em nome dele) e editar, ' +
+        'mudar o status ou remover so o leiloeiro dono. Sem token: 401; sem permissao: 403. ' +
+        'Rodando sozinho (sem USUARIOS_SERVICE_URL) o leiloeiro nao e validado e o cancelamento ' +
+        'nao libera reservas. Swagger disponivel apenas no DEV.',
     },
     servers: [{ url: '/' }],
     tags: [
@@ -64,7 +79,6 @@ function criarDocumentoOpenApi(versao) {
         LeilaoEntrada: {
           type: 'object',
           required: [
-            'leiloeiroId',
             'titulo',
             'quantidadeBois',
             'lanceInicial',
@@ -73,7 +87,11 @@ function criarDocumentoOpenApi(versao) {
             'dataFim',
           ],
           properties: {
-            leiloeiroId: { type: 'integer', example: 1 },
+            leiloeiroId: {
+              type: 'integer',
+              example: 1,
+              description: 'Opcional: o leilao fica em nome do leiloeiro do token; se enviado, tem que ser o proprio',
+            },
             titulo: { type: 'string', minLength: 3, example: 'Leilao de Nelore - Lote 12' },
             descricao: { type: 'string', example: 'Lote de garrotes' },
             localEvento: { type: 'string', example: 'Parque de Exposicoes de Lages' },
@@ -83,6 +101,21 @@ function criarDocumentoOpenApi(versao) {
             incrementoMinimo: { type: 'number', example: 100 },
             dataInicio: { type: 'string', format: 'date-time', example: '2026-12-01T14:00:00Z' },
             dataFim: { type: 'string', format: 'date-time', example: '2026-12-01T18:00:00Z' },
+          },
+        },
+        LeilaoEdicao: {
+          type: 'object',
+          description: 'Edicao parcial: so os campos enviados mudam',
+          properties: {
+            titulo: { type: 'string', minLength: 3, example: 'Leilao de Nelore - Lote 12 (revisado)' },
+            descricao: { type: 'string' },
+            localEvento: { type: 'string' },
+            raca: { type: 'string' },
+            quantidadeBois: { type: 'integer', minimum: 1, example: 45 },
+            lanceInicial: { type: 'number' },
+            incrementoMinimo: { type: 'number' },
+            dataInicio: { type: 'string', format: 'date-time' },
+            dataFim: { type: 'string', format: 'date-time' },
           },
         },
         Leilao: {
@@ -157,11 +190,12 @@ function criarDocumentoOpenApi(versao) {
                 },
               },
             },
+            400: erro('leiloeiroId invalido'),
           },
         },
         post: {
           tags: ['Leiloes'],
-          summary: 'Cadastra um leilao (Regras 1 a 4)',
+          summary: 'Cadastra um leilao em nome do leiloeiro logado (Regras 1 a 4 e 7)',
           requestBody: {
             required: true,
             content: {
@@ -171,7 +205,9 @@ function criarDocumentoOpenApi(versao) {
           responses: {
             201: leilaoJson('Leilao cadastrado com status AGENDADO'),
             400: erro('Dados invalidos ou data de inicio no passado'),
-            404: erro('Leiloeiro nao encontrado no usuarios-service'),
+            401: semLogin,
+            403: erro('Sem permissao: so LEILOEIRO cadastra, e so em nome proprio'),
+            404: erro('Leiloeiro nao encontrado no usuarios-service (so com USUARIOS_SERVICE_URL)'),
             409: erro('Leiloeiro ja tem leilao no mesmo periodo'),
             503: erro('usuarios-service indisponivel'),
           },
@@ -182,31 +218,40 @@ function criarDocumentoOpenApi(versao) {
           tags: ['Leiloes'],
           summary: 'Detalha um leilao',
           parameters: [parametroId],
-          responses: { 200: leilaoJson('Leilao'), 404: erro('Leilao nao encontrado') },
+          responses: {
+            200: leilaoJson('Leilao'),
+            400: idInvalido,
+            404: erro('Leilao nao encontrado'),
+          },
         },
         put: {
           tags: ['Leiloes'],
-          summary: 'Edita um leilao ainda AGENDADO (Regra 6)',
+          summary: 'Edita um leilao ainda AGENDADO (Regras 6 e 7)',
           parameters: [parametroId],
           requestBody: {
             required: true,
             content: {
-              'application/json': { schema: { $ref: '#/components/schemas/LeilaoEntrada' } },
+              'application/json': { schema: { $ref: '#/components/schemas/LeilaoEdicao' } },
             },
           },
           responses: {
             200: leilaoJson('Leilao atualizado'),
-            400: erro('Dados invalidos'),
+            400: erro('Dados ou id invalidos'),
+            401: semLogin,
+            403: soODono,
             404: erro('Leilao nao encontrado'),
             409: erro('Leilao nao esta mais AGENDADO ou conflita com a agenda'),
           },
         },
         delete: {
           tags: ['Leiloes'],
-          summary: 'Remove um leilao ainda AGENDADO (Regra 6)',
+          summary: 'Remove um leilao ainda AGENDADO (Regras 6 e 7)',
           parameters: [parametroId],
           responses: {
             204: { description: 'Removido' },
+            400: idInvalido,
+            401: semLogin,
+            403: soODono,
             404: erro('Leilao nao encontrado'),
             409: erro('Leilao nao esta mais AGENDADO'),
           },
@@ -224,6 +269,7 @@ function criarDocumentoOpenApi(versao) {
                 'application/json': { schema: { $ref: '#/components/schemas/Disponibilidade' } },
               },
             },
+            400: idInvalido,
             404: erro('Leilao nao encontrado'),
           },
         },
@@ -231,7 +277,7 @@ function criarDocumentoOpenApi(versao) {
       '/leiloes/{id}/status': {
         patch: {
           tags: ['Ciclo de vida'],
-          summary: 'Muda o status (Regra 5)',
+          summary: 'Muda o status (Regras 5, 7 e 8)',
           parameters: [parametroId],
           requestBody: {
             required: true,
@@ -249,15 +295,21 @@ function criarDocumentoOpenApi(versao) {
           },
           responses: {
             200: leilaoJson('Leilao com o novo status'),
-            400: erro('Status invalido'),
+            400: erro('Status ou id invalidos'),
+            401: semLogin,
+            403: soODono,
             404: erro('Leilao nao encontrado'),
             409: erro('Transicao de status nao permitida'),
+            503: erro('Leilao cancelado, mas o credito nao pode ser liberado agora: repita'),
           },
         },
       },
       '/leiloes/{id}/abrir': atalhoDeStatus('AGENDADO -> ABERTO'),
       '/leiloes/{id}/encerrar': atalhoDeStatus('ABERTO -> ENCERRADO'),
-      '/leiloes/{id}/cancelar': atalhoDeStatus('AGENDADO ou ABERTO -> CANCELADO'),
+      '/leiloes/{id}/cancelar': atalhoDeStatus(
+        'AGENDADO ou ABERTO -> CANCELADO (devolve o credito reservado, Regra 8)',
+        { 503: erro('Leilao cancelado, mas o credito nao pode ser liberado agora: repita') }
+      ),
     },
   };
 }

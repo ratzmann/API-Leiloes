@@ -76,3 +76,31 @@ describe('GET /metrics', () => {
     expect(resposta.text).not.toMatch(/rota="\/metrics"/);
   });
 });
+
+// A documentacao precisa acompanhar as regras do T1: alterar ou remover um
+// cadastro declara 401 e 403, toda rota com {id} declara 400 e a rota interna
+// do cancelamento de leilao (Regra 8) esta documentada.
+describe('Swagger documenta a autorizacao e as rotas internas', () => {
+  const documento = require('../src/docs/openapi')('teste');
+
+  test('PUT e DELETE de leiloeiros e licitantes declaram 401 e 403', () => {
+    ['/leiloeiros/{id}', '/licitantes/{id}'].forEach((caminho) => {
+      ['put', 'delete'].forEach((metodo) => {
+        expect(Object.keys(documento.paths[caminho][metodo].responses)).toEqual(
+          expect.arrayContaining(['401', '403'])
+        );
+      });
+    });
+  });
+
+  test('rotas com {id} declaram 400', () => {
+    ['/leiloeiros/{id}', '/licitantes/{id}', '/licitantes/{id}/credito'].forEach((caminho) => {
+      Object.values(documento.paths[caminho]).forEach((operacao) => expect(operacao.responses).toHaveProperty('400'));
+    });
+  });
+
+  test('a edicao nao aceita limiteCredito e a liberacao por leilao esta documentada', () => {
+    expect(documento.components.schemas.LicitanteEdicao.properties).not.toHaveProperty('limiteCredito');
+    expect(documento.paths).toHaveProperty('/reservas/leilao/{leilaoId}/liberar');
+  });
+});
