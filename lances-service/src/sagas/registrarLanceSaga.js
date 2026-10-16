@@ -41,6 +41,8 @@ const usuariosClient = require('../clients/usuariosClient');
 const { ServicoIndisponivel } = require('../clients/http');
 const { ErroDeValidacao } = require('../utils/erros');
 const { validarValorDoLance } = require('../services/regrasDoLance');
+// Contadores de negocio para o Prometheus (T2): lances gravados e sagas por status.
+const metricas = require('../observabilidade/metricas');
 
 // Nomes dos passos, centralizados num objeto para evitar erro de digitacao
 // (usamos PASSOS.RESERVA em vez de escrever 'reservar-credito' em varios lugares).
@@ -206,6 +208,8 @@ async function executar({ leilaoId, licitanteId, valor, simularFalha = null }) {
     }
 
     await sagaRepository.salvar(saga);
+    // Conta a saga terminada (FALHOU, COMPENSADA ou FALHOU_COMPENSACAO).
+    metricas.registrarSaga(saga.status);
     // Repassa o erro para o controller responder ao cliente.
     throw erro;
   }
@@ -221,6 +225,9 @@ async function executar({ leilaoId, licitanteId, valor, simularFalha = null }) {
     saga.status = 'CONCLUIDA';
   }
   await sagaRepository.salvar(saga);
+  // Conta o lance gravado e a saga terminada (CONCLUIDA ou CONCLUIDA_COM_PENDENCIA).
+  metricas.registrarLanceGravado();
+  metricas.registrarSaga(saga.status);
 
   // Devolve os campos do lance (...lance) mais o id e o status da saga.
   return { ...lance, sagaId: saga.id, sagaStatus: saga.status };
@@ -288,6 +295,7 @@ async function reprocessar(sagaId) {
   saga.passos = Array.isArray(saga.passos) ? saga.passos : [];
   const liberou = await liberarCreditoSuperado(saga);
   const salva = await sagaRepository.salvar(saga);
+  metricas.registrarReprocessamento(liberou ? 'resolvida' : 'pendente');
 
   if (!liberou) {
     const erro = new ErroDeValidacao('usuarios-service ainda indisponivel; a pendencia continua.', 503);

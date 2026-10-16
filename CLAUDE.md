@@ -19,7 +19,7 @@ Roteiro da apresentação: [`docs/APRESENTACAO.md`](docs/APRESENTACAO.md).
 | `docker-compose.yml` | Sobe os 4 serviços, os 4 Postgres e o Kong. |
 | `testes/` | `testar-unitarios.ps1` (Jest dos 4 serviços), `testar-tudo.ps1` (ponta a ponta), roteiro manual e coleção Postman. |
 | `.github/` | T2: um workflow por serviço (CI, imagem no GHCR, deploy no Render) e o Dependabot. |
-| `<servico>/observabilidade/` | T2: Prometheus + Grafana do serviço, com dashboard provisionado e `gerar-trafego.ps1`. |
+| `<servico>/observabilidade/` | T2: Prometheus + Grafana do serviço, com dashboard provisionado e `gerar-trafego.ps1`. A do lances usa o sistema completo (rede `leilao-net` da raiz), porque a Saga precisa dos outros serviços. |
 | `<servico>/docs/T2-DECISOES.md` | T2: decisões, configuração das contas e roteiro de cada serviço. |
 
 ## Convenções de código
@@ -33,7 +33,7 @@ Roteiro da apresentação: [`docs/APRESENTACAO.md`](docs/APRESENTACAO.md).
   - `sagas/` (só no lances-service): orquestração da Saga.
   - `middlewares/`: `extrairUsuario.js` (lê o token) e `tratarErros.js` (responde os erros).
   - `utils/`, `config/`, `db/`: apoio.
-- T2 (auth, usuarios e leiloes; o lances entra no T2 dele): o `app.js` é uma **fábrica**
+- T2 (nos 4 serviços): o `app.js` é uma **fábrica**
   `criarApp(ambiente)` (o `server.js` e os testes criam o app); `config/ambiente.js` lê
   `APP_ENV`, `SWAGGER_ENABLED` e `VERSAO_IMAGEM`; `observabilidade/metricas.js` expõe
   `GET /metrics`; `docs/openapi.js` alimenta o Swagger em `/docs` (só em `local`/`dev`).
@@ -93,7 +93,7 @@ Roteiro da apresentação: [`docs/APRESENTACAO.md`](docs/APRESENTACAO.md).
   - nos 4 serviços: `config/db.js`, `utils/erros.js`, `db/migrar.js`, `middlewares/tratarErros.js`;
   - em auth, leiloes e lances: `clients/http.js`;
   - em usuarios, leiloes e lances: `middlewares/extrairUsuario.js`;
-  - em auth, usuarios e leiloes: `config/ambiente.js`.
+  - nos 4 serviços, também: `config/ambiente.js`.
 
 ## Regras de negócio
 
@@ -127,7 +127,7 @@ powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
 docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000
 ```
 
-- Estado atual: 311 testes unitários (cobertura de linhas entre 75% e 91%), 72 passos no
+- Estado atual: 344 testes unitários (cobertura de linhas entre 82% e 91%), 72 passos no
   ponta a ponta e 62 requisições (92 conferências) na coleção Postman, todos passando.
 - A coleção e o roteiro manual (`testes/roteiro-de-testes.md`, bash) geram dados novos a
   cada execução; ao mudar uma regra, atualize os dois junto com o `testar-tudo.ps1`.
