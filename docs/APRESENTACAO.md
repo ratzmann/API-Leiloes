@@ -184,8 +184,8 @@ Chamar GET "/licitantes/$($maria.perfil.id)/credito" $null $TM                  
 **Falar:**
 - **Testes unitários** (Jest) em cada serviço, com banco e rede trocados por
   mocks; testes de regras (services, Saga) e da camada HTTP (supertest).
-  Cobertura (linhas) sobre todo o `src/`: auth 91%, usuarios 84%, leiloes 88%,
-  lances 82% — o `npm test` falha se cair abaixo de 50%. São 344 testes.
+  Cobertura (linhas) sobre todo o `src/`: auth 91%, usuarios 85%, leiloes 89%,
+  lances 82% — o `npm test` falha se cair abaixo de 50%. São 374 testes.
 - **Teste ponta a ponta**: 72 passos reais pelo Kong.
 
 **Mostrar:** a saída do `testar-unitarios.ps1` (resumo com os 4 serviços).
@@ -214,7 +214,7 @@ cadastros em uso, acompanhamento ao vivo dos lances (WebSockets/eventos).
 | Pergunta | Resposta curta |
 |---|---|
 | Por que um banco por serviço? | Independência: cada serviço evolui e sobe sozinho; ninguém depende do esquema do outro. |
-| Se os serviços só decodificam o token, dá para forjar um? | Não pelo caminho normal: o Kong confere a assinatura antes, e os serviços não têm porta exposta. |
+| Dá para forjar um token? | Não: o Kong confere a assinatura e os serviços conferem de novo (`jwt.verify`), porque no deploy do T2 não há Kong na frente. Token forjado ou vencido recebe `401`. |
 | E se o usuarios-service recusar o perfil no registro? | O auth-service apaga o usuário recém-criado (compensação) e devolve o erro real: `400` (CPF inválido), `409` (CPF já usado) ou `503` (serviço fora). |
 | Um licitante consegue ver o CPF de outro? | Não. CPF, e-mail, telefone e limite só aparecem para o próprio dono; os demais veem só `id` e `nome` (LGPD). |
 | Por que toda resposta de erro tem o mesmo formato? | Um único middleware de erro por serviço responde `{ erro }`, e o Kong usa o mesmo formato (exceto o 401 do plugin JWT). |

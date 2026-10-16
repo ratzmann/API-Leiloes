@@ -9,8 +9,8 @@
 # Autorizacao (revisao do T1): cadastrar e mudar o status de um leilao exige um
 # token de LEILOEIRO, e o leilao fica em nome do perfilId do token. Cada rodada
 # cria um token para um leiloeiro sorteado, assinado com o JWT_SECRET (o mesmo
-# do auth-service e do kong.yml): assim o script continua valendo se o servico
-# passar a verificar a assinatura (jwt.verify).
+# do auth-service e do kong.yml), porque o servico confere a assinatura
+# (jwt.verify). No Render, passe o segredo daquele ambiente em -JwtSecret.
 param(
     [string]$BaseUrl = "http://localhost:3003",
     [int]$Rodadas = 20,
