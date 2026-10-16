@@ -424,11 +424,11 @@ métrica ficar abaixo de 50%.
 
 | Serviço | Testes | Cobertura (linhas) |
 |---|---|---|
-| auth-service | 56 | 91% |
-| usuarios-service | 113 | 85% |
-| leiloes-service | 107 | 89% |
-| lances-service | 98 | 82% |
-| **Total** | **374** | |
+| auth-service | 58 | 91% |
+| usuarios-service | 121 | 85% |
+| leiloes-service | 111 | 89% |
+| lances-service | 115 | 91% |
+| **Total** | **405** | |
 
 Como rodar:
 
@@ -436,8 +436,8 @@ Como rodar:
 |---|---|---|
 | Unitários dos 4 serviços, com resumo | `powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1` | Não (usa Node local ou Docker) |
 | Unitários de um serviço | `cd <servico> && npm install && npm test` | Não |
-| Ponta a ponta (72 passos pelo Kong) | `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` | Sim |
-| Coleção Postman (62 requisições com conferência automática) | no Postman (Runner) ou `docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000` | Sim |
+| Ponta a ponta (75 passos pelo Kong) | `powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1` | Sim |
+| Coleção Postman (65 requisições com conferência automática) | no Postman (Runner) ou `docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000` | Sim |
 | Manual | `testes/roteiro-de-testes.md` (curl, no Git Bash ou Linux) | Sim |
 
 ---

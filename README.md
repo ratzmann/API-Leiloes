@@ -337,7 +337,7 @@ Ponta a ponta, com a stack no ar (PowerShell):
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
 ```
-72 passos pelo Kong: autenticação, usuários, leilões, a Saga de lances —
+75 passos pelo Kong: autenticação, usuários, leilões, a Saga de lances —
 caminho feliz, recusas, compensação, pendência e reprocessamento —, a
 autorização (ninguém age em nome de outra pessoa nem altera o cadastro alheio),
 o cancelamento de leilão devolvendo o crédito reservado, o registro desfeito
