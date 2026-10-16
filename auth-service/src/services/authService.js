@@ -145,8 +145,9 @@ async function desfazerCadastro(usuarioId) {
 
 /**
  * Login: confere e-mail + senha e, se estiverem corretos, gera um token JWT.
- * Envolve autenticar() so para contar nas metricas: conta sucesso e falha de
- * credencial; erro de infraestrutura (ex.: banco fora do ar) nao e "falha de login".
+ * Envolve autenticar() so para contar nas metricas: conta sucesso e falha
+ * (credencial errada ou faltando, ou seja, qualquer ErroDeValidacao); erro de
+ * infraestrutura (ex.: banco fora do ar) nao e "falha de login".
  */
 async function login(dados) {
   try {

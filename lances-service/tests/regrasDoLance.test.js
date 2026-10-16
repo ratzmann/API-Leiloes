@@ -9,8 +9,8 @@
 //   expect(valor).toBe(esperado)        a VERIFICACAO: se nao bater, o teste falha;
 //   expect(() => f()).toThrow('msg')    confere que a funcao LANCA aquele erro;
 //   await expect(promessa).rejects...   o mesmo, para funcoes async.
-// jest.mock('caminho') troca o modulo real pelo MOCK (pasta __mocks__), entao
-// os testes rodam sem banco e sem rede. Rodar:  npm test  (dentro do servico).
+// Aqui nao ha jest.mock: a regra e uma funcao pura, testada direto, sem banco
+// e sem rede. Rodar:  npm test  (dentro do servico).
 // =============================================================================
 
 const { validarValorDoLance } = require('../src/services/regrasDoLance');

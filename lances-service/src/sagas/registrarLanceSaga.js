@@ -15,9 +15,7 @@
 //   certo. "Orquestrada" = existe um coordenador central (este arquivo) que
 //   diz a cada servico o que fazer e em que ordem.
 //
-// Saga orquestrada do registro de lance.
-// Cada servico tem seu banco, entao nao da pra fazer tudo numa transacao so.
-//
+// OS PASSOS (servico chamado e o que acontece se der errado depois)
 //   1. consultar-disponibilidade  leiloes-service   so leitura
 //   2. reservar-credito           usuarios-service  se algo falhar depois, libera a reserva
 //   3. gravar-lance               lances-service    daqui pra frente o lance vale
@@ -208,7 +206,7 @@ async function executar({ leilaoId, licitanteId, valor, simularFalha = null }) {
     await sagaRepository.salvar(saga);
     // Conta a saga terminada (FALHOU, COMPENSADA ou FALHOU_COMPENSACAO).
     metricas.registrarSaga(saga.status);
-    // Repassa o erro para o controller responder ao cliente.
+    // Repassa o erro: o controller o entrega (next) ao tratarErros, que responde.
     throw erro;
   }
 

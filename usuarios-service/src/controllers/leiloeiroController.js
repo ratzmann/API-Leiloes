@@ -16,7 +16,8 @@ const leiloeiroService = require('../services/leiloeiroService');
  * GET /leiloeiros  ->  lista todos os leiloeiros (dados pessoais so do proprio).
  * O try/catch e importante mesmo aqui: o Express 4 NAO captura sozinho erros
  * de funcoes async. Sem ele, se o banco falhar, a requisicao ficaria sem
- * resposta; com ele, o cliente recebe um 500 com mensagem clara.
+ * resposta; com ele, o erro segue por next(err) para o tratarErros, que
+ * responde com o codigo certo (ou um 500 com mensagem generica).
  */
 async function listar(req, res, next) {
   try {

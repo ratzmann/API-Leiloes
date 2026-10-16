@@ -4,7 +4,8 @@
 // E o primeiro arquivo executado quando o container sobe (veja o CMD do
 // Dockerfile: `node src/server.js`). Mesma sequencia dos outros 3 servicos:
 //   1. carregar as variaveis de ambiente e o ambiente (DEV, HOMOL...);
-//   2. rodar a migracao (cria/atualiza a tabela usuarios a partir do init.sql);
+//   2. rodar a migracao (cria a tabela usuarios, se ainda nao existir, a partir
+//      do init.sql);
 //   3. so entao "ligar" o servidor HTTP numa porta.
 // Se o banco nao ficar pronto, o processo encerra com erro (exit 1).
 //

@@ -156,7 +156,7 @@ async function garantirLeiloeiroExiste(leiloeiroId) {
         503
       );
     }
-    // Erro desconhecido: repassa como esta (vira 500 no controller).
+    // Erro desconhecido: repassa como esta (o tratarErros responde 500).
     throw err;
   }
 

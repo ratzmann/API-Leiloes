@@ -112,7 +112,7 @@ function registrarRegistro(papel) {
 }
 
 /**
- * Conta um login pelo resultado: 'sucesso' | 'falha' (credencial errada;
+ * Conta um login pelo resultado: 'sucesso' | 'falha' (credencial errada ou faltando;
  * erro de infraestrutura, como banco fora do ar, nao conta).
  */
 function registrarLogin(resultado) {

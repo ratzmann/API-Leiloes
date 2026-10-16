@@ -1,7 +1,9 @@
 -- =============================================================================
 -- init.sql  -  ESTRUTURA do banco do leiloes-service (leiloes-db)
 -- -----------------------------------------------------------------------------
--- Executado pelo Postgres na primeira subida do container do banco.
+-- Executado pelo Postgres na primeira subida do container do banco E pelo
+-- db/migrar.js toda vez que o servico inicia. Por isso tudo usa IF NOT EXISTS
+-- (pode rodar varias vezes sem erro e sem apagar dados).
 -- Uma tabela so: leiloes (o evento/pregao).
 -- =============================================================================
 

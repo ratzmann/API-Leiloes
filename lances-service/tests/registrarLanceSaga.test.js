@@ -12,8 +12,10 @@
 //   expect(valor).toBe(esperado)        a VERIFICACAO: se nao bater, o teste falha;
 //   expect(() => f()).toThrow('msg')    confere que a funcao LANCA aquele erro;
 //   await expect(promessa).rejects...   o mesmo, para funcoes async.
-// jest.mock('caminho') troca o modulo real pelo MOCK (pasta __mocks__), entao
-// os testes rodam sem banco e sem rede. Rodar:  npm test  (dentro do servico).
+// jest.mock('caminho') troca o modulo real por uma versao FALSA gerada pelo
+// proprio Jest (automock: cada funcao vira um jest.fn(); o lances nao tem pasta
+// __mocks__), entao os testes rodam sem banco e sem rede.
+// Rodar:  npm test  (dentro do servico).
 // =============================================================================
 
 process.env.SAGA_ESPERA_REPETICAO_MS = '0';

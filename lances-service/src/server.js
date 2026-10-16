@@ -20,8 +20,9 @@ const migrar = require('./db/migrar');
 
 const ambiente = carregarAmbiente();
 // Porta 3003 (a mesma do leiloes-service, mas cada um roda no SEU container,
-// entao nao ha conflito: cada container tem sua propria rede interna). No
-// Render a porta vem da variavel PORT.
+// entao nao ha conflito: cada container tem o seu proprio endereco na rede do
+// Docker - leiloes-service:3003 e lances-service:3003). No Render a porta vem
+// da variavel PORT.
 const PORT = process.env.PORT || 3003;
 
 // Promise com .then (sucesso) e .catch (erro): so abre a porta depois que as

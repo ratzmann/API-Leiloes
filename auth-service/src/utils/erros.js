@@ -10,10 +10,13 @@
 // corpo = { erro: erro.message } (+ sagaId, nos erros da Saga de lance).
 //
 // Codigos usados no projeto:
-//   400 dado invalido            | 401 sem login ou credencial errada
+//   400 dado invalido            | 401 sem login, token invalido ou credencial errada
 //   403 sem permissao            | 404 registro nao existe
 //   409 conflito com o estado atual (duplicado, sem credito, transicao invalida)
 //   503 outro microsservico nao respondeu
+//   500 em erro de configuracao (JWT_SECRET ou CHAVE_INTERNA faltando) e em falha
+//       inesperada da Saga (com o sagaId); os outros erros inesperados viram
+//       500 generico no tratarErros
 // (Arquivo identico nos 4 servicos: cada microsservico tem a sua copia.)
 // =============================================================================
 

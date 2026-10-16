@@ -4,7 +4,9 @@
 // O controller e o "tradutor" entre o mundo HTTP e o mundo das regras:
 //   1. le os dados que vieram na requisicao (req.body, req.params...);
 //   2. chama o service, que e quem sabe as regras de negocio;
-//   3. devolve a resposta HTTP com o status certo (201, 200, 400, 500...).
+//   3. devolve a resposta HTTP de sucesso com o status certo (201, 200); os
+//      erros vao, por next(err), para o middleware tratarErros, que responde
+//      400, 401, 409, 503 ou 500.
 // Ele NAO decide se um e-mail e valido nem acessa o banco - isso e do service
 // e do repository. Manter cada camada com uma so responsabilidade deixa o
 // codigo mais facil de entender e de testar.
