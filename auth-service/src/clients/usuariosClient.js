@@ -24,6 +24,9 @@ function estaConfigurado() {
  * POST {USUARIOS_SERVICE_URL}/leiloeiros  (papel LEILOEIRO) ou
  * POST {USUARIOS_SERVICE_URL}/licitantes  (papel LICITANTE).
  * A chamada vai direto pela rede do Docker (a rota e interna: o Kong bloqueia).
+ * O `dadosPerfil` traz so os dados do perfil (cpf, limiteCredito,
+ * registroProfissional, telefone); usuarioId, nome e e-mail vem SEMPRE do
+ * usuario recem-criado, mesmo que o cliente tente manda-los no dadosPerfil.
  *
  * @returns o perfil criado (objeto com id)
  * @throws  ErroDeValidacao com o MESMO codigo em recusas de negocio
@@ -37,12 +40,14 @@ async function criarPerfil(usuario, papel, dadosPerfil) {
   const { status, corpo } = await requisicao('usuarios-service', `${base}/${rota}`, {
     method: 'POST',
     body: {
+      // "Spread" (...): copia todos os campos de dadosPerfil para este objeto
+      // (ex.: cpf e limiteCredito do licitante, registroProfissional do leiloeiro).
+      // Vem PRIMEIRO de proposito: os campos escritos depois dele substituem os
+      // de mesmo nome, entao ninguem troca o dono nem o e-mail do perfil.
+      ...dadosPerfil,
       usuarioId: usuario.id,
       nome: usuario.nome,
       email: usuario.email,
-      // "Spread" (...): copia todos os campos de dadosPerfil para este objeto
-      // (ex.: cpf e limiteCredito do licitante, registroProfissional do leiloeiro).
-      ...dadosPerfil,
     },
   });
 

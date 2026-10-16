@@ -31,6 +31,24 @@ describe('usuariosClient.criarPerfil', () => {
     expect(JSON.parse(opcoes.body)).toEqual({ usuarioId: 7, nome: 'Ana Souza', email: 'a@a.com', cpf: '52998224725' });
   });
 
+  test('dadosPerfil nao troca o dono, o nome nem o e-mail do perfil', async () => {
+    global.fetch.mockResolvedValue(resposta(201, { id: 3 }));
+
+    await usuariosClient.criarPerfil(usuario, 'LICITANTE', {
+      cpf: '52998224725',
+      usuarioId: 1,
+      nome: 'Outra Pessoa',
+      email: 'outro@x.com',
+    });
+
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toEqual({
+      usuarioId: 7,
+      nome: 'Ana Souza',
+      email: 'a@a.com',
+      cpf: '52998224725',
+    });
+  });
+
   test('leiloeiro: POST /leiloeiros', async () => {
     global.fetch.mockResolvedValue(resposta(201, { id: 5 }));
     await usuariosClient.criarPerfil(usuario, 'LEILOEIRO', {});

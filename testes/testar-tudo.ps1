@@ -742,6 +742,17 @@ Run-Step -Nome "72. Id nao numerico (/leiloes/abc, /licitantes/abc, /lances/abc)
     return Invoke-Api GET "/leiloes?leiloeiroId=abc" -Token $script:tokenA
 }
 
+# 73. O dadosPerfil do registro nao troca o e-mail nem o dono do perfil: o
+# auth-service sempre manda os do usuario recem-criado ao usuarios-service
+Run-Step -Nome "73. Registro ignora e-mail/usuarioId vindos no dadosPerfil (espera 200)" -CodigoEsperado 200 -Acao {
+    $email = "perfil$(Get-Random -Maximum 100000000)@teste.com"
+    $r = Invoke-Api POST "/auth/registrar" @{ nome = "Teste Perfil"; email = $email; senha = "senha123"; papel = "LICITANTE"; dadosPerfil = @{ cpf = (Novo-Cpf); email = "outro-$email"; usuarioId = 1 } }
+    if ($r.StatusCode -ne 201) { return $r }
+    $perfil = Invoke-Api GET "/licitantes/$($r.Json.perfil.id)" -Token $r.Json.token
+    if ($perfil.Json.email -ne $email -or [int]$perfil.Json.usuario_id -ne [int]$r.Json.usuario.id) { return @{ StatusCode = 500 } }
+    return $perfil
+}
+
 Write-Host "==========================================================================" -ForegroundColor Cyan
 Write-Host "                           RESUMO DOS TESTES                             " -ForegroundColor Yellow
 Write-Host "   Passou: $script:TotalPass" -ForegroundColor Green
