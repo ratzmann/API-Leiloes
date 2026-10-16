@@ -397,17 +397,18 @@ $script:dataInicioAoVivo = $null
 $script:sagaCompensadaId = 0
 $script:sagaPendenteId = 0
 
-function Credito-Reservado([int]$LicitanteId) {
-    $r = Invoke-Api GET "/licitantes/$LicitanteId/credito" -Token $T
-    if ($r.StatusCode -ne 200) { return -1 }
-    return [double]$r.Json.reservado
-}
-
 # cada licitante da lances com o PROPRIO token (Regra 7 do lances-service);
 # por padrao, o lance de B usa o token de B e qualquer outro usa o token de A
 function Token-Do([int]$LicitanteId) {
     if ($LicitanteId -eq $script:licitanteBId) { return $script:tokenB }
     return $script:tokenA
+}
+
+# o credito e dado pessoal (Regra 6 do licitante, LGPD): cada um consulta o seu
+function Credito-Reservado([int]$LicitanteId) {
+    $r = Invoke-Api GET "/licitantes/$LicitanteId/credito" -Token (Token-Do $LicitanteId)
+    if ($r.StatusCode -ne 200) { return -1 }
+    return [double]$r.Json.reservado
 }
 
 function Lance([int]$LicitanteId, [double]$Valor, [int]$LeilaoId = $script:leilaoAoVivoId, [string]$Falha = "", [string]$Token = "") {
@@ -751,6 +752,14 @@ Run-Step -Nome "73. Registro ignora e-mail/usuarioId vindos no dadosPerfil (espe
     $perfil = Invoke-Api GET "/licitantes/$($r.Json.perfil.id)" -Token $r.Json.token
     if ($perfil.Json.email -ne $email -or [int]$perfil.Json.usuario_id -ne [int]$r.Json.usuario.id) { return @{ StatusCode = 500 } }
     return $perfil
+}
+
+# 74. O credito (limite, reservado, disponivel) tambem e dado pessoal (Regra 6
+# do licitante): A nao ve o de B e o leiloeiro nao ve o de ninguem
+Run-Step -Nome "74. Licitante A e leiloeiro nao veem o credito de B (espera 403)" -CodigoEsperado 403 -Acao {
+    $leiloeiro = Invoke-Api GET "/licitantes/$($script:licitanteBId)/credito" -Token $script:tokenLeiloeiro
+    if ($leiloeiro.StatusCode -ne 403) { return $leiloeiro }
+    return (Invoke-Api GET "/licitantes/$($script:licitanteBId)/credito" -Token $script:tokenA)
 }
 
 Write-Host "==========================================================================" -ForegroundColor Cyan

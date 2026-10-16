@@ -17,11 +17,12 @@ const creditoService = require('../services/creditoService');
 /**
  * GET /licitantes/:id/credito  ->  { licitanteId, limite, reservado, disponivel }
  * req.params.id e o ":id" da URL (sempre chega como TEXTO, ex.: "3").
+ * Repassa quem esta logado: so o proprio licitante ve o credito (LGPD).
  */
 async function consultar(req, res, next) {
   try {
     // res.json(...) sem res.status(...) responde com 200 (OK) por padrao.
-    res.json(await creditoService.consultarCredito(req.params.id));
+    res.json(await creditoService.consultarCredito(req.params.id, req.usuarioAutenticado));
   } catch (err) {
     next(err);
   }

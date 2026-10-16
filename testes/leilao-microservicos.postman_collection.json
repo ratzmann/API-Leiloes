@@ -1831,6 +1831,37 @@
           ]
         }
       ]
+    },
+    {
+      "name": "6. Privacidade e regras revisadas",
+      "item": [
+        {
+          "name": "63. Maria tentando ver o credito do Joao (espera 403 - LGPD)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_licitante}}"
+              }
+            ],
+            "url": "{{base_url}}/licitantes/{{licitante_b_id}}/credito"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403: o credito e dado pessoal (Regra 6 do licitante)', () => pm.response.to.have.status(403));",
+                  "pm.test('nao mostra o limite do Joao', () => pm.expect(pm.response.json()).to.not.have.property('limite'));",
+                  "pm.test('erro no formato { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [

@@ -351,12 +351,12 @@ curl -i -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_B"
 ```bash
 curl -s -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_A" \
   -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"valor\":1000}"
-curl -s http://localhost:8000/licitantes/$LICITANTE_A/credito -H "Authorization: Bearer $TOKEN_LEILOEIRO"
+curl -s http://localhost:8000/licitantes/$LICITANTE_A/credito -H "Authorization: Bearer $TOKEN_A"
 # reservado: 1000
 
 curl -s -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_B" \
   -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"valor\":1500}"
-curl -s http://localhost:8000/licitantes/$LICITANTE_A/credito -H "Authorization: Bearer $TOKEN_LEILOEIRO"
+curl -s http://localhost:8000/licitantes/$LICITANTE_A/credito -H "Authorization: Bearer $TOKEN_A"
 # reservado: 0  (passo 4 liberou o crédito de quem foi superado)
 ```
 
@@ -371,7 +371,7 @@ SAGA=$(echo "$RESPOSTA" | campo sagaId)
 
 curl -s http://localhost:8000/lances/sagas/$SAGA -H "Authorization: Bearer $TOKEN_LEILOEIRO"
 # status COMPENSADA; passos: reservar-credito OK, gravar-lance FALHOU, reservar-credito COMPENSADO
-curl -s http://localhost:8000/licitantes/$LICITANTE_A/credito -H "Authorization: Bearer $TOKEN_LEILOEIRO"
+curl -s http://localhost:8000/licitantes/$LICITANTE_A/credito -H "Authorization: Bearer $TOKEN_A"
 # reservado: 0
 ```
 
@@ -383,12 +383,12 @@ RESPOSTA=$(curl -s -X POST http://localhost:8000/lances -H "Authorization: Beare
 echo "$RESPOSTA"
 # 201 com "sagaStatus": "CONCLUIDA_COM_PENDENCIA" — o lance vale, mas o crédito de B ficou preso
 SAGA=$(echo "$RESPOSTA" | campo sagaId)
-curl -s http://localhost:8000/licitantes/$LICITANTE_B/credito -H "Authorization: Bearer $TOKEN_LEILOEIRO"
+curl -s http://localhost:8000/licitantes/$LICITANTE_B/credito -H "Authorization: Bearer $TOKEN_B"
 # reservado: 1500 (o lance de B já foi superado, mas o crédito dele ainda está preso)
 
 curl -s -X POST http://localhost:8000/lances/sagas/$SAGA/reprocessar -H "Authorization: Bearer $TOKEN_LEILOEIRO"
 # status CONCLUIDA
-curl -s http://localhost:8000/licitantes/$LICITANTE_B/credito -H "Authorization: Bearer $TOKEN_LEILOEIRO"
+curl -s http://localhost:8000/licitantes/$LICITANTE_B/credito -H "Authorization: Bearer $TOKEN_B"
 # reservado: 0
 ```
 
@@ -412,6 +412,9 @@ curl -i -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_LE
 curl -i -X POST http://localhost:8000/lances -H "Authorization: Bearer $TOKEN_A" \
   -H "Content-Type: application/json" -d "{\"leilaoId\":$LEILAO,\"licitanteId\":$LICITANTE_B,\"valor\":5000}"
 
+# licitante A tentando ver o crédito de B (limite e reservas são dados pessoais - LGPD)
+curl -i http://localhost:8000/licitantes/$LICITANTE_B/credito -H "Authorization: Bearer $TOKEN_A"
+
 # licitante tentando cadastrar leilão
 curl -i -X POST http://localhost:8000/leiloes -H "Authorization: Bearer $TOKEN_A" \
   -H "Content-Type: application/json" \
@@ -429,12 +432,12 @@ curl -i -X PATCH http://localhost:8000/leiloes/$LEILAO/cancelar -H "Authorizatio
 ### 13.9 Cancelar o leilão devolve o crédito reservado (Regra 8)
 ```bash
 # A tem 2000 reservados (é o maior lance)
-curl -s http://localhost:8000/licitantes/$LICITANTE_A/credito -H "Authorization: Bearer $TOKEN_LEILOEIRO"
+curl -s http://localhost:8000/licitantes/$LICITANTE_A/credito -H "Authorization: Bearer $TOKEN_A"
 
 # o dono cancela o leilão -> 200, status CANCELADO
 curl -s -X PATCH http://localhost:8000/leiloes/$LEILAO/cancelar -H "Authorization: Bearer $TOKEN_LEILOEIRO"
 
-curl -s http://localhost:8000/licitantes/$LICITANTE_A/credito -H "Authorization: Bearer $TOKEN_LEILOEIRO"
+curl -s http://localhost:8000/licitantes/$LICITANTE_A/credito -H "Authorization: Bearer $TOKEN_A"
 # reservado: 0 (o cancelamento liberou as reservas do leilão)
 ```
 

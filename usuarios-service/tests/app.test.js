@@ -99,6 +99,9 @@ describe('Swagger documenta a autorizacao e as rotas internas', () => {
         );
       });
     });
+    expect(Object.keys(documento.paths['/licitantes/{id}/credito'].get.responses)).toEqual(
+      expect.arrayContaining(['401', '403'])
+    );
   });
 
   test('rotas com {id} declaram 400', () => {

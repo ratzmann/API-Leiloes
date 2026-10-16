@@ -59,7 +59,9 @@ for ($i = 1; $i -le $Rodadas; $i++) {
     if ($licitante.ok) {
         Contar "licitantes"
         $id = $licitante.corpo.id
+        # o credito e dado pessoal (LGPD): sem o token do proprio licitante -> 401
         Chamar GET "/licitantes/$id/credito" | Out-Null
+        Contar "credito sem login 401"
 
         # saga: reserva, repete a mesma referencia (idempotente) e as vezes libera
         $reserva = Chamar POST "/licitantes/$id/reservas" @{ valor = 2500; referencia = "trafego-$sufixo" }

@@ -106,7 +106,7 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 | `GET /lances/sagas` | últimas sagas executadas |
 | `GET /lances/sagas/:id` | uma saga, passo a passo |
 | `POST /lances/sagas/:id/reprocessar` | tenta de novo o passo 4 de uma saga pendente |
-| `GET /licitantes/:id/credito` | limite, reservado e disponível do licitante |
+| `GET /licitantes/:id/credito` | limite, reservado e disponível do licitante (só o próprio) |
 
 ## Regras de negócio implementadas
 
@@ -128,7 +128,8 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 5. O licitante **não** altera o próprio limite de crédito (`403`) — o limite é
    definido no cadastro.
 6. **Privacidade (LGPD)**: CPF, e-mail, telefone e limite de crédito só aparecem
-   para o próprio licitante; os demais veem apenas `id` e `nome`.
+   para o próprio licitante; os demais veem apenas `id` e `nome`. O resumo de
+   crédito (`GET /licitantes/:id/credito`) também é só do próprio (`403` para os demais).
 
 > Perfis são criados só pelo registro (`POST /auth/registrar`): o Kong
 > responde `403` a `POST /leiloeiros` e `POST /licitantes` vindos de fora.

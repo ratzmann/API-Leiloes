@@ -271,11 +271,13 @@ function criarDocumentoOpenApi(versao) {
       '/licitantes/{id}/credito': {
         get: {
           tags: ['Credito'],
-          summary: 'Limite, reservado e disponivel do licitante',
+          summary: 'Limite, reservado e disponivel do licitante (so o proprio licitante: LGPD)',
           parameters: [idLicitante],
           responses: {
             200: json('Credito', ref('Credito')),
             400: idInvalido,
+            401: semLogin,
+            403: erro('O credito de outro licitante e dado pessoal'),
             404: erro('Licitante nao encontrado'),
           },
         },

@@ -9,13 +9,15 @@
 //   - um cadastro (leiloeiro ou licitante) so pode ser alterado ou removido
 //     pelo PROPRIO dono;
 //   - dados pessoais (CPF, e-mail, telefone, limite de credito) so aparecem
-//     para o PROPRIO dono; os demais veem so os campos publicos (LGPD).
+//     para o PROPRIO dono; os demais veem so os campos publicos (LGPD). O
+//     resumo de credito (limite, reservado e disponivel) segue a mesma regra.
 //
 // O dono e identificado pelo token:
 //   papel    -> LEILOEIRO ou LICITANTE
 //   perfilId -> o id do cadastro dele nesta tabela (leiloeiros ou licitantes)
 //
-// Quem chama: services/leiloeiroService.js e services/licitanteService.js
+// Quem chama: services/leiloeiroService.js, services/licitanteService.js e
+//             services/creditoService.js
 // =============================================================================
 
 const { ErroDeValidacao } = require('./erros');
@@ -63,4 +65,4 @@ function visaoPara(registro, usuario, papel, camposPublicos) {
   return Object.fromEntries(camposPublicos.map((campo) => [campo, registro[campo]]));
 }
 
-module.exports = { garantirProprioPerfil, visaoPara };
+module.exports = { ehOProprio, garantirProprioPerfil, visaoPara };

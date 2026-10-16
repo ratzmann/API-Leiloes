@@ -47,22 +47,40 @@ function novaTx(sobrescritas = {}) {
 beforeEach(() => jest.clearAllMocks());
 
 describe('creditoService.consultarCredito', () => {
+  const dono = { papel: 'LICITANTE', perfilId: 1 };
+
   test('calcula disponivel como limite menos reservas ativas', async () => {
     licitanteRepository.buscarPorId.mockResolvedValue({ id: 1, limite_credito: '5000.00' });
     reservaRepository.somarReservado.mockResolvedValue(1500.5);
 
-    const credito = await creditoService.consultarCredito(1);
+    const credito = await creditoService.consultarCredito(1, dono);
 
     expect(credito).toEqual({ licitanteId: 1, limite: 5000, reservado: 1500.5, disponivel: 3499.5 });
   });
 
   test('lanca 404 para licitante inexistente', async () => {
     licitanteRepository.buscarPorId.mockResolvedValue(null);
-    await expect(creditoService.consultarCredito(99)).rejects.toMatchObject({ codigo: 404 });
+    await expect(creditoService.consultarCredito(99, dono)).rejects.toMatchObject({ codigo: 404 });
   });
 
   test('rejeita id invalido', async () => {
-    await expect(creditoService.consultarCredito('abc')).rejects.toMatchObject({ codigo: 400 });
+    await expect(creditoService.consultarCredito('abc', dono)).rejects.toMatchObject({ codigo: 400 });
+  });
+
+  test('Regra 6 (LGPD): sem login responde 401', async () => {
+    licitanteRepository.buscarPorId.mockResolvedValue({ id: 1, limite_credito: '5000.00' });
+    await expect(creditoService.consultarCredito(1, undefined)).rejects.toMatchObject({ codigo: 401 });
+  });
+
+  test('Regra 6 (LGPD): outro licitante ou um leiloeiro nao ve o credito (403)', async () => {
+    licitanteRepository.buscarPorId.mockResolvedValue({ id: 1, limite_credito: '5000.00' });
+    await expect(
+      creditoService.consultarCredito(1, { papel: 'LICITANTE', perfilId: 2 })
+    ).rejects.toMatchObject({ codigo: 403 });
+    await expect(
+      creditoService.consultarCredito(1, { papel: 'LEILOEIRO', perfilId: 1 })
+    ).rejects.toMatchObject({ codigo: 403 });
+    expect(reservaRepository.somarReservado).not.toHaveBeenCalled();
   });
 });
 

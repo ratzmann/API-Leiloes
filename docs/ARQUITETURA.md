@@ -476,9 +476,6 @@ Duplicar esses arquivos de apoio em cada serviço é **intencional**
   (ou "desativar" em vez de apagar) evitaria dados órfãos entre os serviços.
 - **401 do Kong**: o plugin JWT responde `{ "message": ... }`; padronizar para
   `{ "erro": ... }` exigiria um plugin em Lua ou a versão Enterprise.
-- **Crédito visível a qualquer logado**: `GET /licitantes/:id/credito` ainda
-  mostra limite e reservado de qualquer licitante (o teste ponta a ponta usa
-  isso para conferir a Saga); poderia seguir a mesma regra de privacidade.
 
 **Evoluções (do README)**
 
@@ -544,7 +541,7 @@ fora, o Kong responde `403`.
 | `GET` | `/licitantes`, `/licitantes/:id` | logado | Lista / detalha licitantes (CPF, e-mail, telefone e limite só para o próprio). |
 | `POST` | `/licitantes` | **interna** | Cria o perfil (auth-service, no registro). |
 | `PUT` / `DELETE` | `/licitantes/:id` | o próprio | Atualiza (nome, telefone; não o limite) / remove. |
-| `GET` | `/licitantes/:id/credito` | logado | Limite, reservado e disponível. |
+| `GET` | `/licitantes/:id/credito` | o próprio | Limite, reservado e disponível (dado pessoal: `403` para os demais). |
 | `GET` | `/licitantes/:id/reservas` | logado | Histórico de reservas. |
 | `POST` | `/licitantes/:id/reservas` | **interna** | Reserva crédito (Saga, passo 2). |
 | `POST` | `/licitantes/:id/reservas/:reservaId/liberar` | **interna** | Libera a reserva (compensação / passo 4). |

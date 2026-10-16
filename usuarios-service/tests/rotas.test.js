@@ -179,9 +179,12 @@ describe('rotas de credito (/licitantes/:id/credito e /reservas)', () => {
     creditoService.consultarCredito.mockResolvedValue({ disponivel: 100 });
     creditoService.listarReservas.mockResolvedValue([]);
 
-    expect((await request(app).get('/licitantes/3/credito')).body).toEqual({ disponivel: 100 });
+    expect((await request(app).get('/licitantes/3/credito').set('Authorization', bearer)).body).toEqual({
+      disponivel: 100,
+    });
     expect((await request(app).get('/licitantes/3/reservas')).status).toBe(200);
-    expect(creditoService.consultarCredito).toHaveBeenCalledWith('3');
+    // repassa quem esta logado: o service decide se e o proprio licitante (LGPD)
+    expect(creditoService.consultarCredito).toHaveBeenCalledWith('3', expect.objectContaining(payloadLicitante));
   });
 
   test('POST reservas: 201 quando cria, 200 quando a referencia ja existia (idempotencia)', async () => {
