@@ -84,7 +84,7 @@ jobs:
 
       - name: Analise SonarCloud
         if: steps.sonar.outputs.ativo == 'true'
-        uses: SonarSource/sonarqube-scan-action@v7
+        uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
