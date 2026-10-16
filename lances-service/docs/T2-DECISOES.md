@@ -37,7 +37,11 @@
 - `gerar-trafego.ps1` contra o sistema completo, 4 rodadas: 12 lances gravados;
   sagas CONCLUIDA 8, CONCLUIDA_COM_PENDENCIA 4, COMPENSADA 4 e FALHOU 16;
   4 reprocessamentos resolvidos; rotas padronizadas nas métricas HTTP;
-- ponta a ponta do grupo (`testes/testar-tudo.ps1`, 72 passos pelo Kong): **72/72**.
+- ponta a ponta do grupo (`testes/testar-tudo.ps1`, 72 passos pelo Kong): **72/72**;
+- stack Prometheus + Grafana no ar sobre o sistema completo: alvo `local` **UP**
+  (`dev`/`homol` ficam *down* até os serviços existirem no Render), as **10
+  consultas do dashboard retornando dados** e o painel conferido no navegador
+  ("Sagas por status": concluídas, falhas, compensadas e com pendência).
 
 **Não verificado** (depende das contas): a execução no GitHub Actions, o deploy
 no Render e a análise no SonarCloud.
