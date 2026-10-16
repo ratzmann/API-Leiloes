@@ -7,8 +7,8 @@
 # (que constroi a imagem, publica no GHCR e faz o deploy no Render).
 # =============================================================================
 
-# Imagem base: Linux enxuto (alpine) com Node.js 20 ja instalado.
-FROM node:20-alpine
+# Imagem base: Linux enxuto (alpine) com Node.js 24 (LTS) ja instalado.
+FROM node:24-alpine
 
 # Pasta de trabalho dentro do container (os proximos comandos rodam nela).
 WORKDIR /app
