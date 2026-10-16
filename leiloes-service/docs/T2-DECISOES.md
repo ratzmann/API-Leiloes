@@ -113,9 +113,11 @@ está na seção 5.
 - **Alternativa descartada:** um pipeline único para todos os serviços. Ele
   violaria o requisito 10, e um erro num serviço bloquearia o deploy dos outros.
 
-### D4. CI: Node 20, `npm ci`, Jest com cobertura mínima
+### D4. CI: Node 24 (LTS), `npm ci`, Jest com cobertura mínima
 
 - **O que:**
+  - Node 24, versão LTS (suporte até 30/04/2028), no CI e na imagem
+    (`node:24-alpine`). Começamos no Node 20, que saiu de suporte em 30/04/2026;
   - `npm ci` instala exatamente o `package-lock.json` (build reprodutível);
   - `npm test -- --ci` roda o Jest com cobertura;
   - o `package.json` tem `coverageThreshold` de 50%: se a cobertura cair, **o
@@ -374,7 +376,7 @@ está na seção 5.
 
 ### 4.1 O pipeline, job a job
 
-1. **`ci`**: checkout com histórico completo → Node 20 com cache do npm →
+1. **`ci`**: checkout com histórico completo → Node 24 com cache do npm →
    `npm ci` → `npm audit` (falha com vulnerabilidade crítica) → `npm test` (falha se algum teste falhar ou a cobertura ficar
    < 50%) → guarda o relatório de cobertura → SonarCloud.
 2. **`versao`**: lê o `package.json`, valida o formato `X.Y.Z` e decide as tags

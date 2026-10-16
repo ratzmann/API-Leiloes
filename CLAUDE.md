@@ -24,7 +24,8 @@ Roteiro da apresentação: [`docs/APRESENTACAO.md`](docs/APRESENTACAO.md).
 
 ## Convenções de código
 
-- Node.js 20 + Express 4, **CommonJS** (`require` / `module.exports`).
+- Node.js 24 (LTS) + Express 4, **CommonJS** (`require` / `module.exports`).
+  Só versões LTS (pares) do Node: as ímpares (25, 27...) nunca viram LTS.
 - Nomes, mensagens e comentários em **português**, **sem acentos dentro do código**
   (arquivos `.md` podem ter acentos).
 - Camadas em todos os serviços: `routes → controllers → services → repositories → Postgres`.

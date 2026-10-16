@@ -6,7 +6,7 @@
 #
 # Como roda:
 #   - se o Node.js estiver instalado (comando npm), usa "npm test" em cada servico;
-#   - senao, usa um container Docker com Node 20 (precisa do Docker aberto).
+#   - senao, usa um container Docker com Node 24 (precisa do Docker aberto).
 # Em cada servico o "npm test" roda o Jest com cobertura; o proprio Jest falha
 # se a cobertura ficar abaixo de 50% (coverageThreshold no package.json).
 #
@@ -25,7 +25,7 @@ if (-not $temNpm -and -not $temDocker) {
     Write-Host "Nem Node.js (npm) nem Docker encontrados. Instale um dos dois." -ForegroundColor Red
     exit 1
 }
-$modo = if ($temNpm) { "Node.js local" } else { "Docker (node:20-alpine)" }
+$modo = if ($temNpm) { "Node.js local" } else { "Docker (node:24-alpine)" }
 
 Write-Host ""
 Write-Host "==========================================================================" -ForegroundColor Cyan
@@ -48,7 +48,7 @@ foreach ($svc in $servicos) {
         Pop-Location
     } else {
         # monta a pasta do servico dentro do container e roda la
-        $saida = docker run --rm -v "${pasta}:/app" -w /app node:20-alpine `
+        $saida = docker run --rm -v "${pasta}:/app" -w /app node:24-alpine `
             sh -c "[ -d node_modules ] || npm install --silent >/dev/null 2>&1; $jest 2>&1"
         $codigo = $LASTEXITCODE
     }
