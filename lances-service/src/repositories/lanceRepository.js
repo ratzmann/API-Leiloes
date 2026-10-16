@@ -64,7 +64,7 @@ async function registrarComTrava(leilaoId, fn) {
   // Uma conexao exclusiva: a trava e a transacao valem para ESTA conexao.
   const client = await pool.connect();
   const tx = {
-    // Maior lance atual, lido JA com a trava (valor confiavel).
+    /** Maior lance atual do leilao (ou null), lido JA com a trava (valor confiavel). */
     async buscarMaior() {
       const { rows } = await client.query(
         'SELECT * FROM lances WHERE leilao_id = $1 ORDER BY valor DESC, criado_em DESC LIMIT 1',
@@ -72,7 +72,7 @@ async function registrarComTrava(leilaoId, fn) {
       );
       return rows[0] || null;
     },
-    // Grava o lance ligado a saga e a reserva de credito.
+    /** Grava o lance ligado a saga e a reserva de credito e devolve a linha criada. */
     async criar({ licitanteId, valor, sagaId, reservaId }) {
       const { rows } = await client.query(
         `INSERT INTO lances (leilao_id, licitante_id, valor, saga_id, reserva_id)

@@ -17,6 +17,8 @@
 // ATENCAO A ORDEM: o Express testa as rotas de cima para baixo e usa a
 // PRIMEIRA que servir. Se '/:id' viesse antes de '/sagas', um GET /lances/sagas
 // seria entendido como "lance de id = 'sagas'".
+//
+// Quem chama: app.js | Quem e chamado: controllers/lanceController.js
 // =============================================================================
 
 const { Router } = require('express');

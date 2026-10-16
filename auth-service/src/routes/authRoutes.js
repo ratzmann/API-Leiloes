@@ -11,6 +11,8 @@
 // (O GET /auth/health fica no app.js, junto com /metrics e /docs.)
 // Estas rotas sao PUBLICAS: o Kong nao exige token para elas (ver kong.yml),
 // afinal quem ainda nao fez login nao tem token.
+//
+// Quem chama: app.js | Quem e chamado: controllers/authController.js
 // =============================================================================
 
 // Router e um "mini-app" do Express que agrupa rotas relacionadas.

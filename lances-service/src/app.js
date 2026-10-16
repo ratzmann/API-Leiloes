@@ -11,6 +11,10 @@
 //
 // Middlewares em ordem: metricas -> JSON -> extrairUsuario -> /health,
 // /metrics, /docs (so DEV) -> rotas -> 404 -> tratamento de erros.
+//
+// Quem chama: server.js (e os testes)
+// Quem e chamado: routes/lanceRoutes.js, middlewares/ (extrairUsuario e
+//                 tratarErros), observabilidade/metricas.js, docs/openapi.js
 // =============================================================================
 
 const express = require('express');

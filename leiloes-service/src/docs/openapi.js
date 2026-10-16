@@ -8,6 +8,7 @@
 // Quem chama: app.js (criarDocumentoOpenApi(versao)) e tests/app.test.js.
 // =============================================================================
 
+/** Resposta de erro no formato da API ({ erro }), com a `descricao` recebida. */
 const erro = (descricao) => ({
   description: descricao,
   content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } },
@@ -19,6 +20,7 @@ const semLogin = erro('Sem login: falta o token de LEILOEIRO (Authorization: Bea
 const soODono = erro('Sem permissao: so o leiloeiro dono do leilao pode alterar');
 const idInvalido = erro('Id invalido (nao e um inteiro positivo)');
 
+/** Resposta JSON com um Leilao, com a `descricao` recebida. */
 const leilaoJson = (descricao) => ({
   description: descricao,
   content: { 'application/json': { schema: { $ref: '#/components/schemas/Leilao' } } },

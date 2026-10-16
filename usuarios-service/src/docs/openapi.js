@@ -8,6 +8,7 @@
 // Quem chama: app.js (criarDocumentoOpenApi(versao)) e tests/app.test.js.
 // =============================================================================
 
+/** Resposta de erro no formato da API ({ erro }), com a `descricao` recebida. */
 const erro = (descricao) => ({
   description: descricao,
   content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } },
@@ -18,13 +19,16 @@ const erro = (descricao) => ({
 const semLogin = erro('Sem login: falta o token (Authorization: Bearer)');
 const idInvalido = erro('Id invalido (nao e um inteiro positivo)');
 
+/** Resposta JSON com a `descricao` e o `schema` recebidos. */
 const json = (descricao, schema) => ({
   description: descricao,
   content: { 'application/json': { schema } },
 });
 
+/** Referencia ($ref) a um schema de components.schemas, pelo `nome`. */
 const ref = (nome) => ({ $ref: `#/components/schemas/${nome}` });
 
+/** Parametro de caminho `id` (inteiro >= 1), com a `descricao` recebida. */
 const parametroId = (descricao) => ({
   name: 'id',
   in: 'path',
@@ -33,6 +37,7 @@ const parametroId = (descricao) => ({
   description: descricao,
 });
 
+/** Corpo JSON obrigatorio da requisicao, com o `schema` recebido. */
 const corpo = (schema) => ({
   required: true,
   content: { 'application/json': { schema } },

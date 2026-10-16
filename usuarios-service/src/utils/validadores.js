@@ -3,6 +3,8 @@
 // -----------------------------------------------------------------------------
 // Funcoes "puras": recebem um valor e devolvem true/false, sem acessar banco
 // nem rede. Por isso sao faceis de testar e de reaproveitar nos services.
+//
+// Quem chama: services/leiloeiroService.js e services/licitanteService.js
 // =============================================================================
 
 // Regex de e-mail: "algo" + @ + "algo" + . + "algo", sem espacos.

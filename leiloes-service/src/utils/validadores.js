@@ -3,6 +3,8 @@
 // -----------------------------------------------------------------------------
 // Funcoes pequenas e "puras" (sem banco, sem rede) usadas pelo leilaoService.
 // Tambem define a MAQUINA DE ESTADOS do leilao (quais mudancas de status valem).
+//
+// Quem chama: services/leilaoService.js
 // =============================================================================
 
 // Todos os status que um leilao pode ter.

@@ -30,6 +30,12 @@
 //   FALHOU                   -> falhou antes de reservar credito (nada a desfazer)
 //   COMPENSADA               -> falhou depois da reserva, e a reserva foi devolvida
 //   FALHOU_COMPENSACAO       -> falhou e ATE a devolucao falhou (exige atencao manual)
+//
+// Quem chama: services/lanceService.js (executar e reprocessar)
+// Quem e chamado: clients/leiloesClient.js, clients/usuariosClient.js,
+//                 repositories/lanceRepository.js, repositories/sagaRepository.js,
+//                 services/regrasDoLance.js, config/saga.js, observabilidade/metricas.js,
+//                 clients/http.js (o erro ServicoIndisponivel)
 // =============================================================================
 
 const lanceRepository = require('../repositories/lanceRepository');

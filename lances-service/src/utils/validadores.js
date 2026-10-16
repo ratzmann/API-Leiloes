@@ -2,6 +2,8 @@
 // utils/validadores.js  -  VALIDACOES simples do lances-service
 // -----------------------------------------------------------------------------
 // Funcoes puras (sem banco e sem rede) que respondem true/false.
+//
+// Quem chama: services/lanceService.js
 // =============================================================================
 
 /**

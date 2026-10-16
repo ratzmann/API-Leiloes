@@ -8,24 +8,31 @@
 // Quem chama: app.js (criarDocumentoOpenApi(versao)).
 // =============================================================================
 
+/** Resposta de erro no formato da API ({ erro }), com a `descricao` recebida. */
 const erro = (descricao) => ({
   description: descricao,
   content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } },
 });
 
-// Erros da Saga trazem tambem o sagaId (para consultar GET /lances/sagas/{id}).
+/**
+ * Resposta de erro da Saga: { erro, sagaId } (o sagaId serve para consultar
+ * GET /lances/sagas/{id}), com a `descricao` recebida.
+ */
 const erroDaSaga = (descricao) => ({
   description: descricao,
   content: { 'application/json': { schema: { $ref: '#/components/schemas/ErroDaSaga' } } },
 });
 
+/** Resposta JSON com a `descricao` e o `schema` recebidos. */
 const json = (descricao, schema) => ({
   description: descricao,
   content: { 'application/json': { schema } },
 });
 
+/** Referencia ($ref) a um schema de components.schemas, pelo `nome`. */
 const ref = (nome) => ({ $ref: `#/components/schemas/${nome}` });
 
+/** Parametro de caminho inteiro (>= 1), com o `nome` e a `descricao` recebidos. */
 const parametroId = (nome, descricao) => ({
   name: nome,
   in: 'path',

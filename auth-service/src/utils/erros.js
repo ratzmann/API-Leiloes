@@ -17,6 +17,9 @@
 //   500 em erro de configuracao (JWT_SECRET ou CHAVE_INTERNA faltando) e em falha
 //       inesperada da Saga (com o sagaId); os outros erros inesperados viram
 //       500 generico no tratarErros
+//
+// Quem chama: services/, sagas/, clients/ e middlewares/ (lancam ou reconhecem o
+// erro com instanceof).
 // (Arquivo identico nos 4 servicos: cada microsservico tem a sua copia.)
 // =============================================================================
 

@@ -18,6 +18,10 @@
 //   5. as rotas;
 //   6. o "pega tudo" do 404;
 //   7. o tratamento de erros.
+//
+// Quem chama: server.js (e os testes)
+// Quem e chamado: routes/*Routes.js, middlewares/ (extrairUsuario e tratarErros),
+//                 observabilidade/metricas.js, docs/openapi.js
 // =============================================================================
 
 const express = require('express');

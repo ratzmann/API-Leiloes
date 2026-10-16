@@ -5,6 +5,8 @@
 // Assim o authService nao precisa saber detalhes de HTTP (URL, timeout,
 // status): ele so chama criarPerfil(...) como se fosse uma funcao qualquer.
 // Nos testes, este arquivo e trocado pelo mock clients/__mocks__/usuariosClient.js.
+//
+// Quem chama: services/authService.js | Quem e chamado: clients/http.js
 // =============================================================================
 
 const { requisicao, urlBase, ServicoIndisponivel } = require('./http');

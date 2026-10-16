@@ -32,8 +32,11 @@ async function emTransacao(fn) {
   // Objeto com as operacoes disponiveis dentro da transacao. Todas usam
   // `client` (a conexao reservada), e nao o pool.
   const tx = {
-    // FOR UPDATE "tranca" a linha do licitante ate o COMMIT/ROLLBACK: outra
-    // transacao que tentar travar o mesmo licitante fica esperando na fila.
+    /**
+     * Le { id, limite_credito } do licitante (ou null) e o TRAVA: o FOR UPDATE
+     * "tranca" a linha ate o COMMIT/ROLLBACK, e outra transacao que tentar
+     * travar o mesmo licitante fica esperando na fila.
+     */
     async travarLicitante(licitanteId) {
       const { rows } = await client.query(
         'SELECT id, limite_credito FROM licitantes WHERE id = $1 FOR UPDATE',
@@ -41,7 +44,10 @@ async function emTransacao(fn) {
       );
       return rows[0] || null;
     },
-    // SUM soma os valores; COALESCE(..., 0) troca NULL por 0 quando nao ha reservas.
+    /**
+     * Devolve a soma (numero) das reservas RESERVADA do licitante. SUM soma os
+     * valores; COALESCE(..., 0) troca NULL por 0 quando nao ha reservas.
+     */
     async somarReservado(licitanteId) {
       const { rows } = await client.query(
         `SELECT COALESCE(SUM(valor), 0) AS reservado
@@ -52,7 +58,7 @@ async function emTransacao(fn) {
       // O Postgres devolve NUMERIC como texto; Number(...) converte para numero.
       return Number(rows[0].reservado);
     },
-    // Procura reserva pela referencia (id da saga) - base da idempotencia.
+    /** Reserva com esta referencia (id da saga), ou null - base da idempotencia. */
     async buscarPorReferencia(referencia) {
       const { rows } = await client.query(
         'SELECT * FROM reservas_credito WHERE referencia = $1',
@@ -60,7 +66,7 @@ async function emTransacao(fn) {
       );
       return rows[0] || null;
     },
-    // Busca e trava a reserva (evita duas liberacoes simultaneas).
+    /** Busca a reserva pelo id (ou null) e a trava (evita duas liberacoes simultaneas). */
     async buscarPorId(reservaId) {
       const { rows } = await client.query(
         'SELECT * FROM reservas_credito WHERE id = $1 FOR UPDATE',
@@ -68,8 +74,10 @@ async function emTransacao(fn) {
       );
       return rows[0] || null;
     },
-    // Cria a reserva; o status comeca como RESERVADA (DEFAULT da tabela).
-    // leilaoId (opcional) liga a reserva ao leilao, para o cancelamento.
+    /**
+     * Cria a reserva e a devolve; o status comeca como RESERVADA (DEFAULT da
+     * tabela). leilaoId (opcional) liga a reserva ao leilao, para o cancelamento.
+     */
     async criar({ licitanteId, valor, referencia, leilaoId }) {
       const { rows } = await client.query(
         `INSERT INTO reservas_credito (licitante_id, valor, referencia, leilao_id)
@@ -79,7 +87,7 @@ async function emTransacao(fn) {
       );
       return rows[0];
     },
-    // Marca a reserva como LIBERADA e registra quando isso aconteceu.
+    /** Marca a reserva como LIBERADA, registra quando (liberado_em) e a devolve. */
     async liberar(reservaId) {
       const { rows } = await client.query(
         `UPDATE reservas_credito
