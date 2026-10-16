@@ -1860,6 +1860,72 @@
               }
             }
           ]
+        },
+        {
+          "name": "64. Outro leiloeiro cadastra um leilao para editar (espera 201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_outro_leiloeiro}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/leiloes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Leilao de Angus - Lote 3\",\n  \"quantidadeBois\": 20,\n  \"lanceInicial\": 3000,\n  \"incrementoMinimo\": 100,\n  \"dataInicio\": \"{{data_inicio}}\",\n  \"dataFim\": \"{{data_fim}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('leilao_revisao_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "65. Editar leilao movendo o inicio para o passado (espera 400 - Regra 2)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_outro_leiloeiro}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/leiloes/{{leilao_revisao_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dataInicio\": \"2020-01-01T10:00:00Z\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400: a data de inicio precisa estar no futuro tambem na edicao', () => pm.response.to.have.status(400));",
+                  "pm.test('mensagem da Regra 2', () => pm.expect(pm.response.json().erro).to.eql('Data de inicio deve estar no futuro.'));"
+                ]
+              }
+            }
+          ]
         }
       ]
     }
@@ -1943,6 +2009,10 @@
     },
     {
       "key": "leilao_vivo_id",
+      "value": ""
+    },
+    {
+      "key": "leilao_revisao_id",
       "value": ""
     },
     {

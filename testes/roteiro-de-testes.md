@@ -228,6 +228,11 @@ curl -X PUT http://localhost:8000/leiloes/$LEILAO_AGENDADO \
   -H "Authorization: Bearer $TOKEN_LEILOEIRO" -H "Content-Type: application/json" \
   -d '{ "quantidadeBois": 45 }'
 
+# mover o início para o passado na edição -> 400 (Regra 2 vale também na edição)
+curl -i -X PUT http://localhost:8000/leiloes/$LEILAO_AGENDADO \
+  -H "Authorization: Bearer $TOKEN_LEILOEIRO" -H "Content-Type: application/json" \
+  -d '{ "dataInicio": "2020-01-01T10:00:00Z" }'
+
 # encerrar sem ter aberto -> 409 (transição inválida)
 curl -i -X PATCH http://localhost:8000/leiloes/$LEILAO_AGENDADO/encerrar \
   -H "Authorization: Bearer $TOKEN_LEILOEIRO"

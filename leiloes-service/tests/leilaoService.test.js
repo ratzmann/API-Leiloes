@@ -300,6 +300,25 @@ describe('leilaoService.atualizar', () => {
     expect(resultado.titulo).toBe('Leilao novo');
     expect(leilaoRepository.atualizar).toHaveBeenCalledTimes(1);
   });
+
+  test('Regra 2 tambem na edicao: recusa mover o inicio para o passado', async () => {
+    leilaoRepository.buscarPorId.mockResolvedValue({
+      id: 1,
+      status: 'AGENDADO',
+      leiloeiro_id: 1,
+      titulo: 'Leilao antigo',
+      quantidade_bois: 10,
+      lance_inicial: 1000,
+      incremento_minimo: 50,
+      data_inicio: emHoras(24),
+      data_fim: emHoras(26),
+    });
+
+    await expect(
+      leilaoService.atualizar(1, { dataInicio: emHoras(-2) }, leiloeiro1)
+    ).rejects.toMatchObject({ codigo: 400, message: 'Data de inicio deve estar no futuro.' });
+    expect(leilaoRepository.atualizar).not.toHaveBeenCalled();
+  });
 });
 
 describe('leilaoService.consultarDisponibilidade', () => {

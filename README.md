@@ -145,7 +145,7 @@ compensar), `COMPENSADA`, `FALHOU_COMPENSACAO`.
 1. Validação do evento: título, lote (≥ 1 boi), lance inicial e incremento
    mínimo maiores que zero (e incremento nunca maior que o lance inicial),
    datas ISO 8601 com fim depois do início e duração mínima de 30 minutos.
-2. Data de início obrigatoriamente no futuro.
+2. Data de início obrigatoriamente no futuro (no cadastro e na edição).
 3. O leilão só é gravado se o `leiloeiroId` existir de fato — verificado por
    chamada REST ao `usuarios-service`.
 4. Um leiloeiro não pode ter dois leilões ativos com períodos sobrepostos.

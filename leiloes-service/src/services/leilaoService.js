@@ -3,7 +3,7 @@
 // -----------------------------------------------------------------------------
 // Todas as regras do leilao estao aqui (numeradas como no README):
 //   Regra 1 - dados coerentes (titulo, lote, valores, datas, duracao minima)
-//   Regra 2 - data de inicio no futuro
+//   Regra 2 - data de inicio no futuro (no cadastro e na edicao)
 //   Regra 3 - o leiloeiro precisa existir (consulta REST ao usuarios-service)
 //   Regra 4 - o leiloeiro nao pode ter dois leiloes ativos no mesmo horario
 //   Regra 5 - ciclo de vida: AGENDADO -> ABERTO -> ENCERRADO (ou CANCELADO)
@@ -289,7 +289,9 @@ async function cadastrar(dados, usuario) {
 /**
  * Regra 6: so edita enquanto esta AGENDADO (depois de aberto ja tem lance).
  * Edita um leilao. Como o cliente pode mandar so ALGUNS campos, montamos o
- * leilao "como ficaria" (campo novo ?? campo atual) e validamos o conjunto.
+ * leilao "como ficaria" (campo novo ?? campo atual) e validamos o conjunto
+ * (Regra 1). Se uma nova data de inicio vier, ela tambem precisa estar no
+ * futuro (Regra 2), como no cadastro.
  */
 async function atualizar(id, dados, usuario) {
   const leilao = await buscarPorId(id);
@@ -315,6 +317,9 @@ async function atualizar(id, dados, usuario) {
   };
 
   validarDados(atualizado);
+  if (dados.dataInicio) {
+    validarDataFutura(dados.dataInicio);
+  }
 
   // So confere a agenda se alguma data mudou (passando o proprio id para ignorar).
   if (dados.dataInicio || dados.dataFim) {

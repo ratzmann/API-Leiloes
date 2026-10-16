@@ -762,6 +762,16 @@ Run-Step -Nome "74. Licitante A e leiloeiro nao veem o credito de B (espera 403)
     return (Invoke-Api GET "/licitantes/$($script:licitanteBId)/credito" -Token $script:tokenA)
 }
 
+# 75. Regra 2 tambem na edicao: nao da para mover o inicio de um leilao para o passado
+Run-Step -Nome "75. Editar leilao movendo o inicio para o passado (espera 400)" -CodigoEsperado 400 -Acao {
+    $ini = $amanha.AddDays(10).AddHours(9).ToString("yyyy-MM-ddTHH:mm:ssZ")
+    $fimL = $amanha.AddDays(10).AddHours(12).ToString("yyyy-MM-ddTHH:mm:ssZ")
+    $body = Novo-Leilao -LeiloeiroId $script:leiloeiroId -Titulo "Leilao para editar" -LanceInicial 1000 -Incremento 50 -Inicio $ini -Fim $fimL
+    $novo = Invoke-Api POST "/leiloes" ($body | ConvertFrom-Json) -Token $script:tokenLeiloeiro
+    if ($novo.StatusCode -ne 201) { return @{ StatusCode = 500 } }
+    return (Invoke-Api PUT "/leiloes/$($novo.Json.id)" @{ dataInicio = "2020-01-01T10:00:00Z" } -Token $script:tokenLeiloeiro)
+}
+
 Write-Host "==========================================================================" -ForegroundColor Cyan
 Write-Host "                           RESUMO DOS TESTES                             " -ForegroundColor Yellow
 Write-Host "   Passou: $script:TotalPass" -ForegroundColor Green
