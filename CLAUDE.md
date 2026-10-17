@@ -166,7 +166,15 @@ docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-
 
 ## Git
 
-- Um branch por tarefa, **um commit por alteração**, mensagens em português
+- **Git Flow do T2** (pedido na especificação): `main` = HOMOL, `develop` = DEV e uma
+  branch **`feature/<nome>`** por tarefa, criada a partir da `develop`. Sempre com o prefixo
+  `feature/`, inclusive para correções e documentação (sem `fix/` ou `docs/` no nome da
+  branch; o tipo vai na mensagem do commit).
+- Caminho de uma mudança: `feature/<nome>` → PR para a `develop` (deploy DEV) → na entrega,
+  PR da `develop` para a `main` (deploy HOMOL). Os PRs são juntados pelo GitHub com
+  **"Create a merge commit"** (`gh pr create` para abrir).
+- **Não apagar** as branches `feature/*` depois do merge: elas ficam no GitHub como
+  evidência do Git Flow para a avaliação.
+- **Um commit por alteração**, mensagens em português
   (`tipo(escopo): descrição`, ex.: `fix(auth): ...`, `docs: ...`, `test(e2e): ...`).
 - Cada commit deixa o projeto funcionando (testes passando).
-- Mudanças vão para a `main` por Pull Request (`gh pr create`).
