@@ -190,7 +190,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build (e push em develop/main)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: auth-service
           push: ${{ needs.versao.outputs.publicar == 'true' }}
