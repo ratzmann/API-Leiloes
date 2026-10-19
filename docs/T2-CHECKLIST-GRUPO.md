@@ -86,7 +86,10 @@ Hook, troca a imagem de cada HOMOL sozinho.
        **DEV** no Render (seção 6). Ordem: **usuarios** primeiro (os outros apontam para
        ele), depois **auth** e **leiloes**, por último **lances** (precisa dos dois).
 3. [x] Cada um manda ao Lucas o Deploy Hook e a URL do DEV.
-4. [ ] Teste integrado no DEV: registrar → login → cadastrar e abrir leilão → dar lance.
+4. [x] Teste integrado no DEV: registrar → login → cadastrar e abrir leilão → dar lance.
+       Feito em 19/10 pelo Render, nos 4 serviços (21 conferências): registro (auth → usuarios),
+       leilão (leiloes → usuarios), Saga com dois lances e liberação do superado (lances →
+       leiloes/usuarios), LGPD do crédito e cancelamento devolvendo o crédito (leiloes → usuarios).
 5. [ ] **Entrega `develop` → `main`** (PR, com *Create a merge commit*), combinada com o
        grupo. O pipeline publica as imagens `:homol` e cria as tags `auth-service-v1.1.0`,
        `usuarios-service-v1.1.0`, `leiloes-service-v1.2.0` e `lances-service-v1.1.0`.
