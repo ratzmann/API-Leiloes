@@ -5,6 +5,8 @@ Visão geral e fluxo de uso: [`README.md`](README.md).
 Arquitetura explicada para iniciantes: [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md)
 (inclui o mapa de endpoints, seção 13).
 Roteiro da apresentação: [`docs/APRESENTACAO.md`](docs/APRESENTACAO.md).
+Checklist do grupo para o T2 (quem faz o quê, situação, Render, variáveis):
+[`docs/T2-CHECKLIST-GRUPO.md`](docs/T2-CHECKLIST-GRUPO.md) — sem segredos, nunca.
 
 ## Estrutura
 

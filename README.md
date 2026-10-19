@@ -396,6 +396,9 @@ Cada integrante tem o pipeline do próprio serviço em `.github/workflows/`
 (filtrado pela pasta do serviço). Git Flow: `feature/*` → `develop` (DEV) →
 `main` (HOMOL).
 
+**Checklist do grupo** (quem faz o quê, situação de cada serviço, configurações do
+admin, Render e variáveis): [`docs/T2-CHECKLIST-GRUPO.md`](docs/T2-CHECKLIST-GRUPO.md).
+
 - **leiloes-service**: `.github/workflows/leiloes-service.yml` — detalhes em
   [`leiloes-service/docs/T2-DECISOES.md`](leiloes-service/docs/T2-DECISOES.md).
 - **auth-service**: `.github/workflows/auth-service.yml` — detalhes em
