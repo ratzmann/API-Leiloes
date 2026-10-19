@@ -30,7 +30,7 @@ opções de segurança do repositório (seção 4).
 | Semantic Versioning | ✅ (`X.Y.Z-dev.N` no DEV; `X.Y.Z` + tag git no HOMOL) |
 | Dependabot e secrets do GitHub | ✅ Dependabot (atualizações) e secrets · ⬜ alertas de segurança do Dependabot |
 | Prometheus + Grafana com dashboards | ✅ `<servico>/observabilidade/` |
-| **URL DEV e HOMOL** | ✅ DEV dos 4 · 🟡 HOMOL de auth, usuarios e leiloes provisório · ⬜ HOMOL do lances (seção 3) |
+| **URL DEV e HOMOL** | ✅ DEV dos 4 · 🟡 HOMOL dos 4 no ar, provisório até a entrega para a `main` (seção 3) |
 | README | ✅ |
 
 ## 3. Situação por serviço
@@ -40,14 +40,14 @@ opções de segurança do repositório (seção 4).
 | auth | ✅ | ✅ | ✅ `https://auth-service-dev-rslq.onrender.com` | 🟡 `https://auth-service-homol-czky.onrender.com` (imagem `:dev`) | `auth-dev` ✅ · `auth-homol` ✅ |
 | usuarios | ✅ | ✅ | ✅ `https://usuarios-service-dev.onrender.com` | 🟡 `https://usuarios-service-homol.onrender.com` (imagem `:dev`) | `usuarios-dev` ✅ · `usuarios-homol` ✅ |
 | leiloes | ✅ | ✅ | ✅ `https://leiloes-service-dev.onrender.com` | 🟡 `https://leiloes-service-homol.onrender.com` (`:homol` antiga, 1.1.0) | `dev` ✅ · `homol` ✅ |
-| lances | ✅ | ✅ `lances_dev` / `lances_homol` | ✅ `https://lances-service-dev.onrender.com` | ⬜ | `lances-dev` ✅ · `lances-homol` (vazio) |
+| lances | ✅ | ✅ `lances_dev` / `lances_homol` | ✅ `https://lances-service-dev.onrender.com` | 🟡 `https://lances-service-homol.onrender.com` (imagem `:dev`) | `lances-dev` ✅ · `lances-homol` ⬜ (hook a caminho do Lucas) |
 
 ✅ = no ar e conferido · 🟡 = provisório · ⬜ = falta. Os segredos compartilhados (DEV e
 HOMOL) foram conferidos em 19/10 nos serviços que já existem.
 
 **HOMOL provisório:** como a `main` ainda não recebeu a `develop`, só existe a imagem
 `:homol` antiga do leiloes (1.1.0, de 14/10, sem `jwt.verify` nem chave interna). Os HOMOL
-de auth e usuarios rodam a imagem `:dev` com `APP_ENV=homol`. Na entrega `develop` →
+de auth, usuarios e lances rodam a imagem `:dev` com `APP_ENV=homol`. Na entrega `develop` →
 `main` (passo 5 da seção 5), o pipeline publica as imagens `:homol` certas e, pelo Deploy
 Hook, troca a imagem de cada HOMOL sozinho.
 
@@ -91,8 +91,8 @@ Hook, troca a imagem de cada HOMOL sozinho.
        grupo. O pipeline publica as imagens `:homol` e cria as tags `auth-service-v1.1.0`,
        `usuarios-service-v1.1.0`, `leiloes-service-v1.2.0` e `lances-service-v1.1.0`.
 6. [ ] Cada um cria o serviço **HOMOL** no Render (mesmas variáveis, valores do HOMOL)
-       e manda o hook ao Lucas. Auth, usuarios e leiloes já criaram (provisório, seção 3);
-       falta o **lances** (pode ser criado já, com a imagem `:dev`, como os outros).
+       e manda o hook ao Lucas. Os 4 já criaram (provisório, seção 3); falta só o hook
+       do lances no environment `lances-homol`.
 7. [ ] Rodar o pipeline da `main` de novo (*Actions → Run workflow → main*) e conferir
        "Deploy confirmado" no job de deploy.
 8. [ ] Grafana de cada serviço mostrando os alvos DEV e HOMOL. Se o Render deu outro
