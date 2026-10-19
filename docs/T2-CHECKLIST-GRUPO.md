@@ -1,6 +1,6 @@
 # Checklist do grupo — T2 (CI/CD e Observabilidade)
 
-> Situação em **19/10/2026**. Quem concluir um item marca `[x]` e atualiza a tabela
+> Situação em **19/10/2026, à noite**. Quem concluir um item marca `[x]` e atualiza a tabela
 > (por uma `feature/` e PR, como todo o resto).
 >
 > **Este arquivo não tem nenhum segredo, e nunca deve ter.** `JWT_SECRET`,
@@ -23,40 +23,47 @@ opções de segurança do repositório (seção 4).
 | Item da especificação | Situação |
 |---|---|
 | Git Flow (`main` = HOMOL, `develop` = DEV, `feature/*`) | ✅ (as `feature/*` ficam no GitHub como evidência) |
-| 1 pipeline por serviço (build, testes, Sonar) | ✅ build e testes · ⬜ Sonar (pulado até o Lucas configurar) |
+| 1 pipeline por serviço (build, testes, Sonar) | ✅ (SonarCloud configurado pelo Lucas em 19/10) |
 | Deploy automático `develop` → DEV e `main` → HOMOL (Render) | ⬜ falta o Render de cada serviço + os hooks |
 | DEV com Swagger, HOMOL sem Swagger | ✅ no código (`APP_ENV`) |
 | Dockerfile, build automático e publicação da imagem | ✅ imagens `:dev` dos 4 no GHCR (públicas) |
 | Semantic Versioning | ✅ (`X.Y.Z-dev.N` no DEV; `X.Y.Z` + tag git no HOMOL) |
-| Dependabot e secrets do GitHub | ✅ Dependabot · ⬜ secrets (seção 4) |
+| Dependabot e secrets do GitHub | ✅ Dependabot (atualizações) e secrets · ⬜ alertas de segurança do Dependabot |
 | Prometheus + Grafana com dashboards | ✅ `<servico>/observabilidade/` |
-| **URL DEV e HOMOL** | ⬜ só o lances DEV está no ar (seção 3) |
+| **URL DEV e HOMOL** | ✅ DEV dos 4 · 🟡 HOMOL de auth, usuarios e leiloes provisório · ⬜ HOMOL do lances (seção 3) |
 | README | ✅ |
 
 ## 3. Situação por serviço
 
 | Serviço | Imagem `:dev` | Banco Neon (dev / homol) | Render DEV | Render HOMOL | Environments no GitHub |
 |---|---|---|---|---|---|
-| auth | ✅ | ❓ Lucas confirma | ⬜ (`auth-service-dev` ainda não existe) | ⬜ | `auth-dev` (vazio) · `auth-homol` ⬜ |
-| usuarios | ✅ | ❓ Lucas confirma | ⬜ (`usuarios-service-dev` ainda não existe) | ⬜ | `usuarios-dev` (vazio) · `usuarios-homol` ⬜ |
-| leiloes | ✅ | ❓ Thiago confirma | ⬜ (`leiloes-service-dev` ainda não existe) | ⬜ | `dev` (vazio) · `homol` (vazio) |
-| lances | ✅ | ✅ `lances_dev` / `lances_homol` | ✅ `https://lances-service-dev.onrender.com` | ⬜ | `lances-dev` (vazio) · `lances-homol` ⬜ |
+| auth | ✅ | ✅ | ✅ `https://auth-service-dev-rslq.onrender.com` | 🟡 `https://auth-service-homol-czky.onrender.com` (imagem `:dev`) | `auth-dev` ✅ · `auth-homol` ✅ |
+| usuarios | ✅ | ✅ | ✅ `https://usuarios-service-dev.onrender.com` | 🟡 `https://usuarios-service-homol.onrender.com` (imagem `:dev`) | `usuarios-dev` ✅ · `usuarios-homol` ✅ |
+| leiloes | ✅ | ✅ | ✅ `https://leiloes-service-dev.onrender.com` | 🟡 `https://leiloes-service-homol.onrender.com` (`:homol` antiga, 1.1.0) | `dev` ✅ · `homol` ✅ |
+| lances | ✅ | ✅ `lances_dev` / `lances_homol` | ✅ `https://lances-service-dev.onrender.com` | ⬜ | `lances-dev` ✅ · `lances-homol` (vazio) |
 
-O HOMOL de todos só pode ser criado **depois da entrega `develop` → `main`**, porque
-é ela que publica as imagens `:homol` (passo 5 da seção 5).
+✅ = no ar e conferido · 🟡 = provisório · ⬜ = falta. Os segredos compartilhados (DEV e
+HOMOL) foram conferidos em 19/10 nos serviços que já existem.
+
+**HOMOL provisório:** como a `main` ainda não recebeu a `develop`, só existe a imagem
+`:homol` antiga do leiloes (1.1.0, de 14/10, sem `jwt.verify` nem chave interna). Os HOMOL
+de auth e usuarios rodam a imagem `:dev` com `APP_ENV=homol`. Na entrega `develop` →
+`main` (passo 5 da seção 5), o pipeline publica as imagens `:homol` certas e, pelo Deploy
+Hook, troca a imagem de cada HOMOL sozinho.
 
 ## 4. Configurações do Lucas (admin)
 
-- [ ] **SonarCloud:** uma organização só, `ratzmann` (a variável `SONAR_ORGANIZATION` é
+- [x] **SonarCloud:** uma organização só, `ratzmann` (a variável `SONAR_ORGANIZATION` é
       a mesma nos 4 pipelines), com os projetos `ratzmann_auth-service`,
       `ratzmann_usuarios-service`, `ratzmann_leiloes-service` e `ratzmann_lances-service`.
       Em cada um: *Administration → Analysis Method →* desligar **Automatic Analysis**.
       Gerar um token.
-- [ ] **Settings → Secrets and variables → Actions:**
+- [x] **Settings → Secrets and variables → Actions:**
       secret `SONAR_TOKEN`; variáveis `SONAR_ORGANIZATION=ratzmann`,
       `SONAR_PROJECT_KEY=ratzmann_leiloes-service`, `SONAR_PROJECT_KEY_AUTH`,
       `SONAR_PROJECT_KEY_USUARIOS` e `SONAR_PROJECT_KEY_LANCES`.
-- [ ] **Settings → Environments:** os 8 da tabela abaixo (nomes exatos), cada um com o
+- [ ] **Settings → Environments:** os 8 da tabela abaixo (nomes exatos; **falta só o
+      `lances-homol`**), cada um com o
       secret `RENDER_DEPLOY_HOOK_URL` e a variável `RENDER_URL` (sem `/` no fim). Cada
       responsável manda ao Lucas, **no privado**, o Deploy Hook e a URL do seu serviço
       (Render → serviço → *Settings → Deploy Hook*).
@@ -73,22 +80,25 @@ O HOMOL de todos só pode ser criado **depois da entrega `develop` → `main`**,
 
 ## 5. Ordem sugerida
 
-1. [ ] Lucas: seção 4 (Sonar e secrets; os environments vão sendo preenchidos conforme
+1. [x] Lucas: seção 4 (Sonar e secrets; os environments vão sendo preenchidos conforme
        chegam os hooks).
-2. [ ] Cada um: dois bancos na Neon (`<servico>_dev` e `<servico>_homol`) e o serviço
+2. [x] Cada um: dois bancos na Neon (`<servico>_dev` e `<servico>_homol`) e o serviço
        **DEV** no Render (seção 6). Ordem: **usuarios** primeiro (os outros apontam para
        ele), depois **auth** e **leiloes**, por último **lances** (precisa dos dois).
-3. [ ] Cada um manda ao Lucas o Deploy Hook e a URL do DEV.
+3. [x] Cada um manda ao Lucas o Deploy Hook e a URL do DEV.
 4. [ ] Teste integrado no DEV: registrar → login → cadastrar e abrir leilão → dar lance.
 5. [ ] **Entrega `develop` → `main`** (PR, com *Create a merge commit*), combinada com o
        grupo. O pipeline publica as imagens `:homol` e cria as tags `auth-service-v1.1.0`,
        `usuarios-service-v1.1.0`, `leiloes-service-v1.2.0` e `lances-service-v1.1.0`.
 6. [ ] Cada um cria o serviço **HOMOL** no Render (mesmas variáveis, valores do HOMOL)
-       e manda o hook ao Lucas.
+       e manda o hook ao Lucas. Auth, usuarios e leiloes já criaram (provisório, seção 3);
+       falta o **lances** (pode ser criado já, com a imagem `:dev`, como os outros).
 7. [ ] Rodar o pipeline da `main` de novo (*Actions → Run workflow → main*) e conferir
        "Deploy confirmado" no job de deploy.
 8. [ ] Grafana de cada serviço mostrando os alvos DEV e HOMOL. Se o Render deu outro
        endereço (nome em uso), ajustar `<servico>/observabilidade/prometheus/prometheus.yml`.
+       Já se sabe: o **auth** ganhou os sufixos `-rslq` (DEV) e `-czky` (HOMOL), então
+       `auth-service/observabilidade/prometheus/prometheus.yml` precisa dos endereços reais.
 
 ## 6. Render: como criar cada serviço
 
