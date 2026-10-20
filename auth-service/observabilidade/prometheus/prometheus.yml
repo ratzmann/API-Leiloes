@@ -13,18 +13,19 @@ scrape_configs:
         labels:
           alvo: local
 
-  # Render - DEV (branch develop). Ajuste o host se o Render der outro nome ao servico.
+  # Render - DEV (branch develop). O nome auth-service-dev ja estava em uso no Render,
+  # que acrescentou o sufixo -rslq: o endereco real e este.
   - job_name: auth-service-dev
     scheme: https
     static_configs:
-      - targets: ['auth-service-dev.onrender.com']
+      - targets: ['auth-service-dev-rslq.onrender.com']
         labels:
           alvo: dev
 
-  # Render - HOMOL (branch main)
+  # Render - HOMOL (branch main), tambem com sufixo (-czky) dado pelo Render
   - job_name: auth-service-homol
     scheme: https
     static_configs:
-      - targets: ['auth-service-homol.onrender.com']
+      - targets: ['auth-service-homol-czky.onrender.com']
         labels:
           alvo: homol

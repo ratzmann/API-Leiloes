@@ -1,6 +1,6 @@
 # Gera trafego no leiloes-service para movimentar os graficos do Grafana.
 #   powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1
-#   powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1 -BaseUrl https://leiloes-service-dev.onrender.com -Rodadas 10
+#   powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1 -BaseUrl https://leiloes-service-dev-bnhz.onrender.com -Rodadas 10
 #
 # Fala direto com o servico (sem o Kong). Funciona com o servico rodando sozinho
 # (sem USUARIOS_SERVICE_URL), que nao valida o leiloeiro. Tambem funciona pelo

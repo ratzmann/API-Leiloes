@@ -80,8 +80,8 @@ usuarios-service recusa as reservas de crédito da Saga.
 
 | Name | Image URL | Variáveis |
 |---|---|---|
-| `lances-service-dev` | `ghcr.io/ratzmann/lances-service:dev` | `APP_ENV=dev`, `DATABASE_URL`=lances_dev, `DB_SSL=true`, `LEILOES_SERVICE_URL=https://leiloes-service-dev.onrender.com`, `USUARIOS_SERVICE_URL=https://usuarios-service-dev.onrender.com`, `SAGA_PERMITIR_FALHA_SIMULADA=true`, `JWT_SECRET`=segredo DEV, `JWT_ISSUER=sistema-leilao-auth`, `CHAVE_INTERNA`=chave DEV |
-| `lances-service-homol` | `ghcr.io/ratzmann/lances-service:homol` | `APP_ENV=homol`, `DATABASE_URL`=lances_homol, `DB_SSL=true`, `LEILOES_SERVICE_URL=https://leiloes-service-homol.onrender.com`, `USUARIOS_SERVICE_URL=https://usuarios-service-homol.onrender.com`, `SAGA_PERMITIR_FALHA_SIMULADA=false`, `JWT_SECRET`=segredo HOMOL, `JWT_ISSUER=sistema-leilao-auth`, `CHAVE_INTERNA`=chave HOMOL |
+| `lances-service-dev` | `ghcr.io/ratzmann/lances-service:dev` | `APP_ENV=dev`, `DATABASE_URL`=lances_dev, `DB_SSL=true`, `LEILOES_SERVICE_URL=https://leiloes-service-dev-bnhz.onrender.com`, `USUARIOS_SERVICE_URL=https://usuarios-service-dev.onrender.com`, `SAGA_PERMITIR_FALHA_SIMULADA=true`, `JWT_SECRET`=segredo DEV, `JWT_ISSUER=sistema-leilao-auth`, `CHAVE_INTERNA`=chave DEV |
+| `lances-service-homol` | `ghcr.io/ratzmann/lances-service:homol` | `APP_ENV=homol`, `DATABASE_URL`=lances_homol, `DB_SSL=true`, `LEILOES_SERVICE_URL=https://leiloes-service-homol-igr9.onrender.com`, `USUARIOS_SERVICE_URL=https://usuarios-service-homol.onrender.com`, `SAGA_PERMITIR_FALHA_SIMULADA=false`, `JWT_SECRET`=segredo HOMOL, `JWT_ISSUER=sistema-leilao-auth`, `CHAVE_INTERNA`=chave HOMOL |
 
 - [ ] Teste cada um:
   - `/health` deve mostrar o `ambiente` certo;

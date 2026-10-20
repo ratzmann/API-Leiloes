@@ -13,18 +13,19 @@ scrape_configs:
         labels:
           alvo: local
 
-  # Render - DEV (branch develop). Ajuste o host se o Render der outro nome ao servico.
+  # Render - DEV (branch develop). O servico foi recriado em 20/10 e o Render
+  # acrescentou o sufixo -bnhz ao nome: o endereco real e este.
   - job_name: leiloes-service-dev
     scheme: https
     static_configs:
-      - targets: ['leiloes-service-dev.onrender.com']
+      - targets: ['leiloes-service-dev-bnhz.onrender.com']
         labels:
           alvo: dev
 
-  # Render - HOMOL (branch main)
+  # Render - HOMOL (branch main), tambem com sufixo (-igr9) dado pelo Render
   - job_name: leiloes-service-homol
     scheme: https
     static_configs:
-      - targets: ['leiloes-service-homol.onrender.com']
+      - targets: ['leiloes-service-homol-igr9.onrender.com']
         labels:
           alvo: homol

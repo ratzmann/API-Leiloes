@@ -36,7 +36,7 @@ auth-service: **[`docs/GUIA-CONFIGURACAO.md`](docs/GUIA-CONFIGURACAO.md)**.
 | Métricas Prometheus | `GET /metrics` |
 | Health check (versão e ambiente) | `GET /health` |
 | Prometheus + Grafana | `observabilidade/` (`docker compose up -d --build`; Grafana em `:3012`) |
-| URL DEV / HOMOL | `https://usuarios-service-dev.onrender.com` / `https://usuarios-service-homol.onrender.com` (após a configuração) |
+| URL DEV / HOMOL | https://usuarios-service-dev.onrender.com / https://usuarios-service-homol.onrender.com |
 
 Variáveis:
 
