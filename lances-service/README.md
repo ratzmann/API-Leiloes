@@ -44,7 +44,7 @@ Checklist das contas (GitHub, Render, Neon, SonarCloud):
 | Métricas Prometheus | `GET /metrics` |
 | Health check (versão e ambiente) | `GET /health` |
 | Prometheus + Grafana | `observabilidade/` (`docker compose up -d`; Grafana em `:3013`) |
-| URL DEV / HOMOL | `https://lances-service-dev.onrender.com` / `https://lances-service-homol.onrender.com` (após a configuração) |
+| URL DEV / HOMOL | https://lances-service-dev.onrender.com / https://lances-service-homol.onrender.com |
 
 Variáveis:
 

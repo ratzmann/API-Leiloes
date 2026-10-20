@@ -36,7 +36,7 @@ Checklist das contas (feito junto com o usuarios-service):
 | Métricas Prometheus | `GET /metrics` |
 | Health check (versão e ambiente) | `GET /health` |
 | Prometheus + Grafana | `observabilidade/` (`docker compose up -d --build`; Grafana em `:3011`) |
-| URL DEV / HOMOL | `https://auth-service-dev.onrender.com` / `https://auth-service-homol.onrender.com` (após a configuração) |
+| URL DEV / HOMOL | https://auth-service-dev-rslq.onrender.com / https://auth-service-homol-czky.onrender.com (os sufixos `-rslq` e `-czky` foram dados pelo Render) |
 
 Variáveis:
 

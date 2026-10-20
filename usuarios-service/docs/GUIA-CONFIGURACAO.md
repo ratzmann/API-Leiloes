@@ -140,8 +140,8 @@ Crie o **usuarios primeiro**, porque o auth aponta para ele.
 
 | Environment | Secret `RENDER_DEPLOY_HOOK_URL` | Variable `RENDER_URL` (sem `/` no fim) |
 |---|---|---|
-| `auth-dev` | hook do `auth-service-dev` | `https://auth-service-dev.onrender.com` |
-| `auth-homol` | hook do `auth-service-homol` | `https://auth-service-homol.onrender.com` |
+| `auth-dev` | hook do `auth-service-dev` | `https://auth-service-dev-rslq.onrender.com` (sufixo dado pelo Render) |
+| `auth-homol` | hook do `auth-service-homol` | `https://auth-service-homol-czky.onrender.com` (sufixo dado pelo Render) |
 | `usuarios-dev` | hook do `usuarios-service-dev` | `https://usuarios-service-dev.onrender.com` |
 | `usuarios-homol` | hook do `usuarios-service-homol` | `https://usuarios-service-homol.onrender.com` |
 
@@ -190,7 +190,7 @@ Crie o **usuarios primeiro**, porque o auth aponta para ele.
       **http://localhost:3011**. Login: admin/admin.
   ```powershell
   powershell -ExecutionPolicy Bypass -File .\usuarios-service\observabilidade\gerar-trafego.ps1
-  powershell -ExecutionPolicy Bypass -File .\auth-service\observabilidade\gerar-trafego.ps1 -BaseUrl https://auth-service-dev.onrender.com -Rodadas 10
+  powershell -ExecutionPolicy Bypass -File .\auth-service\observabilidade\gerar-trafego.ps1 -BaseUrl https://auth-service-dev-rslq.onrender.com -Rodadas 10
   ```
 
 ---

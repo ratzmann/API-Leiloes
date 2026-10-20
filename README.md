@@ -396,6 +396,22 @@ Cada integrante tem o pipeline do próprio serviço em `.github/workflows/`
 (filtrado pela pasta do serviço). Git Flow: `feature/*` → `develop` (DEV) →
 `main` (HOMOL).
 
+**URLs no Render.** O pipeline atualiza o DEV a cada merge na `develop` e o HOMOL a
+cada entrega na `main`. Cada URL responde `/health` (versão e ambiente) e `/metrics`;
+o Swagger (`/docs`) só existe no DEV.
+
+| Serviço | DEV (`develop`) | HOMOL (`main`) |
+|---|---|---|
+| auth | https://auth-service-dev-rslq.onrender.com | https://auth-service-homol-czky.onrender.com |
+| usuarios | https://usuarios-service-dev.onrender.com | https://usuarios-service-homol.onrender.com |
+| leiloes | a confirmar (sendo reconfigurado no Render em 20/10) | a confirmar |
+| lances | https://lances-service-dev.onrender.com | https://lances-service-homol.onrender.com |
+
+Na nuvem não há Kong na frente: cada serviço é chamado direto, **sem** o prefixo do
+gateway. Por exemplo, o registro é `POST <auth>/registrar` (e não `/auth/registrar`).
+No plano gratuito o serviço "dorme" depois de ~15 min sem uso; a primeira chamada
+pode levar quase 1 minuto.
+
 - **leiloes-service**: `.github/workflows/leiloes-service.yml` — detalhes em
   [`leiloes-service/docs/T2-DECISOES.md`](leiloes-service/docs/T2-DECISOES.md).
 - **auth-service**: `.github/workflows/auth-service.yml` — detalhes em
