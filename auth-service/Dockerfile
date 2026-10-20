@@ -8,7 +8,7 @@
 # =============================================================================
 
 # Imagem base: Linux enxuto (alpine) com Node.js 24 (LTS) ja instalado.
-FROM node:24-alpine
+FROM node:26-alpine
 
 # Pasta de trabalho dentro do container (os proximos comandos rodam nela).
 WORKDIR /app
