@@ -1,6 +1,6 @@
 # Gera trafego no auth-service para movimentar os graficos do Grafana.
 #   powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1
-#   powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1 -BaseUrl https://auth-service-dev.onrender.com -Rodadas 10
+#   powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1 -BaseUrl https://auth-service-dev-rslq.onrender.com -Rodadas 10
 #
 # Fala direto com o servico (sem o Kong): registros, logins certos e errados.
 # Funciona com o servico rodando sozinho (sem USUARIOS_SERVICE_URL): o perfil fica nulo.
