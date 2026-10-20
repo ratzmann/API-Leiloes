@@ -1,15 +1,38 @@
+// =============================================================================
+// tests/creditoService.test.js  -  testes do credito (reservas da Saga)
+// -----------------------------------------------------------------------------
+// Cobre: consulta de credito (so o proprio licitante: 401/403, LGPD), reserva
+// com e sem saldo (409), idempotencia pela referencia (mesma saga nao reserva
+// duas vezes), liberacao repetida sem erro e liberacao de todas as reservas de
+// um leilao cancelado.
+// A transacao (emTransacao) e simulada pelo mock do reservaRepository.
+// COMO LER UM TESTE (Jest):
+//   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
+//   test('descricao', () => { ... })    um cenario (chamado tambem de it);
+//   expect(valor).toBe(esperado)        a VERIFICACAO: se nao bater, o teste falha;
+//   expect(() => f()).toThrow('msg')    confere que a funcao LANCA aquele erro;
+//   await expect(promessa).rejects...   o mesmo, para funcoes async.
+// jest.mock('caminho') troca o modulo real pelo MOCK (pasta __mocks__), entao
+// os testes rodam sem banco e sem rede. Rodar:  npm test  (dentro do servico).
+// =============================================================================
+
 jest.mock('../src/repositories/licitanteRepository');
 jest.mock('../src/repositories/reservaRepository');
 const licitanteRepository = require('../src/repositories/licitanteRepository');
 const reservaRepository = require('../src/repositories/reservaRepository');
 const creditoService = require('../src/services/creditoService');
+const metricas = require('../src/observabilidade/metricas');
 
-// transacao falsa: roda a funcao com as operacoes mockadas
+/** Transacao falsa: o emTransacao mockado roda a funcao com as operacoes de `tx`. */
 function transacaoFalsa(tx) {
   reservaRepository.emTransacao.mockImplementation((fn) => fn(tx));
   return tx;
 }
 
+/**
+ * Cria uma transacao falsa com respostas padrao (limite de R$ 5000, nada
+ * reservado). `sobrescritas` troca so as operacoes que o teste quer mudar.
+ */
 function novaTx(sobrescritas = {}) {
   return transacaoFalsa({
     travarLicitante: jest.fn().mockResolvedValue({ id: 1, limite_credito: '5000.00' }),
@@ -25,22 +48,40 @@ function novaTx(sobrescritas = {}) {
 beforeEach(() => jest.clearAllMocks());
 
 describe('creditoService.consultarCredito', () => {
+  const dono = { papel: 'LICITANTE', perfilId: 1 };
+
   test('calcula disponivel como limite menos reservas ativas', async () => {
     licitanteRepository.buscarPorId.mockResolvedValue({ id: 1, limite_credito: '5000.00' });
     reservaRepository.somarReservado.mockResolvedValue(1500.5);
 
-    const credito = await creditoService.consultarCredito(1);
+    const credito = await creditoService.consultarCredito(1, dono);
 
     expect(credito).toEqual({ licitanteId: 1, limite: 5000, reservado: 1500.5, disponivel: 3499.5 });
   });
 
   test('lanca 404 para licitante inexistente', async () => {
     licitanteRepository.buscarPorId.mockResolvedValue(null);
-    await expect(creditoService.consultarCredito(99)).rejects.toMatchObject({ codigo: 404 });
+    await expect(creditoService.consultarCredito(99, dono)).rejects.toMatchObject({ codigo: 404 });
   });
 
   test('rejeita id invalido', async () => {
-    await expect(creditoService.consultarCredito('abc')).rejects.toMatchObject({ codigo: 400 });
+    await expect(creditoService.consultarCredito('abc', dono)).rejects.toMatchObject({ codigo: 400 });
+  });
+
+  test('Regra 6 (LGPD): sem login responde 401', async () => {
+    licitanteRepository.buscarPorId.mockResolvedValue({ id: 1, limite_credito: '5000.00' });
+    await expect(creditoService.consultarCredito(1, undefined)).rejects.toMatchObject({ codigo: 401 });
+  });
+
+  test('Regra 6 (LGPD): outro licitante ou um leiloeiro nao ve o credito (403)', async () => {
+    licitanteRepository.buscarPorId.mockResolvedValue({ id: 1, limite_credito: '5000.00' });
+    await expect(
+      creditoService.consultarCredito(1, { papel: 'LICITANTE', perfilId: 2 })
+    ).rejects.toMatchObject({ codigo: 403 });
+    await expect(
+      creditoService.consultarCredito(1, { papel: 'LEILOEIRO', perfilId: 1 })
+    ).rejects.toMatchObject({ codigo: 403 });
+    expect(reservaRepository.somarReservado).not.toHaveBeenCalled();
   });
 });
 
@@ -52,7 +93,7 @@ describe('creditoService.reservar', () => {
 
     expect(criada).toBe(true);
     expect(reserva.status).toBe('RESERVADA');
-    expect(tx.criar).toHaveBeenCalledWith({ licitanteId: 1, valor: 4000, referencia: 'saga-1' });
+    expect(tx.criar).toHaveBeenCalledWith({ licitanteId: 1, valor: 4000, referencia: 'saga-1', leilaoId: null });
   });
 
   test('recusa com 409 quando o valor passa do credito disponivel', async () => {
@@ -120,5 +161,70 @@ describe('creditoService.listarReservas', () => {
   test('lista as reservas do licitante', async () => {
     reservaRepository.listarPorLicitante.mockResolvedValue([{ id: 1 }]);
     await expect(creditoService.listarReservas(1)).resolves.toEqual([{ id: 1 }]);
+  });
+});
+
+describe('metricas de negocio', () => {
+  let espiao;
+  beforeEach(() => {
+    espiao = jest.spyOn(metricas, 'registrarOperacaoCredito');
+  });
+  afterEach(() => espiao.mockRestore());
+
+  test('reserva nova soma como reservada', async () => {
+    novaTx();
+    await creditoService.reservar(1, { valor: 100, referencia: 'saga-m1' });
+    expect(espiao).toHaveBeenCalledWith('reservada');
+  });
+
+  test('repeticao da mesma referencia e reserva recusada nao somam', async () => {
+    novaTx({ buscarPorReferencia: jest.fn().mockResolvedValue({ id: 7 }) });
+    await creditoService.reservar(1, { valor: 100, referencia: 'saga-m2' });
+
+    novaTx({ somarReservado: jest.fn().mockResolvedValue(5000) });
+    await expect(creditoService.reservar(1, { valor: 1 })).rejects.toMatchObject({ codigo: 409 });
+
+    expect(espiao).not.toHaveBeenCalled();
+  });
+
+  test('liberacao soma uma vez; liberar de novo nao soma', async () => {
+    novaTx({
+      buscarPorId: jest.fn().mockResolvedValue({ id: 10, licitante_id: 1, status: 'RESERVADA' }),
+    });
+    await creditoService.liberar(1, 10);
+
+    novaTx({
+      buscarPorId: jest.fn().mockResolvedValue({ id: 10, licitante_id: 1, status: 'LIBERADA' }),
+    });
+    await creditoService.liberar(1, 10);
+
+    expect(espiao).toHaveBeenCalledTimes(1);
+    expect(espiao).toHaveBeenCalledWith('liberada');
+  });
+});
+
+describe('creditoService - reservas ligadas ao leilao (cancelamento)', () => {
+  test('a reserva guarda o leilaoId enviado pela Saga', async () => {
+    const tx = novaTx();
+    await creditoService.reservar(1, { valor: 100, referencia: 'saga-7', leilaoId: '4' });
+    expect(tx.criar).toHaveBeenCalledWith({ licitanteId: 1, valor: 100, referencia: 'saga-7', leilaoId: 4 });
+  });
+
+  test('leilaoId invalido e recusado (400) antes de abrir a transacao', async () => {
+    await expect(creditoService.reservar(1, { valor: 100, leilaoId: 'abc' })).rejects.toMatchObject({ codigo: 400 });
+    expect(reservaRepository.emTransacao).not.toHaveBeenCalled();
+  });
+
+  test('liberarPorLeilao devolve quantas reservas foram liberadas', async () => {
+    reservaRepository.liberarPorLeilao.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+    const resultado = await creditoService.liberarPorLeilao('4');
+    expect(resultado).toEqual({ leilaoId: 4, liberadas: 2, reservas: [{ id: 1 }, { id: 2 }] });
+    expect(reservaRepository.liberarPorLeilao).toHaveBeenCalledWith(4);
+  });
+
+  test('liberarPorLeilao e idempotente (0 liberadas na segunda vez) e valida o id', async () => {
+    reservaRepository.liberarPorLeilao.mockResolvedValue([]);
+    await expect(creditoService.liberarPorLeilao(4)).resolves.toMatchObject({ liberadas: 0 });
+    await expect(creditoService.liberarPorLeilao(0)).rejects.toMatchObject({ codigo: 400 });
   });
 });

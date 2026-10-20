@@ -1,0 +1,31 @@
+# O Prometheus busca GET /metrics de cada alvo a cada 15 s ("scrape").
+# Cada metrica do servico ja traz os rotulos ambiente e versao; o rotulo "alvo"
+# abaixo identifica de onde o Prometheus leu (usado no painel "Servico no ar").
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # copia local (docker-compose desta pasta)
+  - job_name: auth-service-local
+    static_configs:
+      - targets: ['auth-service:3001']
+        labels:
+          alvo: local
+
+  # Render - DEV (branch develop). O nome auth-service-dev ja estava em uso no Render,
+  # que acrescentou o sufixo -rslq: o endereco real e este.
+  - job_name: auth-service-dev
+    scheme: https
+    static_configs:
+      - targets: ['auth-service-dev-rslq.onrender.com']
+        labels:
+          alvo: dev
+
+  # Render - HOMOL (branch main), tambem com sufixo (-czky) dado pelo Render
+  - job_name: auth-service-homol
+    scheme: https
+    static_configs:
+      - targets: ['auth-service-homol-czky.onrender.com']
+        labels:
+          alvo: homol

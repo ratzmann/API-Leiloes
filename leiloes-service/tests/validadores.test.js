@@ -1,11 +1,34 @@
+// =============================================================================
+// tests/validadores.test.js  -  testes das funcoes de validacao
+// -----------------------------------------------------------------------------
+// Funcoes puras (datas, numeros, maquina de estados, sobreposicao de periodos):
+// nao precisam de mock nenhum.
+// COMO LER UM TESTE (Jest):
+//   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
+//   test('descricao', () => { ... })    um cenario (chamado tambem de it);
+//   expect(valor).toBe(esperado)        a VERIFICACAO: se nao bater, o teste falha;
+//   expect(() => f()).toThrow('msg')    confere que a funcao LANCA aquele erro;
+//   await expect(promessa).rejects...   o mesmo, para funcoes async.
+// Rodar:  npm test  (dentro do servico).
+// =============================================================================
+
 const {
   dataValida,
   numeroPositivo,
   inteiroPositivo,
+  centavos,
   statusValido,
   transicaoPermitida,
   periodosSobrepoem,
 } = require('../src/utils/validadores');
+
+describe('centavos', () => {
+  test('converte reais em centavos inteiros, inclusive texto e decimais', () => {
+    expect(centavos(10.5)).toBe(1050);
+    expect(centavos('5000.00')).toBe(500000);
+    expect(centavos(0.1 + 0.2)).toBe(centavos(0.3));
+  });
+});
 
 describe('dataValida', () => {
   test('aceita string ISO e objeto Date', () => {

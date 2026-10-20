@@ -1,0 +1,50 @@
+# Observabilidade do lances-service: Prometheus (coleta) + Grafana (dashboards).
+#   1. na RAIZ do projeto:            docker compose up -d --build
+#   2. aqui (lances-service/observabilidade): docker compose up -d
+#   Grafana:    http://localhost:3013  (admin / admin; dashboard "lances-service")
+#   Prometheus: http://localhost:9093  (Status > Targets mostra local, DEV e HOMOL)
+#   Trafego:    powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1
+#
+# Diferente dos outros servicos, o lances-service NAO funciona sozinho: a Saga
+# precisa do leiloes-service e do usuarios-service (sem eles, todo lance da 503).
+# Por isso esta pasta nao sobe uma copia propria do servico: o Prometheus entra
+# na rede do sistema completo (leilao-net, criada pelo docker-compose da raiz) e
+# le o lances-service de la. Continua funcionando sem internet.
+# Portas de host diferentes das stacks dos colegas (3000/9090, 3011/9091,
+# 3012/9092) para todas rodarem juntas.
+# Os alvos DEV e HOMOL (Render) ficam em prometheus/prometheus.yml.
+name: lances-observabilidade
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9093:9090"
+    networks:
+      - default
+      - leilao-net
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      # quem so quer olhar entra sem login (somente leitura)
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/lances-service.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3013:3000"
+    depends_on:
+      - prometheus
+
+networks:
+  # rede do sistema completo; o nome e fixo no docker-compose.yml da raiz
+  leilao-net:
+    external: true
+    name: leilao-net

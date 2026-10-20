@@ -1,0 +1,68 @@
+# Observabilidade do usuarios-service: Prometheus (coleta) + Grafana (dashboards).
+#   cd usuarios-service/observabilidade && docker compose up -d --build
+#   Grafana:    http://localhost:3012  (admin / admin; dashboard "usuarios-service")
+#   Prometheus: http://localhost:9092  (Status > Targets mostra local, DEV e HOMOL)
+#   Servico:    http://localhost:3002  (Swagger em /docs, metricas em /metrics)
+#
+# Sobe tambem uma copia LOCAL do servico + banco, para a demo funcionar sem internet.
+# Portas de host diferentes das do leiloes-service (3000/9090) para as stacks rodarem juntas.
+# Os alvos DEV e HOMOL (Render) ficam em prometheus/prometheus.yml.
+name: usuarios-observabilidade
+
+services:
+  usuarios-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: usuarios_user
+      POSTGRES_PASSWORD: usuarios_pass
+      POSTGRES_DB: usuarios_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U usuarios_user -d usuarios_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  usuarios-service:
+    build: ..
+    environment:
+      PORT: 3002
+      APP_ENV: local
+      DB_HOST: usuarios-db
+      DB_PORT: 5432
+      DB_USER: usuarios_user
+      DB_PASSWORD: usuarios_pass
+      DB_NAME: usuarios_db
+      # rotas internas (criar perfil, reservas): o gerar-trafego.ps1 manda esta
+      # chave no header X-Chave-Interna, como fariam os outros servicos
+      CHAVE_INTERNA: ${CHAVE_INTERNA:-chave-interna-trabalho-microsservicos}
+    ports:
+      - "3002:3002"
+    depends_on:
+      usuarios-db:
+        condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9092:9090"
+    depends_on:
+      - usuarios-service
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      # quem so quer olhar entra sem login (somente leitura)
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/usuarios-service.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3012:3000"
+    depends_on:
+      - prometheus

@@ -1,0 +1,10 @@
+# Carrega os dashboards em JSON desta pasta ao iniciar o Grafana.
+apiVersion: 1
+providers:
+  - name: usuarios-service
+    folder: T2
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

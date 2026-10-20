@@ -1,8 +1,53 @@
-require('dotenv').config();
-const app = require('./app');
+// =============================================================================
+// server.js  -  PONTO DE PARTIDA do auth-service
+// -----------------------------------------------------------------------------
+// E o primeiro arquivo executado quando o container sobe (veja o CMD do
+// Dockerfile: `node src/server.js`). Mesma sequencia dos outros 3 servicos:
+//   1. carregar as variaveis de ambiente e o ambiente (DEV, HOMOL...);
+//   2. rodar a migracao (cria a tabela usuarios, se ainda nao existir, a partir
+//      do init.sql);
+//   3. so entao "ligar" o servidor HTTP numa porta.
+// Se o banco nao ficar pronto, o processo encerra com erro (exit 1).
+//
+// Por que separar server.js de app.js?
+//   O app.js MONTA a aplicacao (rotas, middlewares), mas NAO abre porta.
+//   Assim testes podem criar o app sem subir um servidor de verdade.
+// =============================================================================
 
+// dotenv le o arquivo .env (se existir) e coloca cada linha em process.env.
+// Ex.: a linha "PORT=3001" do .env vira process.env.PORT === '3001'.
+// No Docker as variaveis ja vem do docker-compose.yml, entao o .env e opcional.
+require('dotenv').config();
+
+// require() importa outro arquivo JavaScript. criarApp(ambiente) monta a
+// aplicacao Express (o './' significa "nesta mesma pasta").
+const criarApp = require('./app');
+// carregarAmbiente() le APP_ENV, versao da imagem, Swagger ligado ou nao.
+const { carregarAmbiente } = require('./config/ambiente');
+// migrar() executa o db/init.sql no banco, com novas tentativas se preciso.
+const migrar = require('./db/migrar');
+
+const ambiente = carregarAmbiente();
+// Porta em que o servico vai escutar. O operador || funciona como "senao":
+// se process.env.PORT nao existir (undefined), usamos 3001 como padrao.
 const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, () => {
-  console.log(`auth-service ouvindo na porta ${PORT}`);
-});
+// migrar() devolve uma PROMISE: .then roda se der certo, .catch se der errado.
+// So abre a porta depois que a tabela existe.
+migrar()
+  .then(() => {
+    // listen abre a porta e fica esperando requisicoes indefinidamente.
+    // A crase (`) cria uma "template string", que permite colocar variaveis
+    // dentro do texto com ${...}.
+    criarApp(ambiente).listen(PORT, () => {
+      console.log(
+        `auth-service ${ambiente.versao} (${ambiente.nome}) ouvindo na porta ${PORT}` +
+          ` - swagger ${ambiente.swaggerHabilitado ? 'em /docs' : 'desligado'}`
+      );
+    });
+  })
+  .catch((err) => {
+    console.error('Falha ao preparar o banco do auth-service:', err.message);
+    // Encerra o processo com codigo 1 (convencao para "terminou com erro").
+    process.exit(1);
+  });

@@ -1,0 +1,69 @@
+# Observabilidade do auth-service: Prometheus (coleta) + Grafana (dashboards).
+#   cd auth-service/observabilidade && docker compose up -d --build
+#   Grafana:    http://localhost:3011  (admin / admin; dashboard "auth-service")
+#   Prometheus: http://localhost:9091  (Status > Targets mostra local, DEV e HOMOL)
+#   Servico:    http://localhost:3001  (Swagger em /docs, metricas em /metrics)
+#
+# Sobe tambem uma copia LOCAL do servico + banco, para a demo funcionar sem internet.
+# Portas de host diferentes das do leiloes-service (3000/9090) para as stacks rodarem juntas.
+# Os alvos DEV e HOMOL (Render) ficam em prometheus/prometheus.yml.
+name: auth-observabilidade
+
+services:
+  auth-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass
+      POSTGRES_DB: auth_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth-service:
+    build: ..
+    environment:
+      PORT: 3001
+      APP_ENV: local
+      DB_HOST: auth-db
+      DB_PORT: 5432
+      DB_USER: auth_user
+      DB_PASSWORD: auth_pass
+      DB_NAME: auth_db
+      JWT_SECRET: segredo-so-da-demo-local
+      JWT_ISSUER: sistema-leilao-auth
+      JWT_EXPIRES_IN: 2h
+      # sem USUARIOS_SERVICE_URL: registra so a credencial (perfil fica nulo)
+    ports:
+      - "3001:3001"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9091:9090"
+    depends_on:
+      - auth-service
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      # quem so quer olhar entra sem login (somente leitura)
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/auth-service.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3011:3000"
+    depends_on:
+      - prometheus

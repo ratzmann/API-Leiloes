@@ -19,7 +19,7 @@ routes/  →  controllers/  →  services/  →  repositories/  →  Postgres
 | `services/` | **Regras de negócio** — é onde a lógica do leilão vive. |
 | `repositories/` | Único ponto que fala SQL com o Postgres. |
 | `clients/` | Comunicação REST com outros microsserviços. |
-| `middlewares/`, `utils/` | Apoio (decodificar JWT, validadores, erros). |
+| `middlewares/`, `utils/` | Apoio (conferir o JWT, validadores, erros). |
 
 Essa separação é o que permite testar as regras de negócio sem banco e sem
 rede: os testes trocam `repositories/` e `clients/` por mocks.
@@ -102,8 +102,10 @@ O endereço do `usuarios-service` **nunca** aparece no código: vem da variável
 de ambiente `USUARIOS_SERVICE_URL` (definida no `docker-compose.yml`), igual ao
 que o `auth-service` já fazia. A chamada vai direto ao container na rede
 interna do Docker, sem passar pelo Kong, e tem timeout
-(`USUARIOS_SERVICE_TIMEOUT_MS`, padrão 3s) para não travar o cadastro quando o
-outro serviço demora a responder.
+(`SERVICOS_TIMEOUT_MS`, padrão 3s) para não travar o cadastro quando o
+outro serviço demora a responder. A liberação do crédito ao cancelar usa uma rota
+interna do usuarios-service, por isso leva a chave interna (`CHAVE_INTERNA`, no
+header `X-Chave-Interna`).
 
 O caminho inverso também está pronto: o microsserviço de **lances** consulta
 `GET /leiloes/:id/disponibilidade` para saber se pode aceitar um lance,
@@ -138,6 +140,7 @@ Checklist de configuração das contas: **[`docs/GUIA-CONFIGURACAO.md`](docs/GUI
 | Métricas Prometheus | `GET /metrics` |
 | Health check (versão e ambiente) | `GET /health` |
 | Prometheus + Grafana | `observabilidade/` (`docker compose up -d --build`) |
+| URL DEV / HOMOL | https://leiloes-service-dev-bnhz.onrender.com / https://leiloes-service-homol-igr9.onrender.com (os sufixos `-bnhz` e `-igr9` foram dados pelo Render) |
 
 Variáveis novas:
 

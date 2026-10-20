@@ -107,14 +107,17 @@ Escolha **um** caminho:
 | `APP_ENV` | `dev` |
 | `DATABASE_URL` | connection string do `leiloes_dev` |
 | `DB_SSL` | `true` |
+| `JWT_SECRET` | o mesmo segredo do auth-service DEV (o serviço confere a assinatura do token) |
+| `JWT_ISSUER` | `sistema-leilao-auth` |
+| `CHAVE_INTERNA` | a chave interna do ambiente DEV, a mesma dos outros serviços (usada para liberar o crédito ao cancelar, quando há `USUARIOS_SERVICE_URL`) |
 
 - [ ] **Advanced → Health Check Path**: `/health`.
 - [ ] **Deploy Web Service**. Espere o log mostrar
       `leiloes-service 1.1.0-dev.N (dev) ouvindo na porta 10000 - swagger em /docs`.
 - [ ] Teste no navegador:
-  - `https://leiloes-service-dev.onrender.com/health` deve mostrar
+  - `https://leiloes-service-dev-bnhz.onrender.com/health` deve mostrar
     `"ambiente":"dev"`;
-  - `https://leiloes-service-dev.onrender.com/docs` deve abrir o **Swagger**.
+  - `https://leiloes-service-dev-bnhz.onrender.com/docs` deve abrir o **Swagger**.
 - [ ] **Settings → Deploy Hook → copie a URL** (é secreta, não compartilhe).
 
 ### 4.3 Serviço HOMOL
@@ -124,7 +127,8 @@ Igual ao DEV, com estas diferenças:
 - [ ] Image URL: `ghcr.io/ratzmann/leiloes-service:homol`.
 - [ ] Name: **`leiloes-service-homol`**.
 - [ ] Variáveis: `APP_ENV=homol`, `DATABASE_URL` do **`leiloes_homol`**,
-      `DB_SSL=true`. Opcional: `USUARIOS_SERVICE_URL=<URL do usuarios-service
+      `DB_SSL=true`, `JWT_SECRET` (o do auth-service HOMOL),
+      `JWT_ISSUER=sistema-leilao-auth` e `CHAVE_INTERNA` (a do ambiente HOMOL). Opcional: `USUARIOS_SERVICE_URL=<URL do usuarios-service
       do colega>`; sem ela, o serviço não valida o leiloeiro.
 - [ ] Teste:
   - `/health` deve mostrar `"ambiente":"homol"`, `"versao":"1.1.0"`;
@@ -174,7 +178,7 @@ Igual ao DEV, com estas diferenças:
 | Onde (dentro do environment) | Nome | `dev` | `homol` |
 |---|---|---|---|
 | Environment secrets | `RENDER_DEPLOY_HOOK_URL` | hook do serviço DEV | hook do serviço HOMOL |
-| Environment variables | `RENDER_URL` | `https://leiloes-service-dev.onrender.com` | `https://leiloes-service-homol.onrender.com` |
+| Environment variables | `RENDER_URL` | `https://leiloes-service-dev-bnhz.onrender.com` | `https://leiloes-service-homol-igr9.onrender.com` |
 
 Sem barra no fim do `RENDER_URL`.
 
@@ -236,7 +240,7 @@ Sem barra no fim do `RENDER_URL`.
 - [ ] Gere tráfego e abra o Grafana (**http://localhost:3000**, admin/admin):
   ```powershell
   powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1
-  powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1 -BaseUrl https://leiloes-service-dev.onrender.com -Rodadas 10
+  powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1 -BaseUrl https://leiloes-service-dev-bnhz.onrender.com -Rodadas 10
   ```
 - [ ] No filtro **Ambiente** do dashboard, alterne entre `local`, `dev` e `homol`.
 

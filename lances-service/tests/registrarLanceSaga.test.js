@@ -1,3 +1,23 @@
+// =============================================================================
+// tests/registrarLanceSaga.test.js  -  testes da SAGA de registro de lance
+// -----------------------------------------------------------------------------
+// Cobre o caminho feliz (CONCLUIDA), recusas no passo 1 e 2 (FALHOU), falha no
+// passo 3 com compensacao (COMPENSADA), falha da compensacao (FALHOU_COMPENSACAO),
+// passo 4 com pendencia (CONCLUIDA_COM_PENDENCIA) e o reprocessamento.
+// Clients HTTP e repositories sao mockados: simulamos cada servico respondendo
+// ou falhando sem precisar subir nada.
+// COMO LER UM TESTE (Jest):
+//   describe('grupo', () => { ... })   agrupa testes de uma mesma funcao;
+//   test('descricao', () => { ... })    um cenario (chamado tambem de it);
+//   expect(valor).toBe(esperado)        a VERIFICACAO: se nao bater, o teste falha;
+//   expect(() => f()).toThrow('msg')    confere que a funcao LANCA aquele erro;
+//   await expect(promessa).rejects...   o mesmo, para funcoes async.
+// jest.mock('caminho') troca o modulo real por uma versao FALSA gerada pelo
+// proprio Jest (automock: cada funcao vira um jest.fn(); o lances nao tem pasta
+// __mocks__), entao os testes rodam sem banco e sem rede.
+// Rodar:  npm test  (dentro do servico).
+// =============================================================================
+
 process.env.SAGA_ESPERA_REPETICAO_MS = '0';
 
 jest.mock('../src/repositories/lanceRepository');
@@ -42,7 +62,9 @@ beforeEach(() => {
   lanceRepository.registrarComTrava.mockImplementation(async (leilaoId, fn) => fn(tx));
 });
 
+/** A versao mais recente da saga gravada pelo sagaRepository (falso). */
 const ultimaSalva = () => salvas[salvas.length - 1];
+/** Os passos dessa saga como texto "passo:resultado", faceis de comparar. */
 const resultados = () => ultimaSalva().passos.map((p) => `${p.passo}:${p.resultado}`);
 
 describe('Saga de registro de lance: caminho feliz', () => {
@@ -50,7 +72,7 @@ describe('Saga de registro de lance: caminho feliz', () => {
     const lance = await saga.executar(PEDIDO);
 
     expect(lance).toMatchObject({ id: 99, sagaId: 42, sagaStatus: 'CONCLUIDA' });
-    expect(usuariosClient.reservarCredito).toHaveBeenCalledWith(7, 1600, 'saga-42');
+    expect(usuariosClient.reservarCredito).toHaveBeenCalledWith(7, 1600, 'saga-42', 1); // leilaoId vai junto
     expect(tx.criar).toHaveBeenCalledWith({ licitanteId: 7, valor: 1600, sagaId: 42, reservaId: 20 });
     expect(usuariosClient.liberarReserva).toHaveBeenCalledWith(2, 11);
     expect(resultados()).toEqual([
@@ -213,5 +235,54 @@ describe('Saga de registro de lance: passo repetivel', () => {
 
     sagaRepository.buscarPorId.mockResolvedValueOnce(null);
     await expect(saga.reprocessar(2)).rejects.toMatchObject({ codigo: 404 });
+  });
+});
+
+// T2: a Saga conta os lances gravados e o status final de cada saga para o
+// Prometheus (ver src/observabilidade/metricas.js).
+describe('Saga de registro de lance: metricas', () => {
+  const metricas = require('../src/observabilidade/metricas');
+  let lanceGravado;
+  let sagaTerminada;
+  let reprocessamento;
+  beforeEach(() => {
+    lanceGravado = jest.spyOn(metricas, 'registrarLanceGravado');
+    sagaTerminada = jest.spyOn(metricas, 'registrarSaga');
+    reprocessamento = jest.spyOn(metricas, 'registrarReprocessamento');
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  test('caminho feliz conta o lance e a saga CONCLUIDA', async () => {
+    await saga.executar(PEDIDO);
+    expect(lanceGravado).toHaveBeenCalledTimes(1);
+    expect(sagaTerminada).toHaveBeenCalledWith('CONCLUIDA');
+  });
+
+  test('falha no passo 1 conta FALHOU e nenhum lance', async () => {
+    leiloesClient.consultarDisponibilidade.mockResolvedValue(null);
+    await expect(saga.executar(PEDIDO)).rejects.toMatchObject({ codigo: 404 });
+    expect(sagaTerminada).toHaveBeenCalledWith('FALHOU');
+    expect(lanceGravado).not.toHaveBeenCalled();
+  });
+
+  test('compensacao conta COMPENSADA', async () => {
+    await expect(saga.executar({ ...PEDIDO, simularFalha: 'gravar-lance' })).rejects.toMatchObject({ codigo: 500 });
+    expect(sagaTerminada).toHaveBeenCalledWith('COMPENSADA');
+  });
+
+  test('pendencia conta o lance e CONCLUIDA_COM_PENDENCIA; reprocessar conta resolvida', async () => {
+    await saga.executar({ ...PEDIDO, simularFalha: 'liberar-credito-superado' });
+    expect(lanceGravado).toHaveBeenCalledTimes(1);
+    expect(sagaTerminada).toHaveBeenCalledWith('CONCLUIDA_COM_PENDENCIA');
+
+    sagaRepository.buscarPorId.mockResolvedValue({
+      id: 42,
+      status: 'CONCLUIDA_COM_PENDENCIA',
+      passos: [],
+      licitante_superado_id: 2,
+      reserva_superada_id: 11,
+    });
+    await saga.reprocessar(42);
+    expect(reprocessamento).toHaveBeenCalledWith('resolvida');
   });
 });

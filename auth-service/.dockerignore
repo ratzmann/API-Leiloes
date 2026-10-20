@@ -1,0 +1,8 @@
+node_modules
+coverage
+tests
+observabilidade
+docs
+ci
+.env
+*.md
