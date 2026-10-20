@@ -140,6 +140,7 @@ Checklist de configuração das contas: **[`docs/GUIA-CONFIGURACAO.md`](docs/GUI
 | Métricas Prometheus | `GET /metrics` |
 | Health check (versão e ambiente) | `GET /health` |
 | Prometheus + Grafana | `observabilidade/` (`docker compose up -d --build`) |
+| URL DEV / HOMOL | https://leiloes-service-dev-bnhz.onrender.com / https://leiloes-service-homol-igr9.onrender.com (os sufixos `-bnhz` e `-igr9` foram dados pelo Render) |
 
 Variáveis novas:
 

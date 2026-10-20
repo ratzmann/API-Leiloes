@@ -404,7 +404,7 @@ o Swagger (`/docs`) só existe no DEV.
 |---|---|---|
 | auth | https://auth-service-dev-rslq.onrender.com | https://auth-service-homol-czky.onrender.com |
 | usuarios | https://usuarios-service-dev.onrender.com | https://usuarios-service-homol.onrender.com |
-| leiloes | a confirmar (sendo reconfigurado no Render em 20/10) | a confirmar |
+| leiloes | https://leiloes-service-dev-bnhz.onrender.com | https://leiloes-service-homol-igr9.onrender.com |
 | lances | https://lances-service-dev.onrender.com | https://lances-service-homol.onrender.com |
 
 Na nuvem não há Kong na frente: cada serviço é chamado direto, **sem** o prefixo do
