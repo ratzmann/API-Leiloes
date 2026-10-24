@@ -1,6 +1,6 @@
 {
   "name": "auth-service",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Servico de autenticacao do sistema de leiloes",
   "main": "src/server.js",
   "type": "commonjs",
