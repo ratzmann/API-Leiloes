@@ -11,6 +11,8 @@
 //   3. de NEGOCIO:
 //        usuarios_cadastros_total{tipo}            leiloeiros e licitantes cadastrados;
 //        usuarios_reservas_credito_total{operacao}  reservas e liberacoes da Saga de lance.
+//      Cada serie de negocio ja nasce com zero (comecarEmZero), para o Grafana
+//      contar desde a primeira ocorrencia.
 //
 // Quem chama: app.js (middlewares e GET /metrics) e services/ (leiloeiro, licitante e credito) (contadores).
 // =============================================================================
@@ -52,6 +54,20 @@ const reservasCredito = new client.Counter({
   labelNames: ['operacao'],
   registers: [registro],
 });
+
+/**
+ * Cria a serie de cada valor conhecido do rotulo ja com ZERO. Sem isto, a serie
+ * so nasce no primeiro .inc(), e o increase() do Prometheus nao enxerga esse
+ * primeiro incremento (nao ha leitura anterior para comparar): os paineis
+ * "no periodo" do Grafana mostrariam 0 ate a segunda ocorrencia.
+ * Recebe o contador, o nome do rotulo e a lista de valores possiveis.
+ */
+function comecarEmZero(contador, rotulo, valores) {
+  valores.forEach((valor) => contador.inc({ [rotulo]: valor }, 0));
+}
+
+comecarEmZero(cadastros, 'tipo', ['leiloeiro', 'licitante']);
+comecarEmZero(reservasCredito, 'operacao', ['reservada', 'liberada']);
 
 /**
  * Rotulos fixos em TODAS as metricas: de qual servico, ambiente e versao vieram.

@@ -301,6 +301,10 @@ está na seção 5.
   15 s não poluir o gráfico de tráfego.
 - **Contadores de negócio no `service`:** só somam depois que o repositório
   gravou. Cadastro recusado não conta (há testes dos dois casos).
+- **Séries que já nascem com zero:** `leiloes_mudancas_status_total` começa com
+  ABERTO, ENCERRADO e CANCELADO em 0 (`comecarEmZero`). Sem isso, o `increase()`
+  do Prometheus não conta o primeiro incremento de uma série nova, e o painel
+  "Mudanças de status" mostraria 0 num serviço recém-iniciado.
 - **`/metrics` é público:** expõe só números agregados, sem dado pessoal. Em
   produção real ficaria atrás de rede interna ou autenticação. Ver seção 8.
 

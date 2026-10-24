@@ -11,6 +11,8 @@
 //   3. de NEGOCIO:
 //        leiloes_cadastrados_total               leiloes cadastrados com sucesso;
 //        leiloes_mudancas_status_total{status}   mudancas de status aceitas.
+//      Cada serie de negocio ja nasce com zero (comecarEmZero), para o Grafana
+//      contar desde a primeira ocorrencia.
 //
 // Quem chama: app.js (middlewares e GET /metrics) e services/leilaoService.js (contadores).
 // =============================================================================
@@ -51,6 +53,19 @@ const mudancasStatus = new client.Counter({
   labelNames: ['status'],
   registers: [registro],
 });
+
+/**
+ * Cria a serie de cada valor conhecido do rotulo ja com ZERO. Sem isto, a serie
+ * so nasce no primeiro .inc(), e o increase() do Prometheus nao enxerga esse
+ * primeiro incremento (nao ha leitura anterior para comparar): os paineis
+ * "no periodo" do Grafana mostrariam 0 ate a segunda ocorrencia.
+ * Recebe o contador, o nome do rotulo e a lista de valores possiveis.
+ */
+function comecarEmZero(contador, rotulo, valores) {
+  valores.forEach((valor) => contador.inc({ [rotulo]: valor }, 0));
+}
+
+comecarEmZero(mudancasStatus, 'status', ['ABERTO', 'ENCERRADO', 'CANCELADO']);
 
 /**
  * Rotulos fixos em TODAS as metricas: de qual servico, ambiente e versao vieram.
