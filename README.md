@@ -400,7 +400,9 @@ O processo inteiro da equipe (o que o T2 pedia, quem fez o quê, como cada peça
 funciona, os problemas e como foram resolvidos) está em
 [`docs/T2-PROCESSO.md`](docs/T2-PROCESSO.md). A seção 15 dele é o roteiro para
 mostrar e testar cada requisito. Para conferir os 4 serviços conversando na
-nuvem: `node testes/testar-nuvem.js dev` (ou `homol`).
+nuvem: `node testes/testar-nuvem.js dev` (ou `homol`). Versões para imprimir:
+[`docs/T2-PROCESSO.pdf`](docs/T2-PROCESSO.pdf) e os slides da apresentação,
+[`docs/T2-SLIDES.pdf`](docs/T2-SLIDES.pdf).
 
 **URLs no Render.** O pipeline atualiza o DEV a cada merge na `develop` e o HOMOL a
 cada entrega na `main`. Cada URL responde `/health` (versão e ambiente) e `/metrics`;
