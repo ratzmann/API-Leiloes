@@ -1,6 +1,6 @@
 {
   "name": "leiloes-service",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Microsservico de dominio: cadastro de leiloes (eventos)",
   "main": "src/server.js",
   "type": "commonjs",
