@@ -441,7 +441,7 @@ alvos no ar, a versão de cada ambiente, o tráfego e as sagas por status final 
 | Ponta a ponta local | `testes/testar-tudo.ps1`, pelo Kong, com a stack do docker-compose | 75 passos |
 | Postman | `testes/leilao-microservicos.postman_collection.json` | 65 requisições, 98 conferências |
 | Smoke test do deploy | o pipeline espera a versão nova no `/health` | em todo deploy de DEV e HOMOL |
-| **Teste integrado na nuvem** | registro, login, leilão, dois lances pela Saga, recusa do lance baixo, LGPD do crédito e cancelamento devolvendo o crédito | **21/21 no DEV e 21/21 no HOMOL** |
+| **Teste integrado na nuvem** (`testes/testar-nuvem.js`) | registro, login, leilão, dois lances pela Saga, recusa do lance baixo, LGPD do crédito e cancelamento devolvendo o crédito | **21/21 no DEV e 21/21 no HOMOL** |
 
 O teste integrado na nuvem é o que prova que os 4 serviços conversam no Render:
 o auth cria o perfil no usuarios com a chave interna, o leiloes valida o
@@ -469,23 +469,322 @@ cancelamento libera as reservas.
 
 ---
 
-## 15. Roteiro para demonstrar
+## 15. Como mostrar e testar o que foi feito
 
-1. **Git Flow:** mostrar as branches `main`, `develop` e `feature/*` e as duas
-   entregas `develop` → `main` (PRs #30 e #49).
-2. **Pipeline:** abrir uma execução no GitHub Actions e mostrar o grafo
-   `ci → versao → imagem → deploy`, o resumo da versão e o "Deploy confirmado".
-3. **Imagem:** o pacote no GHCR, com as tags `1.1.1`, `homol`, `dev` e `sha-...`.
-4. **Ambientes:** abrir o `/health` no DEV e no HOMOL (versões diferentes) e o
-   `/docs` nos dois (Swagger no DEV, 404 no HOMOL).
-5. **Observabilidade:** subir a pasta `observabilidade/` do serviço, rodar o
-   `gerar-trafego.ps1` e mostrar o dashboard no Grafana (sem tempo para subir:
-   a captura no README do serviço).
-6. **Segurança:** os PRs do Dependabot (juntados e fechados com justificativa) e
-   os secrets por environment.
+Roteiro para a apresentação e para quem quiser conferir sozinho. Cada item diz
+**onde** mostrar, **o que** clicar ou rodar e **o que deve aparecer**. As respostas
+citadas são as reais, conferidas em 24/10/2026.
 
-Antes de apresentar, abra os 8 `/health` uns minutos antes, para os serviços
-acordarem.
+- Os comandos `bash` rodam no **Git Bash** (Windows), no Linux ou no macOS, na raiz
+  do repositório. Os `powershell` rodam no PowerShell do Windows.
+- Os exemplos usam o **lances**. Para mostrar outro serviço, troque `lances` pelo
+  nome dele e use a URL da tabela da seção 10.
+- As regras de negócio do T1 (local, pelo Kong) têm roteiros próprios por pessoa:
+  `testes/TESTE ANDERSON.md`, `testes/TESTE LUCAS.md` e `testes/TESTE THIAGO.md`.
+
+### 15.1 Antes de começar (uns 10 minutos antes)
+
+1. **Acordar os 8 serviços.** No plano gratuito do Render, um serviço parado
+   "dorme" depois de ~15 min, e a primeira chamada leva quase 1 minuto:
+
+   ```bash
+   for u in auth-service-dev-rslq usuarios-service-dev leiloes-service-dev-bnhz lances-service-dev auth-service-homol-czky usuarios-service-homol leiloes-service-homol-igr9 lances-service-homol; do curl -s https://$u.onrender.com/health; echo; done
+   ```
+
+   Esperado: 8 linhas `{"status":"ok",...}`. As 4 do DEV terminam com
+   `"ambiente":"dev"` e versão `1.1.1-dev.N` (leiloes: `1.2.1-dev.N`); as 4 do
+   HOMOL, com `"ambiente":"homol"` e versão `1.1.1` (leiloes: `1.2.1`).
+2. **Entrar no GitHub** no navegador: a aba *Actions* só mostra os logs para quem
+   está logado.
+3. **Se for mostrar o Grafana ao vivo:** abrir o Docker Desktop e subir as stacks
+   com antecedência (seção 15.10). Subir leva alguns minutos.
+
+### 15.2 Item 1 — Git Flow
+
+- **Onde:** https://github.com/ratzmann/API-Leiloes/branches
+- **Mostrar:**
+  1. as branches `main` (HOMOL), `develop` (DEV) e as `feature/*`, que não foram
+     apagadas depois do merge;
+  2. em *Pull requests* → *Closed*, um PR de feature para a `develop`, por exemplo
+     o #47 (`feature/observabilidade-dashboards`);
+  3. o PR de entrega da `develop` para a `main`, o #49 (o primeiro foi o #30).
+- **Esperado:** cada PR aparece como *Merged*, juntado com "Create a merge
+  commit", e com os checks verdes.
+- **No terminal:**
+
+  ```bash
+  git fetch origin
+  git log --oneline --first-parent origin/main -2
+  ```
+
+  Esperado: `Merge pull request #49 from ratzmann/develop` e
+  `Merge pull request #30 from ratzmann/develop`.
+
+### 15.3 Item 2 — CI: build, testes e SonarCloud
+
+- **Onde:** aba *Actions* → workflow `lances-service` (lista à esquerda) → o run
+  com o título do PR #49, na branch `main`.
+- **Mostrar:**
+  1. o grafo dos jobs: `Build, testes e SonarCloud` e `Versao` em paralelo,
+     depois `Imagem Docker` e `Deploy HOMOL`;
+  2. dentro de *Build, testes e SonarCloud*, os passos `npm ci`, `npm audit`,
+     `npm test` (procure a linha `Tests: 116 passed, 116 total`) e
+     `Analise SonarCloud`.
+- **SonarCloud:**
+  https://sonarcloud.io/project/overview?id=devopsleiloes_lances-service
+  (os outros projetos: `devopsleiloes_auth-service`, `devopsleiloes_usuarios-service`
+  e `devopsleiloes_leiloes-service`). Mostrar o *Quality Gate* e a cobertura.
+- **No terminal**, os testes unitários dos 4 serviços:
+
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1
+  ```
+
+  Esperado: a tabela *RESUMO* com 59 (auth), 123 (usuarios), 112 (leiloes) e
+  116 (lances) testes, e a frase "Todos os servicos passaram".
+
+### 15.4 Item 3 — CD: `develop` → DEV e `main` → HOMOL
+
+- **Onde:** no mesmo run da `main`, abrir o job *Deploy HOMOL (Render)* e o passo
+  *Deploy da imagem e smoke test*.
+- **Esperado no log:**
+
+  ```
+  Disparando deploy de ghcr.io/ratzmann/lances-service:1.1.1
+  tentativa 1: versao no ar = ... (esperada 1.1.1)
+  Deploy confirmado: https://lances-service-homol.onrender.com esta com a versao 1.1.1
+  ```
+
+  Num run da `develop`, o job é *Deploy DEV (Render)* e a versão é `1.1.1-dev.N`.
+- **Ambientes:** na página inicial do repositório, barra lateral direita,
+  *Deployments*: os 8 environments (`dev`, `homol`, `auth-dev`, `auth-homol`,
+  `usuarios-dev`, `usuarios-homol`, `lances-dev`, `lances-homol`) com o último deploy.
+- **Ao vivo (opcional, ~4 minutos):** *Actions* → `lances-service` →
+  *Run workflow* → branch `develop` → *Run workflow*. Quando o run terminar, o
+  `/health` do DEV mostra um número `-dev.N` maior que o de antes:
+
+  ```bash
+  curl -s https://lances-service-dev.onrender.com/health
+  ```
+
+### 15.5 Item 4 — Swagger no DEV, desligado no HOMOL
+
+- **DEV:** abrir https://lances-service-dev.onrender.com/docs no navegador.
+  Esperado: o Swagger UI do lances, com as rotas (`POST /lances`, `GET /lances/{id}`...).
+- **HOMOL:** abrir https://lances-service-homol.onrender.com/docs. Esperado:
+  `{"erro":"Rota nao encontrada."}`, com HTTP 404.
+- **No terminal:**
+
+  ```bash
+  curl -s -L -o /dev/null -w "DEV: %{http_code}\n" https://lances-service-dev.onrender.com/docs
+  curl -s -w " [HOMOL: %{http_code}]\n" https://lances-service-homol.onrender.com/docs
+  ```
+
+  Esperado: `DEV: 200` e `{"erro":"Rota nao encontrada."} [HOMOL: 404]`.
+- **Explicar:** é a mesma imagem nos dois ambientes; muda só a variável `APP_ENV`
+  no Render. No HOMOL a rota `/docs` nem é registrada.
+
+### 15.6 Item 6 — Dockerfile, build e publicação da imagem
+
+- **Onde:** https://github.com/users/ratzmann/packages/container/package/lances-service
+  (ou *Packages*, na barra lateral do repositório).
+- **Esperado:** as tags `1.1.1`, `homol`, `latest`, `1.1.1-dev.N`, `dev` e `sha-...`.
+- **Mostrar** o `lances-service/Dockerfile` (`node:24-alpine`, `npm ci --omit=dev`,
+  `USER node`, `HEALTHCHECK`, `ARG VERSAO_IMAGEM`).
+- **No terminal** (com o Docker aberto), a imagem publicada pelo pipeline:
+
+  ```bash
+  docker run --rm --entrypoint id ghcr.io/ratzmann/lances-service:1.1.1
+  docker run --rm --entrypoint sh ghcr.io/ratzmann/lances-service:1.1.1 -c 'echo $VERSAO_IMAGEM'
+  ```
+
+  Esperado: `uid=1000(node) gid=1000(node) ...` (o processo não roda como root) e
+  `1.1.1` (a versão que o pipeline gravou na imagem).
+
+### 15.7 Item 7 — Semantic Versioning
+
+- **Onde:** https://github.com/ratzmann/API-Leiloes/tags
+- **Esperado:** `auth-service-v1.1.0` e `-v1.1.1`, `usuarios-service-v1.1.0` e
+  `-v1.1.1`, `leiloes-service-v1.1.0`, `-v1.2.0` e `-v1.2.1`, `lances-service-v1.1.0`
+  e `-v1.1.1`.
+- **No terminal:**
+
+  ```bash
+  git fetch origin --tags
+  git tag -l "*-service-v*"
+  ```
+
+- **Mostrar** o campo `version` do `lances-service/package.json` e o PR #48, que
+  subiu o PATCH dos quatro serviços, um commit por serviço.
+- **Explicar a trava:** no job `versao`, se a tag da versão já existe em outro
+  commit, a `main` falha com "suba a versão". Por isso o #48 veio antes do #49.
+
+### 15.8 Item 8 — Dependabot, secrets e as proteções sem o Kong
+
+- **Dependabot:**
+  https://github.com/ratzmann/API-Leiloes/pulls?q=is%3Apr+author%3Aapp%2Fdependabot
+  - Esperado: 30 PRs, sendo 21 juntados e 9 fechados, cada fechado com um
+    comentário explicando o motivo (por exemplo, o #26 do Node 26 e o #8 do Express 5).
+  - Mostrar também o `.github/dependabot.yml`.
+- **Secrets:** mostrar no `.github/workflows/lances-service.yml` o uso de
+  `secrets.RENDER_DEPLOY_HOOK_URL` e `secrets.SONAR_TOKEN`. Os valores só o admin
+  vê, em *Settings* → *Environments*. Conferir que não há segredo no código:
+
+  ```bash
+  git grep -n -E "api.render.com/deploy|npg_" || echo "nenhum segredo no codigo"
+  ```
+
+  Esperado: `nenhum segredo no codigo`.
+- **Proteções dentro dos serviços** (na nuvem não há Kong):
+
+  ```bash
+  curl -s -w " [%{http_code}]\n" -H "Authorization: Bearer token-falso" https://leiloes-service-dev-bnhz.onrender.com/leiloes
+  curl -s -w " [%{http_code}]\n" https://usuarios-service-dev.onrender.com/licitantes/1/reservas
+  curl -s -w " [%{http_code}]\n" https://usuarios-service-dev.onrender.com/licitantes/1/credito
+  ```
+
+  | Comando | Resposta esperada | O que prova |
+  |---|---|---|
+  | token falso no leiloes | `{"erro":"Token invalido ou expirado."} [401]` | `jwt.verify`: o serviço confere a assinatura |
+  | rota interna sem a chave | `{"erro":"Rota interna: so os servicos do sistema podem chamar."} [403]` | a chave interna (`X-Chave-Interna`) |
+  | crédito sem login | `{"erro":"Faca login para consultar o credito."} [401]` | LGPD do crédito |
+
+  O `403` do crédito de **outro** licitante aparece no teste integrado (seção
+  15.12, passo 6).
+
+### 15.9 Item 9 — Métricas no ar (`/metrics`)
+
+- **No terminal:**
+
+  ```bash
+  curl -s https://lances-service-homol.onrender.com/metrics | grep "^lances_sagas_total"
+  ```
+
+  Esperado: uma linha por status (`CONCLUIDA`, `CONCLUIDA_COM_PENDENCIA`, `FALHOU`,
+  `COMPENSADA`, `FALHOU_COMPENSACAO`), com `ambiente="homol"` e `versao="1.1.1"`.
+  As séries já existem com 0 desde a subida do serviço.
+- Nos outros serviços: `auth_logins_total`, `usuarios_reservas_credito_total` e
+  `leiloes_mudancas_status_total`.
+
+### 15.10 Item 9 — Dashboards no Grafana (ao vivo, na máquina)
+
+1. **Abrir o Docker Desktop** e esperar o motor ficar pronto.
+2. **Subir a stack** do serviço:
+   - auth, usuarios ou leiloes (cada stack traz uma cópia do serviço e um banco):
+
+     ```bash
+     docker compose -f leiloes-service/observabilidade/docker-compose.yml up -d --build
+     ```
+
+   - lances (a Saga precisa dos outros serviços): primeiro o sistema completo,
+     depois a stack:
+
+     ```bash
+     docker compose up -d --build
+     docker compose -f lances-service/observabilidade/docker-compose.yml up -d
+     ```
+
+3. **Gerar tráfego duas vezes.** O Prometheus lê a cada 15 s, e os gráficos de
+   tráfego precisam de duas leituras:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\lances-service\observabilidade\gerar-trafego.ps1
+   powershell -ExecutionPolicy Bypass -File .\lances-service\observabilidade\gerar-trafego.ps1
+   ```
+
+4. **Abrir o Grafana**, que entra sem login, só para leitura:
+
+   | Serviço | Grafana | Prometheus |
+   |---|---|---|
+   | leiloes | http://localhost:3000 | http://localhost:9090 |
+   | auth | http://localhost:3011 | http://localhost:9091 |
+   | usuarios | http://localhost:3012 | http://localhost:9092 |
+   | lances | http://localhost:3013 | http://localhost:9093 |
+
+5. **Esperado no dashboard:**
+   - *Serviço no ar*: `local`, `dev` e `homol` como "NO AR" (o Prometheus local lê
+     também o Render);
+   - *Versão no ar*: a versão de cada ambiente;
+   - tráfego por rota e por status, latência p95;
+   - os painéis de negócio (no lances, *Sagas por status*: concluídas, falhas,
+     compensadas e com pendência).
+
+   No lances, os 5xx são de propósito: o script simula uma falha ao gravar o lance
+   para mostrar a compensação.
+6. **Sem tempo para subir?** Mostre a captura no README de cada serviço
+   (`<servico>/docs/dashboard-grafana.png`).
+7. **Depois:** desligar com `docker compose -f <arquivo> down`, **sem** `-v`, para
+   não apagar os dados.
+
+### 15.11 Item 10 — Um pipeline por serviço
+
+- **Mostrar** os 4 arquivos em `.github/workflows/` e, no início de cada um, o
+  filtro `paths:` (no lances, `lances-service/**`).
+- **Prova:** na aba *Actions*, um commit que só mudou o lances roda só o workflow
+  `lances-service`. Por exemplo, os PRs #37, #41 e #44 do Dependabot.
+
+### 15.12 Teste integrado na nuvem (os 4 serviços conversando)
+
+```bash
+node testes/testar-nuvem.js dev
+node testes/testar-nuvem.js homol
+```
+
+- **Esperado:** 21 linhas `[OK]` e, no fim, `Resultado: TUDO OK` (código de
+  saída 0). Leva uns 2 minutos, porque o leilão criado só começa a aceitar lances
+  depois de ~1 minuto.
+- **O que cada passo prova:**
+
+  | Passo | Prova |
+  |---|---|
+  | 0 | os 4 serviços no ar, com a versão e o ambiente certos |
+  | 1 | o auth cria o perfil no usuarios pela rota interna, com a chave |
+  | 2 | o login confere a senha e devolve o token |
+  | 3 | o leiloes valida o leiloeiro no usuarios; o leilão abre |
+  | 4 | a Saga do lances reserva o crédito no usuarios e grava o lance |
+  | 5 | quando B cobre o lance, a Saga devolve o crédito de A |
+  | 6 | regra do incremento (400) e LGPD do crédito (403) |
+  | 7 | cancelar o leilão libera as reservas no usuarios |
+
+- Cada execução cria dados de teste novos (e-mails `@teste-dev.com` ou
+  `@teste-homol.com`) e cancela o leilão no fim.
+
+### 15.13 Testes locais, pelo Kong
+
+Com o sistema completo no ar (`docker compose up -d --build`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
+```
+
+Esperado: os 75 passos com OK. A coleção do Postman, pelo newman:
+
+```powershell
+docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000
+```
+
+Esperado: 65 requisições e 98 conferências, sem falhas.
+
+### 15.14 Item 11 — Conferência final dos entregáveis
+
+| Entregável | Onde mostrar |
+|---|---|
+| Repositório | https://github.com/ratzmann/API-Leiloes |
+| Pipeline funcional | *Actions*: os 4 workflows verdes na `develop` e na `main` (15.3 e 15.4) |
+| URLs DEV e HOMOL | seção 10 deste documento e o README da raiz |
+| Dashboards de métricas | README de cada serviço e o Grafana local (15.10) |
+| README | `README.md`, os READMEs dos serviços e este documento |
+
+### 15.15 Se algo der errado na hora
+
+| Sintoma | O que fazer |
+|---|---|
+| `/health` demora ou responde 502/503 | o serviço estava dormindo: espere ~1 minuto e repita |
+| o teste integrado falha no passo 0 | acorde os 8 serviços (15.1) e rode de novo |
+| o Grafana mostra os painéis de tráfego vazios | rode o `gerar-trafego.ps1` mais uma vez |
+| o dashboard do lances só mostra erros | suba o sistema completo da raiz antes da stack do lances |
+| `docker` não responde | abra o Docker Desktop e espere o motor ficar pronto |
+| a porta já está em uso ao subir uma stack | outra stack ou programa usa a porta: desligue-o ou use a stack de outro serviço |
 
 ---
 
