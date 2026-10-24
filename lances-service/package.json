@@ -1,6 +1,6 @@
 {
   "name": "lances-service",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Microsservico de dominio: registro e consulta de lances de leilao",
   "main": "src/server.js",
   "type": "commonjs",
