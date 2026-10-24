@@ -143,7 +143,7 @@ powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
 docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000
 ```
 
-- Estado atual: 406 testes unitários (cobertura de linhas entre 85% e 91%), 75 passos no
+- Estado atual: 410 testes unitários (cobertura de linhas entre 85% e 91%), 75 passos no
   ponta a ponta e 65 requisições (98 conferências) na coleção Postman, todos passando.
 - A coleção e o roteiro manual (`testes/roteiro-de-testes.md`, bash) geram dados novos a
   cada execução; ao mudar uma regra, atualize os dois junto com o `testar-tudo.ps1`.

@@ -88,6 +88,10 @@ serviço faça deploy no Render do outro. A chave do Sonar vem de
   entram em `lances_sagas_total`; aparecem nas métricas HTTP.
 - O painel "Sagas por status" mostra o padrão Saga funcionando: quantas
   terminaram bem, quantas foram compensadas e quantas ficaram com pendência.
+- As séries já nascem com zero para cada status e resultado conhecido
+  (`comecarEmZero`). Sem isso, o `increase()` do Prometheus não conta o primeiro
+  incremento de uma série nova, e os painéis "no período" mostrariam 0 num
+  serviço recém-iniciado.
 
 ### D3. A observabilidade usa o sistema completo
 

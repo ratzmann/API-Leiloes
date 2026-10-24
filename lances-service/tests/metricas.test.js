@@ -16,7 +16,22 @@ async function valorDe(nome, rotulos = {}) {
   return item ? item.value : 0;
 }
 
+/** Lista, em ordem alfabetica, os valores do rotulo que ja tem serie na metrica. */
+async function valoresDoRotulo(nome, rotulo) {
+  const { values } = await metricas.registro.getSingleMetric(nome).get();
+  return values.map((v) => v.labels[rotulo]).sort();
+}
+
 describe('contadores de negocio', () => {
+  test('as series de negocio ja nascem com zero (comecarEmZero)', async () => {
+    expect(await valoresDoRotulo('lances_sagas_total', 'status')).toEqual([
+      'COMPENSADA', 'CONCLUIDA', 'CONCLUIDA_COM_PENDENCIA', 'FALHOU', 'FALHOU_COMPENSACAO',
+    ]);
+    expect(await valoresDoRotulo('lances_sagas_reprocessadas_total', 'resultado')).toEqual([
+      'pendente', 'resolvida',
+    ]);
+  });
+
   test('registrarLanceGravado soma em lances_registrados_total', async () => {
     const antes = await valorDe('lances_registrados_total');
     metricas.registrarLanceGravado();

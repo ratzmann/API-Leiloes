@@ -31,6 +31,10 @@ services:
       DB_USER: leiloes_user
       DB_PASSWORD: leiloes_pass
       DB_NAME: leiloes_db
+      # o servico confere a assinatura do token (jwt.verify); sem o segredo, toda
+      # chamada com token vira 500. Mesmo segredo e emissor que o gerar-trafego.ps1 usa.
+      JWT_SECRET: ${JWT_SECRET:-super-segredo-trabalho-microsservicos}
+      JWT_ISSUER: sistema-leilao-auth
       # sem USUARIOS_SERVICE_URL: roda sozinho, sem validar o leiloeiro
     ports:
       - "3003:3003"

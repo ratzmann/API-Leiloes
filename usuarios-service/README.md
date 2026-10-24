@@ -38,6 +38,13 @@ auth-service: **[`docs/GUIA-CONFIGURACAO.md`](docs/GUIA-CONFIGURACAO.md)**.
 | Prometheus + Grafana | `observabilidade/` (`docker compose up -d --build`; Grafana em `:3012`) |
 | URL DEV / HOMOL | https://usuarios-service-dev.onrender.com / https://usuarios-service-homol.onrender.com |
 
+**Dashboard do Grafana** (`observabilidade/`, em `http://localhost:3012`, depois do
+`gerar-trafego.ps1`): o serviço local e os do Render (DEV e HOMOL) no ar, a versão de cada
+ambiente, o tráfego por rota e por status, a latência p95, os cadastros e as operações de
+crédito da Saga (reservas e liberações).
+
+![Dashboard do usuarios-service no Grafana](docs/dashboard-grafana.png)
+
 Variáveis:
 
 | Variável | Uso |

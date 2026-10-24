@@ -46,6 +46,14 @@ Checklist das contas (GitHub, Render, Neon, SonarCloud):
 | Prometheus + Grafana | `observabilidade/` (`docker compose up -d`; Grafana em `:3013`) |
 | URL DEV / HOMOL | https://lances-service-dev.onrender.com / https://lances-service-homol.onrender.com |
 
+**Dashboard do Grafana** (`observabilidade/`, em `http://localhost:3013`, com o sistema
+completo no ar e depois do `gerar-trafego.ps1`): o serviço local e os do Render (DEV e
+HOMOL) no ar, a versão de cada ambiente, o tráfego por rota e por status, a latência p95, os
+lances gravados e as sagas por status final. Os erros 5xx são de propósito: o script simula
+uma falha ao gravar o lance para mostrar a compensação (o crédito reservado volta).
+
+![Dashboard do lances-service no Grafana](docs/dashboard-grafana.png)
+
 Variáveis:
 
 | Variável | Uso |

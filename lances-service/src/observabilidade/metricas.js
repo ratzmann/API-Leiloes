@@ -14,6 +14,8 @@
 //                                            (CONCLUIDA, COMPENSADA, FALHOU...);
 //        lances_sagas_reprocessadas_total{resultado}
 //                                            reprocessamentos do passo 4.
+//      Cada serie de negocio ja nasce com zero (comecarEmZero), para o Grafana
+//      contar desde a primeira ocorrencia.
 //
 // Quem chama: app.js (middlewares e GET /metrics) e sagas/registrarLanceSaga.js
 // (contadores de negocio).
@@ -62,6 +64,22 @@ const sagasReprocessadas = new client.Counter({
   labelNames: ['resultado'],
   registers: [registro],
 });
+
+/**
+ * Cria a serie de cada valor conhecido do rotulo ja com ZERO. Sem isto, a serie
+ * so nasce no primeiro .inc(), e o increase() do Prometheus nao enxerga esse
+ * primeiro incremento (nao ha leitura anterior para comparar): os paineis
+ * "no periodo" do Grafana mostrariam 0 ate a segunda ocorrencia.
+ * Recebe o contador, o nome do rotulo e a lista de valores possiveis.
+ */
+function comecarEmZero(contador, rotulo, valores) {
+  valores.forEach((valor) => contador.inc({ [rotulo]: valor }, 0));
+}
+
+comecarEmZero(sagas, 'status', [
+  'CONCLUIDA', 'CONCLUIDA_COM_PENDENCIA', 'FALHOU', 'COMPENSADA', 'FALHOU_COMPENSACAO',
+]);
+comecarEmZero(sagasReprocessadas, 'resultado', ['resolvida', 'pendente']);
 
 /**
  * Rotulos fixos em TODAS as metricas: de qual servico, ambiente e versao vieram.

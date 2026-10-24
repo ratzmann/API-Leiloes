@@ -96,6 +96,10 @@ pipelines do grupo funcionem e se expliquem do mesmo jeito:
   login". Senão o gráfico confundiria indisponibilidade com senha errada.
 - O painel "Logins (sucesso x falha)" ajuda a ver problema de uso e também
   tentativa de força bruta (muitas falhas seguidas).
+- As séries já nascem com zero para cada valor conhecido do rótulo
+  (`comecarEmZero`). Sem isso, o `increase()` do Prometheus não conta o primeiro
+  incremento de uma série nova, e os painéis "no período" mostrariam 0 num
+  serviço recém-iniciado.
 
 ### D3b. `/health` sai das rotas e a migração passa a existir
 
