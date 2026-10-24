@@ -396,6 +396,10 @@ Cada integrante tem o pipeline do próprio serviço em `.github/workflows/`
 (filtrado pela pasta do serviço). Git Flow: `feature/*` → `develop` (DEV) →
 `main` (HOMOL).
 
+O processo inteiro da equipe (o que o T2 pedia, quem fez o quê, como cada peça
+funciona, os problemas e como foram resolvidos) está em
+[`docs/T2-PROCESSO.md`](docs/T2-PROCESSO.md).
+
 **URLs no Render.** O pipeline atualiza o DEV a cada merge na `develop` e o HOMOL a
 cada entrega na `main`. Cada URL responde `/health` (versão e ambiente) e `/metrics`;
 o Swagger (`/docs`) só existe no DEV.
