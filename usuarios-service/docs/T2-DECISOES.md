@@ -99,6 +99,10 @@ pipelines do grupo funcionem e se expliquem do mesmo jeito:
   tentativas.
 - O painel "Operações de crédito" mostra a saga de lance funcionando:
   reservas (passo 2) e liberações (passo 4 ou compensação).
+- As séries já nascem com zero para cada valor conhecido do rótulo
+  (`comecarEmZero`). Sem isso, o `increase()` do Prometheus não conta o primeiro
+  incremento de uma série nova, e os painéis "no período" mostrariam 0 num
+  serviço recém-iniciado.
 
 ### D4. Portas da stack de observabilidade
 

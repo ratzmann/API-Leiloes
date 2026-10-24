@@ -16,7 +16,22 @@ async function valorDe(nome, rotulos = {}) {
   return item ? item.value : 0;
 }
 
+/** Lista, em ordem alfabetica, os valores do rotulo que ja tem serie na metrica. */
+async function valoresDoRotulo(nome, rotulo) {
+  const { values } = await metricas.registro.getSingleMetric(nome).get();
+  return values.map((v) => v.labels[rotulo]).sort();
+}
+
 describe('contadores de negocio', () => {
+  test('as series de negocio ja nascem com zero (comecarEmZero)', async () => {
+    expect(await valoresDoRotulo('usuarios_cadastros_total', 'tipo')).toEqual([
+      'leiloeiro', 'licitante',
+    ]);
+    expect(await valoresDoRotulo('usuarios_reservas_credito_total', 'operacao')).toEqual([
+      'liberada', 'reservada',
+    ]);
+  });
+
   test('registrarCadastro separa por tipo', async () => {
     const antes = await valorDe('usuarios_cadastros_total', { tipo: 'licitante' });
     metricas.registrarCadastro('licitante');

@@ -38,6 +38,13 @@ Checklist das contas (feito junto com o usuarios-service):
 | Prometheus + Grafana | `observabilidade/` (`docker compose up -d --build`; Grafana em `:3011`) |
 | URL DEV / HOMOL | https://auth-service-dev-rslq.onrender.com / https://auth-service-homol-czky.onrender.com (os sufixos `-rslq` e `-czky` foram dados pelo Render) |
 
+**Dashboard do Grafana** (`observabilidade/`, em `http://localhost:3011`, depois do
+`gerar-trafego.ps1`): o serviço local e os do Render (DEV e HOMOL) no ar, a versão de cada
+ambiente, o tráfego por rota e por status, a latência p95, os registros e os logins
+(sucesso x falha).
+
+![Dashboard do auth-service no Grafana](docs/dashboard-grafana.png)
+
 Variáveis:
 
 | Variável | Uso |

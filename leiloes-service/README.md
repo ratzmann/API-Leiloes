@@ -142,6 +142,13 @@ Checklist de configuração das contas: **[`docs/GUIA-CONFIGURACAO.md`](docs/GUI
 | Prometheus + Grafana | `observabilidade/` (`docker compose up -d --build`) |
 | URL DEV / HOMOL | https://leiloes-service-dev-bnhz.onrender.com / https://leiloes-service-homol-igr9.onrender.com (os sufixos `-bnhz` e `-igr9` foram dados pelo Render) |
 
+**Dashboard do Grafana** (`observabilidade/`, em `http://localhost:3000`, depois do
+`gerar-trafego.ps1`): o serviço local e os do Render (DEV e HOMOL) no ar, a versão de cada
+ambiente, o tráfego por rota e por status, a latência p95, os leilões cadastrados e as
+mudanças de status (aberto, encerrado e cancelado).
+
+![Dashboard do leiloes-service no Grafana](docs/dashboard-grafana.png)
+
 Variáveis novas:
 
 | Variável | Uso |

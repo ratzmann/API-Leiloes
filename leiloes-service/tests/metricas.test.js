@@ -16,7 +16,19 @@ async function valorDe(nome, rotulos = {}) {
   return item ? item.value : 0;
 }
 
+/** Lista, em ordem alfabetica, os valores do rotulo que ja tem serie na metrica. */
+async function valoresDoRotulo(nome, rotulo) {
+  const { values } = await metricas.registro.getSingleMetric(nome).get();
+  return values.map((v) => v.labels[rotulo]).sort();
+}
+
 describe('contadores de negocio', () => {
+  test('as series de negocio ja nascem com zero (comecarEmZero)', async () => {
+    expect(await valoresDoRotulo('leiloes_mudancas_status_total', 'status')).toEqual([
+      'ABERTO', 'CANCELADO', 'ENCERRADO',
+    ]);
+  });
+
   test('registrarLeilaoCadastrado soma 1', async () => {
     const antes = await valorDe('leiloes_cadastrados_total');
     metricas.registrarLeilaoCadastrado();
