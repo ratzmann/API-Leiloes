@@ -402,7 +402,9 @@ funciona, os problemas e como foram resolvidos) está em
 mostrar e testar cada requisito. Para conferir os 4 serviços conversando na
 nuvem: `node testes/testar-nuvem.js dev` (ou `homol`). Versões para imprimir:
 [`docs/T2-PROCESSO.pdf`](docs/T2-PROCESSO.pdf) e os slides da apresentação,
-[`docs/T2-SLIDES.pdf`](docs/T2-SLIDES.pdf).
+[`docs/T2-SLIDES.pdf`](docs/T2-SLIDES.pdf). O roteiro da apresentação em sala, com
+a demonstração ao vivo do CI/CD, está em
+[`docs/T2-ROTEIRO-AULA.md`](docs/T2-ROTEIRO-AULA.md).
 
 **URLs no Render.** O pipeline atualiza o DEV a cada merge na `develop` e o HOMOL a
 cada entrega na `main`. Cada URL responde `/health` (versão e ambiente) e `/metrics`;
