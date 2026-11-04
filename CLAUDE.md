@@ -6,6 +6,7 @@ Arquitetura explicada para iniciantes: [`docs/ARQUITETURA.md`](docs/ARQUITETURA.
 (inclui o mapa de endpoints, seção 13).
 Roteiro da apresentação: [`docs/APRESENTACAO.md`](docs/APRESENTACAO.md).
 Processo do T2 (CI/CD e observabilidade da equipe): [`docs/T2-PROCESSO.md`](docs/T2-PROCESSO.md).
+Roteiro da apresentação do T2 em sala (CI/CD ao vivo): [`docs/T2-ROTEIRO-AULA.md`](docs/T2-ROTEIRO-AULA.md).
 
 ## Estrutura
 
