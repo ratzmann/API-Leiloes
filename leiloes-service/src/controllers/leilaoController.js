@@ -1,6 +1,6 @@
 // =============================================================================
 // controllers/leilaoController.js  -  CONTROLLER do leilao
-// -----------------------------------------------------------------------------
+//  -----------------------------------------------------------------------------
 // Uma funcao por rota. Todas seguem o roteiro:
 //   ler req (params/query/body) -> chamar leilaoService -> responder res
 //   (e, se der erro, next(err) entrega o erro ao middleware tratarErros,
