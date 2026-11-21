@@ -60,8 +60,8 @@ A imagem é a publicada pelo pipeline no GHCR (`ghcr.io/ratzmann/leiloes-service
 definida no `kustomization.yaml`). Para usar uma imagem construída localmente:
 
 ```powershell
-& minikube -p minikube docker-env --shell powershell | Invoke-Expression
 docker build -t ghcr.io/ratzmann/leiloes-service:1.2.5 leiloes-service
+minikube image load ghcr.io/ratzmann/leiloes-service:1.2.5
 kubectl -n leiloes rollout restart deployment/leiloes-service
 ```
 
