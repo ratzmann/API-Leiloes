@@ -71,6 +71,10 @@ spec:
           resources: { requests: { cpu: 100m, memory: 128Mi }, limits: { cpu: 500m, memory: 256Mi } }
 ```
 
+**initContainer `esperar-banco`**: antes do serviço, um container com `pg_isready`
+espera o Postgres aceitar conexões. Sem ele, os pods reiniciavam algumas vezes
+enquanto o banco subia.
+
 **ConfigMap × Secret**: o que não é sigiloso (porta, ambiente, host do banco) fica no
 ConfigMap; segredo do JWT, chave interna e senha do banco ficam em Secrets. O
 Deployment lê a senha do banco direto do Secret do Postgres (uma fonte só).
@@ -116,6 +120,12 @@ manifests e roda `ci/testar-k8s.sh`, que confere:
 4. Prometheus coletando de 2+ pods.
 
 Se o Kubernetes falhar, a imagem **não é publicada** e não há deploy.
+
+**Verificado localmente** (21/11/2026, Minikube 1.39): `kubectl apply -k` sobe os
+4 Deployments sem reinícios; `ci/testar-k8s.sh` passou nos 4 itens (2 pods prontos,
+`/health` na versão `1.2.5` pelo Ingress, leilão cadastrado e listado, Prometheus
+coletando de 2 pods); apagando os pods, o Kubernetes recriou os 2 em segundos; o
+Prometheus mostra as requisições repartidas entre os pods.
 
 ## 6. Roteiro da demonstração (5 minutos)
 
