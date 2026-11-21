@@ -1,0 +1,30 @@
+# Ingress da observabilidade: Grafana e Prometheus acessiveis de fora do cluster.
+# No Windows: "minikube tunnel" + no arquivo hosts:
+#   127.0.0.1 grafana.leiloes.local prometheus.leiloes.local
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: observabilidade
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: grafana.leiloes.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  name: http
+    - host: prometheus.leiloes.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus
+                port:
+                  name: http

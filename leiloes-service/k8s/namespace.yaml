@@ -1,0 +1,8 @@
+# Namespace: uma "pasta" dentro do cluster so para o leiloes-service.
+# Todos os outros recursos desta pasta sao criados nele (ver kustomization.yaml).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: leiloes
+  labels:
+    app.kubernetes.io/part-of: leilao-de-bois

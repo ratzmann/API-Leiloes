@@ -1,0 +1,27 @@
+# ConfigMap: variaveis de ambiente NAO sensiveis do leiloes-service.
+# O Deployment injeta todas como variaveis de ambiente (envFrom). O codigo le
+# tudo de process.env (src/config/), sem nenhum valor fixo: a mesma imagem que
+# roda no Render roda aqui, so muda esta configuracao.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: leiloes-service-config
+  labels:
+    app: leiloes-service
+data:
+  PORT: "3003"
+  # nome do ambiente: aparece no /health e no rotulo "ambiente" das metricas
+  APP_ENV: "k8s"
+  # Swagger ligado no cluster local (em /docs), como no DEV
+  SWAGGER_ENABLED: "true"
+  # banco: o Service "leiloes-db" (DNS interno do cluster)
+  DB_HOST: "leiloes-db"
+  DB_PORT: "5432"
+  DB_SSL: "false"
+  # vazio = servico rodando sozinho (nao valida o leiloeiro, como no deploy
+  # isolado do T2). Com o usuarios-service no cluster, use por exemplo
+  # http://usuarios-service.usuarios.svc.cluster.local:3002
+  USUARIOS_SERVICE_URL: ""
+  SERVICOS_TIMEOUT_MS: "3000"
+  # emissor do token: o mesmo do auth-service
+  JWT_ISSUER: "sistema-leilao-auth"
