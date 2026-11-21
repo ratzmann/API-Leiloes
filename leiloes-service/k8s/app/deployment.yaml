@@ -32,6 +32,24 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
+      # espera o Postgres aceitar conexoes antes de iniciar o servico (evita
+      # reinicios enquanto o banco sobe). Usa a mesma imagem do banco (pg_isready).
+      initContainers:
+        - name: esperar-banco
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until pg_isready -U postgres -h \"$DB_HOST\" -p \"$DB_PORT\"; do echo 'esperando o banco...'; sleep 2; done"]
+          envFrom:
+            - configMapRef:
+                name: leiloes-service-config
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
       containers:
         - name: leiloes-service
           # a tag real vem do kustomization.yaml (images)
