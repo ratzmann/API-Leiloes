@@ -68,7 +68,7 @@ echo "== 4. Prometheus coletando de cada pod"
 PODS=0
 for _ in $(seq 1 30); do
   RESPOSTA=$(chamar prometheus.localhost /api/v1/query -G \
-    --data-urlencode 'query=count(up{job="leiloes-service"} == 1)' || true)
+    --data-urlencode 'query=count(timestamp(up{job="leiloes-service"} == 1) > time() - 30)' || true)
   PODS=$(echo "$RESPOSTA" | sed -n 's/.*"value":\[[^,]*,"\([0-9]*\)"\].*/\1/p')
   [ "${PODS:-0}" -ge 2 ] && break
   sleep 5
