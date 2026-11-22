@@ -19,7 +19,7 @@ O pipeline ganhou um job que sobe um Minikube e testa os manifests antes de publ
 | 3. Deployment, Service, ConfigMap, Secret, Ingress | um arquivo de cada para o serviço (e para o banco) | `k8s/app/*.yaml` |
 | 4. ConfigMap / Secret / sem configuração fixa | o código já lia tudo de variáveis de ambiente (T2); o ConfigMap e o Secret entram com `envFrom` | `k8s/app/configmap.yaml`, `secret.yaml` |
 | 4.1 Mínimo de 2 réplicas | `replicas: 2` + HPA com `minReplicas: 2` (até 5) | `k8s/app/deployment.yaml`, `hpa.yaml` |
-| 4.2 Evidência de vários pods | `kubectl get pods`, alvos do Prometheus (um por pod) e painel "Pods no ar" no Grafana | seção 5 |
+| 4.2 Evidência de vários pods | `kubectl get pods`, alvos do Prometheus (um por pod) e painel "Pods no ar" no Grafana | seção 7 (roteiro) |
 | 5. Prometheus e Grafana no cluster | Prometheus descobre os pods sozinho; Grafana já sobe com o dashboard | `k8s/observabilidade/` |
 | 6. Roda localmente | `subir.ps1` sobe tudo com um comando | `k8s/subir.ps1` |
 | 7. Diretório `k8s/` + README | pasta `leiloes-service/k8s/` com README de execução | `k8s/README.md` |
@@ -32,23 +32,33 @@ A versão subiu para **1.2.5** (patch), porque a `main` não publica duas vezes 
 ## 3. Como funciona (desenho)
 
 ```
-                 navegador / curl
-                        │  http://leiloes.localhost, grafana.localhost, prometheus.localhost
-                 ┌──────▼──────┐
-                 │   Ingress   │  (NGINX, addon do Minikube)
-                 └──┬───────┬──┘
-     ┌──────────────▼┐     ┌▼──────────────────────────┐
-     │ Service       │     │ Service grafana / prometheus│
-     │ leiloes-service│    └──┬─────────────────────┬───┘
-     └──┬─────────┬──┘        │                     │
-  ┌─────▼──┐  ┌───▼────┐  ┌───▼────┐  coleta /metrics ┌▼──────────┐
-  │ pod 1  │  │ pod 2  │◄─┤Grafana │◄─────────────────┤Prometheus │
-  └───┬────┘  └───┬────┘  └────────┘   de cada pod    └───────────┘
-      └─────┬─────┘   ConfigMap + Secret → variáveis de ambiente
-     ┌──────▼──────┐
-     │ Service     │
-     │ leiloes-db  │──► Postgres (1 réplica) + PVC 1 GiB
-     └─────────────┘                     namespace: leiloes
+  navegador / curl
+       |   leiloes.localhost  |  grafana.localhost  |  prometheus.localhost
+       v
+ +-----------------------------------------------------------------------+
+ |                  Ingress (NGINX, addon do Minikube)                   |
+ +-----------------------------------------------------------------------+
+       |                                |                     |
+       v                                v                     v
+ +---------------------------+   +-------------+       +----------------+
+ | Service leiloes-service   |   | Service     |       | Service        |
+ | (reparte entre os pods)   |   | grafana     |       | prometheus     |
+ +---------------------------+   +-------------+       +----------------+
+       |               |                |                     |
+       v               v                v                     v
+ +-----------+   +-----------+   +-------------+  consulta +------------+
+ |   pod 1   |   |   pod 2   |   |   Grafana   |---------->| Prometheus |
+ +-----------+   +-----------+   +-------------+           +------------+
+    ^     |         ^     |                                      |
+    |     |         |     |   coleta /metrics de cada pod        |
+    +-----|---------+-----|--------------------------------------+
+          |               |
+          v               v
+ +---------------------------+
+ | Service leiloes-db        |---> Postgres (1 réplica) + PVC de 1 GiB
+ +---------------------------+
+
+ ConfigMap + Secret -> variáveis de ambiente dos pods      namespace: leiloes
 ```
 
 ## 4. Os trechos que importam
@@ -127,12 +137,51 @@ Se o Kubernetes falhar, a imagem **não é publicada** e não há deploy.
 coletando de 2 pods); apagando os pods, o Kubernetes recriou os 2 em segundos; o
 Prometheus mostra as requisições repartidas entre os pods.
 
-## 6. Roteiro da demonstração (5 minutos)
+## 6. Como rodar (passo a passo)
+
+**Pré-requisitos** (uma vez só):
+- **Docker Desktop** instalado e **aberto** (o Minikube roda dentro dele, como um container);
+- **Minikube**: `winget install Kubernetes.minikube` (fica em `C:\Program Files\Kubernetes\Minikube\`);
+- **kubectl**: já vem com o Docker Desktop.
+
+**Subir** (na pasta `API-Leiloes`):
 
 ```powershell
-# 0. (antes da aula) subir tudo e abrir o tunnel em outro terminal
+# terminal 1: liga o Minikube, os addons (ingress e metrics-server),
+# aplica todos os manifests e espera os pods ficarem prontos
 powershell -ExecutionPolicy Bypass -File .\leiloes-service\k8s\subir.ps1
+
+# terminal 2: publica o Ingress em 127.0.0.1 - DEIXE ABERTO durante a apresentação
 minikube tunnel
+```
+
+**Acessar** (no navegador). Nomes terminados em `.localhost` apontam sozinhos para o
+próprio PC: **não precisa editar o arquivo hosts**.
+
+| O quê | Endereço |
+|---|---|
+| API (saúde) | http://leiloes.localhost/health |
+| Swagger | http://leiloes.localhost/docs |
+| Grafana (admin / admin) | http://grafana.localhost |
+| Prometheus (um alvo por pod) | http://prometheus.localhost/targets |
+
+**Se algo der errado:**
+
+| Problema | Solução |
+|---|---|
+| Reiniciou o PC e nada responde | o Minikube desliga junto: abra o Docker Desktop e rode o `subir.ps1` de novo |
+| `minikube` não é reconhecido | feche e abra o terminal (ou use `& "C:\Program Files\Kubernetes\Minikube\minikube.exe"`) |
+| "Docker Desktop tem apenas X MB de memória" | `subir.ps1 -Memoria 2500` (o padrão é 3000 MB) |
+| Endereços `.localhost` não abrem | confira se o `minikube tunnel` está aberto no outro terminal |
+| Sem o tunnel | `kubectl -n leiloes port-forward svc/leiloes-service 3003:3003` → http://localhost:3003 (idem `svc/grafana 3000:3000`) |
+
+**Desligar:** `minikube stop` (os dados ficam). Para apagar tudo do serviço:
+`kubectl delete -k leiloes-service/k8s`.
+
+## 7. Roteiro da demonstração (5 minutos)
+
+```powershell
+# 0. (antes da aula) seção 6: subir.ps1 + minikube tunnel aberto
 
 # 1. múltiplos pods (requisito 4.2)
 kubectl -n leiloes get deployments,pods -o wide
@@ -141,7 +190,7 @@ kubectl -n leiloes get deployments,pods -o wide
 kubectl -n leiloes get configmap,secret,svc,ingress,hpa
 
 # 3. aplicação funcionando pelo Ingress
-curl http://leiloes.localhost/health            # ou abrir http://leiloes.localhost/docs
+curl.exe http://leiloes.localhost/health        # ou abrir http://leiloes.localhost/docs
 
 # 4. auto-recuperação: apaga um pod e o Kubernetes cria outro
 kubectl -n leiloes delete pod -l app=leiloes-service --wait=false
@@ -155,7 +204,7 @@ powershell -ExecutionPolicy Bypass -File .\leiloes-service\observabilidade\gerar
 # 6. CI/CD: aba Actions -> leiloes-service -> job "Kubernetes (Minikube)"
 ```
 
-## 7. Perguntas prováveis
+## 8. Perguntas prováveis
 
 - **Por que o banco tem 1 réplica?** O banco guarda estado e o disco (PVC) é de um pod
   só. Quem precisa de réplicas é o serviço, que não guarda estado e pode ser multiplicado.
