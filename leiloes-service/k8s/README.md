@@ -56,12 +56,12 @@ kubectl apply -k leiloes-service/k8s
 kubectl -n leiloes get pods -w          # espera todos ficarem Running/Ready
 ```
 
-A imagem é a publicada pelo pipeline no GHCR (`ghcr.io/ratzmann/leiloes-service:1.2.5`,
+A imagem é a publicada pelo pipeline no GHCR (`ghcr.io/ratzmann/leiloes-service:1.2.6`,
 definida no `kustomization.yaml`). Para usar uma imagem construída localmente:
 
 ```powershell
-docker build -t ghcr.io/ratzmann/leiloes-service:1.2.5 leiloes-service
-minikube image load ghcr.io/ratzmann/leiloes-service:1.2.5
+docker build -t ghcr.io/ratzmann/leiloes-service:1.2.6 leiloes-service
+minikube image load ghcr.io/ratzmann/leiloes-service:1.2.6
 kubectl -n leiloes rollout restart deployment/leiloes-service
 ```
 
@@ -106,7 +106,7 @@ kubectl -n leiloes scale deployment/leiloes-service --replicas=3
 # tráfego para movimentar o Grafana (usa o mesmo script do T2)
 powershell -ExecutionPolicy Bypass -File .\leiloes-service\observabilidade\gerar-trafego.ps1 -BaseUrl http://leiloes.localhost
 
-# teste automático (o mesmo do pipeline), com o tunnel ligado
+# teste automático do cluster (Git Bash), com o tunnel ligado
 bash leiloes-service/ci/testar-k8s.sh 127.0.0.1
 ```
 

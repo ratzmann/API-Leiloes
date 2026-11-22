@@ -22,7 +22,7 @@ Processo do T2 (CI/CD e observabilidade da equipe): [`docs/T2-PROCESSO.md`](docs
 | `.github/` | T2: um workflow por serviço (CI, imagem no GHCR, deploy no Render) e o Dependabot. |
 | `<servico>/observabilidade/` | T2: Prometheus + Grafana do serviço, com dashboard provisionado e `gerar-trafego.ps1`. A do lances usa o sistema completo (rede `leilao-net` da raiz), porque a Saga precisa dos outros serviços. |
 | `<servico>/docs/T2-DECISOES.md` | T2: decisões, configuração das contas e roteiro de cada serviço. |
-| `<servico>/k8s/` | T3: manifests Kubernetes (Minikube) do serviço, aplicados com `kubectl apply -k`; o job `k8s` do pipeline sobe um Minikube e testa (`ci/testar-k8s.sh`). Feito no leiloes-service (`docs/T3-KUBERNETES.md`). |
+| `<servico>/k8s/` | T3: manifests Kubernetes (Minikube) do serviço, aplicados com `kubectl apply -k`; teste local em `ci/testar-k8s.sh` (o T3 não tem CI/CD). Resumo em `docs/T3-KUBERNETES.md`. |
 
 ## Convenções de código
 
