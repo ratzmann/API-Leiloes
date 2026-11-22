@@ -103,13 +103,25 @@ No Windows (driver docker), deixe rodando em outro terminal: `minikube tunnel`
 | Grafana (admin / admin) | http://grafana-auth.localhost (abre no dashboard "auth-service (Kubernetes)") |
 | Prometheus | http://prometheus-auth.localhost/targets (um alvo por pod) |
 
-Sem o tunnel, dá para usar `port-forward` (acesso direto aos Services, sem passar pelo Ingress):
+Sem o tunnel (ele pode pedir administrador), dá para publicar o próprio Ingress numa porta
+local; os nomes continuam valendo, só com a porta: `http://auth.localhost:8080`,
+`http://grafana-auth.localhost:8080` (e `bash auth-service/ci/testar-k8s.sh 127.0.0.1:8080`):
+
+```powershell
+kubectl -n ingress-nginx port-forward svc/ingress-nginx-controller 8080:80
+```
+
+Ou `port-forward` direto nos Services (sem passar pelo Ingress; vai sempre para um pod só):
 
 ```powershell
 kubectl -n auth port-forward svc/auth-service 3001:3001   # http://localhost:3001
 kubectl -n auth port-forward svc/grafana 3000:3000            # http://localhost:3000
 kubectl -n auth port-forward svc/prometheus 9090:9090         # http://localhost:9090
 ```
+
+> **PowerShell × `.localhost`:** o navegador e o `curl.exe` resolvem `*.localhost` sozinhos,
+> mas o PowerShell 5.1 (`Invoke-RestMethod`) não. Nele, chame `http://127.0.0.1` com o header
+> `Host` (como no registro abaixo). O `gerar-trafego.ps1` já faz isso sozinho.
 
 ## Evidências para a avaliação
 
@@ -120,7 +132,7 @@ kubectl -n auth get configmap,secret,ingress,svc
 
 # registro atravessando namespaces: credencial no auth-db, perfil no usuarios-service
 # (troque o e-mail e o registro a cada execucao; a resposta traz "perfil" e "token")
-Invoke-RestMethod -Method Post http://auth.localhost/registrar -ContentType application/json -Body '{"nome":"Leiloeiro Demo","email":"demo1@teste.com","senha":"senha123","papel":"LEILOEIRO","dadosPerfil":{"registroProfissional":"DEMO-0001"}}'
+Invoke-RestMethod -Method Post http://127.0.0.1/registrar -Headers @{ Host = 'auth.localhost' } -ContentType application/json -Body '{"nome":"Leiloeiro Demo","email":"demo1@teste.com","senha":"senha123","papel":"LEILOEIRO","dadosPerfil":{"registroProfissional":"DEMO-0001"}}'
 
 # o Kubernetes recria um pod apagado (auto-recuperação)
 kubectl -n auth delete pod -l app=auth-service --wait=false

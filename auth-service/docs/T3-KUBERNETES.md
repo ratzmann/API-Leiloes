@@ -101,6 +101,11 @@ Com o `subir.ps1` rodado e o `minikube tunnel` ligado, `bash auth-service/ci/tes
    senha errada `401` e o usuarios aceitando o token do auth;
 4. Prometheus coletando de 2+ pods.
 
+**Verificado localmente** (22/11/2026, Minikube 1.39, `subir.ps1 -ImagemLocal`): todos os Deployments ficaram prontos sem reinícios, e o `testar-k8s.sh` passou nos 4 itens (2 pods, `/health` na `1.1.3` pelo Ingress, registro com perfil criado no usuarios, login `200`/`401`, token aceito pelo usuarios, Prometheus coletando de cada pod).
+Os scripts de tráfego funcionaram pelo Ingress e as requisições ficaram repartidas entre
+os 2 pods (61 × 56). Apagando os pods, o Kubernetes recriou os 2 em ~3 s. Os dashboards
+foram provisionados no Grafana, que lê o Prometheus.
+
 ## 6. Roteiro da demonstração (5 minutos)
 
 ```powershell
@@ -115,7 +120,7 @@ kubectl -n usuarios get pods
 kubectl -n auth get configmap,secret,svc,ingress,hpa
 
 # 3. aplicação funcionando: registro atravessando os namespaces
-Invoke-RestMethod -Method Post http://auth.localhost/registrar -ContentType application/json -Body '{"nome":"Leiloeiro Demo","email":"demo1@teste.com","senha":"senha123","papel":"LEILOEIRO","dadosPerfil":{"registroProfissional":"DEMO-0001"}}'
+Invoke-RestMethod -Method Post http://127.0.0.1/registrar -Headers @{ Host = 'auth.localhost' } -ContentType application/json -Body '{"nome":"Leiloeiro Demo","email":"demo1@teste.com","senha":"senha123","papel":"LEILOEIRO","dadosPerfil":{"registroProfissional":"DEMO-0001"}}'
 #    -> a resposta traz "perfil" (criado no usuarios-service) e "token"
 
 # 4. auto-recuperação: apaga os pods e o Kubernetes cria outros

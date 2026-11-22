@@ -93,13 +93,25 @@ No Windows (driver docker), deixe rodando em outro terminal: `minikube tunnel`
 | Grafana (admin / admin) | http://grafana-usuarios.localhost (abre no dashboard "usuarios-service (Kubernetes)") |
 | Prometheus | http://prometheus-usuarios.localhost/targets (um alvo por pod) |
 
-Sem o tunnel, dá para usar `port-forward` (acesso direto aos Services, sem passar pelo Ingress):
+Sem o tunnel (ele pode pedir administrador), dá para publicar o próprio Ingress numa porta
+local; os nomes continuam valendo, só com a porta: `http://usuarios.localhost:8080`,
+`http://grafana-usuarios.localhost:8080` (e `bash usuarios-service/ci/testar-k8s.sh 127.0.0.1:8080`):
+
+```powershell
+kubectl -n ingress-nginx port-forward svc/ingress-nginx-controller 8080:80
+```
+
+Ou `port-forward` direto nos Services (sem passar pelo Ingress; vai sempre para um pod só):
 
 ```powershell
 kubectl -n usuarios port-forward svc/usuarios-service 3002:3002   # http://localhost:3002
 kubectl -n usuarios port-forward svc/grafana 3000:3000            # http://localhost:3000
 kubectl -n usuarios port-forward svc/prometheus 9090:9090         # http://localhost:9090
 ```
+
+> **PowerShell × `.localhost`:** o navegador e o `curl.exe` resolvem `*.localhost` sozinhos,
+> mas o PowerShell 5.1 (`Invoke-RestMethod`) não. Nele, chame `http://127.0.0.1` com o header
+> `Host`. O `gerar-trafego.ps1` já faz isso sozinho.
 
 ## Evidências para a avaliação
 

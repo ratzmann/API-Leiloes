@@ -93,6 +93,11 @@ Com o `subir.ps1` rodado e o `minikube tunnel` ligado, `bash usuarios-service/ci
    o dono (token assinado) vê o e-mail e quem não tem token não vê (LGPD);
 4. Prometheus coletando de 2+ pods.
 
+**Verificado localmente** (22/11/2026, Minikube 1.39, `subir.ps1 -ImagemLocal`): todos os Deployments ficaram prontos sem reinícios, e o `testar-k8s.sh` passou nos 4 itens (2 pods, `/health` na `1.1.3` pelo Ingress, rota interna `403`/`201`, LGPD, Prometheus coletando de cada pod).
+Os scripts de tráfego funcionaram pelo Ingress e as requisições ficaram repartidas entre
+os 2 pods (82 × 72). Apagando os pods, o Kubernetes recriou os 2 em ~3 s. Os dashboards
+foram provisionados no Grafana, que lê o Prometheus.
+
 ## 6. Roteiro da demonstração (5 minutos)
 
 ```powershell
