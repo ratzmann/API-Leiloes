@@ -15,7 +15,7 @@ k8s/
 │   ├── secret.yaml           variáveis sensíveis (JWT_SECRET, CHAVE_INTERNA)
 │   ├── deployment.yaml       2 réplicas, probes no /health, requests/limits
 │   ├── service.yaml          leiloes-service:3003 (balanceia entre os pods)
-│   ├── ingress.yaml          http://leiloes.local
+│   ├── ingress.yaml          http://leiloes.localhost
 │   └── hpa.yaml              escala de 2 até 5 pods pela CPU
 ├── banco/                    Postgres próprio do serviço
 │   ├── secret.yaml           usuário, senha e nome do banco
@@ -27,7 +27,7 @@ k8s/
 │   ├── prometheus/prometheus.yml   descobre e coleta cada pod sozinho
 │   ├── grafana.yaml          Grafana + Secret do admin
 │   ├── grafana/              datasource, provedor e dashboard (viram ConfigMaps)
-│   └── ingress.yaml          grafana.leiloes.local e prometheus.leiloes.local
+│   └── ingress.yaml          grafana.localhost e prometheus.localhost
 └── subir.ps1                 sobe tudo de uma vez (Windows)
 ```
 
@@ -67,23 +67,21 @@ kubectl -n leiloes rollout restart deployment/leiloes-service
 
 ## Acessar
 
-O Ingress responde pelos nomes `leiloes.local`, `grafana.leiloes.local` e
-`prometheus.leiloes.local`. No Windows (driver docker):
+O Ingress responde pelos nomes `leiloes.localhost`, `grafana.localhost` e
+`prometheus.localhost`. Nomes terminados em `.localhost` apontam sozinhos para o
+próprio PC (127.0.0.1) no navegador: **não é preciso editar o arquivo hosts**.
 
-1. Acrescente ao `C:\Windows\System32\drivers\etc\hosts` (Bloco de Notas como administrador):
-   ```
-   127.0.0.1 leiloes.local grafana.leiloes.local prometheus.leiloes.local
-   ```
-2. Em outro terminal, deixe rodando: `minikube tunnel` (pode pedir senha de administrador).
+No Windows (driver docker), deixe rodando em outro terminal: `minikube tunnel`
+(ele publica o Ingress em 127.0.0.1; pode pedir permissão de administrador).
 
 | O quê | Endereço |
 |---|---|
-| API (saúde) | http://leiloes.local/health |
-| Swagger | http://leiloes.local/docs |
-| Grafana (admin / admin) | http://grafana.leiloes.local (abre no dashboard "leiloes-service (Kubernetes)") |
-| Prometheus | http://prometheus.leiloes.local/targets (um alvo por pod) |
+| API (saúde) | http://leiloes.localhost/health |
+| Swagger | http://leiloes.localhost/docs |
+| Grafana (admin / admin) | http://grafana.localhost (abre no dashboard "leiloes-service (Kubernetes)") |
+| Prometheus | http://prometheus.localhost/targets (um alvo por pod) |
 
-Sem mexer no hosts, dá para usar `port-forward`:
+Sem o tunnel, dá para usar `port-forward` (acesso direto aos Services, sem passar pelo Ingress):
 
 ```powershell
 kubectl -n leiloes port-forward svc/leiloes-service 3003:3003   # http://localhost:3003
@@ -106,7 +104,7 @@ kubectl -n leiloes get pods -w
 kubectl -n leiloes scale deployment/leiloes-service --replicas=3
 
 # tráfego para movimentar o Grafana (usa o mesmo script do T2)
-powershell -ExecutionPolicy Bypass -File .\leiloes-service\observabilidade\gerar-trafego.ps1 -BaseUrl http://leiloes.local
+powershell -ExecutionPolicy Bypass -File .\leiloes-service\observabilidade\gerar-trafego.ps1 -BaseUrl http://leiloes.localhost
 
 # teste automático (o mesmo do pipeline), com o tunnel ligado
 bash leiloes-service/ci/testar-k8s.sh 127.0.0.1

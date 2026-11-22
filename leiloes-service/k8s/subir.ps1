@@ -37,8 +37,7 @@ kubectl -n leiloes get deployments,pods,services,ingress,hpa -o wide
 
 Write-Host ""
 Write-Host "Pronto. Para acessar, rode em OUTRO terminal (deixe aberto):  minikube tunnel" -ForegroundColor Green
-Write-Host "e confira no arquivo hosts (C:\Windows\System32\drivers\etc\hosts):"
-Write-Host "  127.0.0.1 leiloes.local grafana.leiloes.local prometheus.leiloes.local"
-Write-Host "API:        http://leiloes.local/health   (Swagger em /docs)"
-Write-Host "Grafana:    http://grafana.leiloes.local  (admin / admin)"
-Write-Host "Prometheus: http://prometheus.leiloes.local/targets"
+Write-Host "(nomes .localhost apontam sozinhos para o PC: nao precisa mexer no arquivo hosts)"
+Write-Host "API:        http://leiloes.localhost/health   (Swagger em /docs)"
+Write-Host "Grafana:    http://grafana.localhost  (admin / admin)"
+Write-Host "Prometheus: http://prometheus.localhost/targets"

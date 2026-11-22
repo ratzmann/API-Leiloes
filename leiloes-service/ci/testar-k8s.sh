@@ -6,7 +6,7 @@
 # maquina local (com "minikube tunnel" ligado):  bash ci/testar-k8s.sh 127.0.0.1
 #
 #   1. o Deployment tem pelo menos 2 pods prontos (replicacao);
-#   2. GET /health pelo Ingress (host leiloes.local) responde;
+#   2. GET /health pelo Ingress (host leiloes.localhost) responde;
 #   3. cadastra um leilao com token de LEILOEIRO e lista de volta (banco no cluster);
 #   4. o Prometheus do cluster esta coletando de 2+ pods (observabilidade).
 #
@@ -34,7 +34,7 @@ echo "OK: $PRONTOS pods prontos"
 echo "== 2. /health pelo Ingress"
 SAUDE=""
 for _ in $(seq 1 30); do
-  SAUDE=$(chamar leiloes.local /health || true)
+  SAUDE=$(chamar leiloes.localhost /health || true)
   echo "$SAUDE" | grep -q '"status":"ok"' && break
   sleep 2
 done
@@ -56,18 +56,18 @@ TOKEN=$(JWT_SECRET="$JWT_SECRET" node -e '
   console.log(corpo + "." + assinatura);')
 INICIO=$(date -u -d '+1 day' +%FT%TZ)
 FIM=$(date -u -d '+2 day' +%FT%TZ)
-CRIADO=$(chamar leiloes.local /leiloes -X POST -H "Authorization: Bearer $TOKEN" \
+CRIADO=$(chamar leiloes.localhost /leiloes -X POST -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" -w ' HTTP %{http_code}' \
   -d "{\"titulo\":\"Teste k8s\",\"raca\":\"Nelore\",\"quantidadeBois\":10,\"lanceInicial\":1000,\"incrementoMinimo\":50,\"dataInicio\":\"$INICIO\",\"dataFim\":\"$FIM\"}")
 echo "$CRIADO"
 echo "$CRIADO" | grep -q 'HTTP 201' || { echo "::error::Cadastro de leilao falhou."; exit 1; }
-chamar leiloes.local /leiloes | grep -q 'Teste k8s' || { echo "::error::Leilao nao aparece na listagem."; exit 1; }
+chamar leiloes.localhost /leiloes | grep -q 'Teste k8s' || { echo "::error::Leilao nao aparece na listagem."; exit 1; }
 echo "OK: leilao cadastrado e listado"
 
 echo "== 4. Prometheus coletando de cada pod"
 PODS=0
 for _ in $(seq 1 30); do
-  RESPOSTA=$(chamar prometheus.leiloes.local /api/v1/query -G \
+  RESPOSTA=$(chamar prometheus.localhost /api/v1/query -G \
     --data-urlencode 'query=count(up{job="leiloes-service"} == 1)' || true)
   PODS=$(echo "$RESPOSTA" | sed -n 's/.*"value":\[[^,]*,"\([0-9]*\)"\].*/\1/p')
   [ "${PODS:-0}" -ge 2 ] && break
@@ -77,6 +77,6 @@ done
 echo "OK: Prometheus coletando de $PODS pods"
 
 echo "== Grafana"
-chamar grafana.leiloes.local /api/health
+chamar grafana.localhost /api/health
 echo
 echo "Tudo certo no Kubernetes."

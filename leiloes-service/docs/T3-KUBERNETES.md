@@ -33,7 +33,7 @@ A versão subiu para **1.2.5** (patch), porque a `main` não publica duas vezes 
 
 ```
                  navegador / curl
-                        │  http://leiloes.local, grafana.leiloes.local, prometheus.leiloes.local
+                        │  http://leiloes.localhost, grafana.localhost, prometheus.localhost
                  ┌──────▼──────┐
                  │   Ingress   │  (NGINX, addon do Minikube)
                  └──┬───────┬──┘
@@ -141,16 +141,16 @@ kubectl -n leiloes get deployments,pods -o wide
 kubectl -n leiloes get configmap,secret,svc,ingress,hpa
 
 # 3. aplicação funcionando pelo Ingress
-curl http://leiloes.local/health            # ou abrir http://leiloes.local/docs
+curl http://leiloes.localhost/health            # ou abrir http://leiloes.localhost/docs
 
 # 4. auto-recuperação: apaga um pod e o Kubernetes cria outro
 kubectl -n leiloes delete pod -l app=leiloes-service --wait=false
 kubectl -n leiloes get pods -w
 
 # 5. observabilidade: tráfego + Grafana e Prometheus
-powershell -ExecutionPolicy Bypass -File .\leiloes-service\observabilidade\gerar-trafego.ps1 -BaseUrl http://leiloes.local
-#    http://grafana.leiloes.local            -> painel "Pods no ar" = 2, requisições por pod
-#    http://prometheus.leiloes.local/targets -> um alvo por pod
+powershell -ExecutionPolicy Bypass -File .\leiloes-service\observabilidade\gerar-trafego.ps1 -BaseUrl http://leiloes.localhost
+#    http://grafana.localhost            -> painel "Pods no ar" = 2, requisições por pod
+#    http://prometheus.localhost/targets -> um alvo por pod
 
 # 6. CI/CD: aba Actions -> leiloes-service -> job "Kubernetes (Minikube)"
 ```

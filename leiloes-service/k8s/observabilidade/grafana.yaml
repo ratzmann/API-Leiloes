@@ -3,7 +3,7 @@
 #   Deployment -> o Grafana; monta os ConfigMaps gerados pelo kustomization.yaml:
 #                 grafana-provisionamento (datasource + provedor de dashboards) e
 #                 grafana-dashboards (o JSON do dashboard "leiloes-service (Kubernetes)")
-#   Service    -> "grafana:3000", publicado pelo Ingress (grafana.leiloes.local)
+#   Service    -> "grafana:3000", publicado pelo Ingress (grafana.localhost)
 apiVersion: v1
 kind: Secret
 metadata:
