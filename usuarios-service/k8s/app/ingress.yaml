@@ -1,0 +1,23 @@
+# Ingress: porta de entrada HTTP de fora do cluster (addon "ingress" do Minikube,
+# NGINX). Quem acessa http://usuarios.localhost e levado ao Service usuarios-service.
+# Nomes terminados em .localhost apontam sozinhos para 127.0.0.1 (sem editar o
+# arquivo hosts). No Windows, basta deixar "minikube tunnel" rodando.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: usuarios-service
+  labels:
+    app: usuarios-service
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: usuarios.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: usuarios-service
+                port:
+                  name: http

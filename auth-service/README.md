@@ -58,3 +58,14 @@ Variáveis:
 | `CHAVE_INTERNA` | vai no header `X-Chave-Interna` ao criar o perfil (rota interna do usuarios-service); a mesma em todos os serviços do ambiente |
 
 Ao iniciar, o serviço roda `src/db/migrar.js` (cria a tabela se não existir).
+
+## T3 — Kubernetes (Minikube)
+
+Manifests em **[`k8s/`](k8s/)** (Deployment com 2 réplicas, Service, ConfigMap,
+Secret, Ingress, HPA, Postgres próprio e Prometheus + Grafana dentro do cluster).
+Instruções de execução: **[`k8s/README.md`](k8s/README.md)**.
+Resumo para a apresentação: **[`docs/T3-KUBERNETES.md`](docs/T3-KUBERNETES.md)**.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\auth-service\k8s\subir.ps1
+```

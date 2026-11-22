@@ -1,0 +1,10 @@
+# Namespace: uma "pasta" dentro do cluster so para o usuarios-service.
+# Todos os outros recursos desta pasta sao criados nele (ver kustomization.yaml).
+# O auth-service (namespace "auth") chama este servico pelo DNS do cluster:
+#   http://usuarios-service.usuarios.svc.cluster.local:3002
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: usuarios
+  labels:
+    app.kubernetes.io/part-of: leilao-de-bois

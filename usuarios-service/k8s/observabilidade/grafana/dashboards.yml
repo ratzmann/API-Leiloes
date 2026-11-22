@@ -1,0 +1,10 @@
+# Carrega os dashboards JSON da pasta montada pelo ConfigMap grafana-dashboards.
+apiVersion: 1
+providers:
+  - name: usuarios-service
+    folder: T3
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
