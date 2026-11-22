@@ -55,7 +55,7 @@ REGISTRO=$(chamar auth.localhost /registrar -X POST -H "Content-Type: applicatio
   -d "{\"nome\":\"Leiloeiro k8s\",\"email\":\"$EMAIL\",\"senha\":\"senha123\",\"papel\":\"LEILOEIRO\",\"dadosPerfil\":{\"registroProfissional\":\"KUBE-${SUFIXO: -6}\"}}")
 echo "$REGISTRO"
 echo "$REGISTRO" | grep -q 'HTTP 201' || { echo "::error::Registro falhou."; exit 1; }
-PERFIL=$(echo "${REGISTRO% HTTP *}" | campo 'perfil && perfil.id')
+PERFIL=$(echo "${REGISTRO% HTTP *}" | campo 'perfil?.id')
 [ "$PERFIL" != "null" ] && [ "$PERFIL" != "undefined" ] ||
   { echo "::error::Registro sem perfil: o auth nao alcancou o usuarios-service."; exit 1; }
 echo "OK: credencial no auth-db e perfil $PERFIL criado no usuarios-service"
