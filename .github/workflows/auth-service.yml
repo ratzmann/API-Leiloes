@@ -3,9 +3,14 @@
 # Environments com prefixo (auth-dev / auth-homol): dev e homol sao do leiloes-service,
 # e o secret RENDER_DEPLOY_HOOK_URL tem o mesmo nome em todos.
 #
-#   feature/*  -> ci (build + testes + SonarCloud) + build da imagem (sem publicar)
-#   develop    -> ci -> versao -> imagem (GHCR) -> deploy DEV   (Render, Swagger ligado)
-#   main       -> ci -> versao -> imagem (GHCR) -> deploy HOMOL (Render, Swagger desligado)
+#   feature/*  -> ci (build + testes + SonarCloud) -> k8s + build da imagem (sem publicar)
+#   develop    -> ci -> versao -> k8s -> imagem (GHCR) -> deploy DEV   (Render, Swagger ligado)
+#   main       -> ci -> versao -> k8s -> imagem (GHCR) -> deploy HOMOL (Render, Swagger desligado)
+#
+# T3: o job k8s sobe um Minikube no runner, aplica usuarios-service/k8s/ e
+# auth-service/k8s/ com as imagens recem-construidas e confere 2+ pods no ar, o
+# registro (auth -> usuarios entre namespaces) pelo Ingress e o Prometheus coletando
+# de cada pod. So depois a imagem e publicada.
 name: auth-service
 
 on:
@@ -169,9 +174,89 @@ jobs:
             echo "- publica a imagem: \`$PUBLICAR\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  k8s:
+    name: Kubernetes (Minikube) - deploy de teste
+    needs: [ci, versao]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validar os manifests (kustomize)
+        run: |
+          kubectl kustomize k8s > /dev/null
+          kubectl kustomize ../usuarios-service/k8s > /dev/null
+
+      - name: Subir o Minikube (ingress + metrics-server)
+        run: |
+          if ! command -v minikube > /dev/null; then
+            curl -sSLo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+            sudo install minikube /usr/local/bin/minikube
+          fi
+          minikube start --driver=docker --wait=all
+          minikube addons enable ingress
+          minikube addons enable metrics-server
+
+      # build no Docker do runner e carga no Minikube (o runtime do Minikube e o containerd).
+      # O usuarios-service tambem sobe: o registro do auth cria o perfil nele.
+      - name: Construir as imagens (auth e usuarios) e carregar no Minikube
+        env:
+          VERSAO_IMAGEM: ${{ needs.versao.outputs.versao_imagem }}
+        run: |
+          docker build --build-arg "VERSAO_IMAGEM=$VERSAO_IMAGEM" -t auth-service:ci .
+          docker build -t usuarios-service:ci ../usuarios-service
+          minikube image load auth-service:ci
+          minikube image load usuarios-service:ci
+
+      # overlays temporarios: os mesmos manifests de k8s/, trocando so a imagem pela do teste
+      - name: Aplicar os manifests (usuarios e auth)
+        run: |
+          mkdir -p k8s-ci/usuarios k8s-ci/auth
+          cat > k8s-ci/usuarios/kustomization.yaml <<'FIM'
+          apiVersion: kustomize.config.k8s.io/v1beta1
+          kind: Kustomization
+          resources:
+            - ../../../usuarios-service/k8s
+          images:
+            - name: ghcr.io/ratzmann/usuarios-service
+              newName: usuarios-service
+              newTag: ci
+          FIM
+          cat > k8s-ci/auth/kustomization.yaml <<'FIM'
+          apiVersion: kustomize.config.k8s.io/v1beta1
+          kind: Kustomization
+          resources:
+            - ../../k8s
+          images:
+            - name: ghcr.io/ratzmann/auth-service
+              newName: auth-service
+              newTag: ci
+          FIM
+          kubectl apply -k k8s-ci/usuarios
+          kubectl apply -k k8s-ci/auth
+          for d in usuarios-db usuarios-service; do
+            kubectl -n usuarios rollout status "deployment/$d" --timeout=240s
+          done
+          for d in auth-db auth-service prometheus grafana; do
+            kubectl -n auth rollout status "deployment/$d" --timeout=240s
+          done
+          kubectl get pods -A -o wide
+
+      - name: Conferir replicas, registro auth -> usuarios e Prometheus
+        env:
+          VERSAO_ESPERADA: ${{ needs.versao.outputs.versao_imagem }}
+        run: bash ci/testar-k8s.sh "$(minikube ip)"
+
+      - name: Diagnostico (so em falha)
+        if: failure()
+        run: |
+          kubectl get all,ingress,hpa -A || true
+          kubectl -n auth describe pods || true
+          kubectl -n auth logs -l app=auth-service --tail=100 --prefix || true
+          kubectl -n usuarios logs -l app=usuarios-service --tail=100 --prefix || true
+
   imagem:
     name: Imagem Docker (build e publicacao no GHCR)
-    needs: [ci, versao]
+    needs: [ci, versao, k8s]
     runs-on: ubuntu-latest
     permissions:
       contents: write # criar a tag git da versao (main)
