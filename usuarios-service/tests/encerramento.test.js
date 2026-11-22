@@ -1,6 +1,6 @@
 // Testes do encerramento gracioso (utils/encerramento.js): o que acontece quando o
 // Kubernetes/Docker manda SIGTERM. Servidor, pool e process sao objetos falsos.
-// (Arquivo identico no auth-service e no usuarios-service.)
+// (Arquivo identico no auth-service, no usuarios-service e no leiloes-service.)
 const { EventEmitter } = require('events');
 const { encerrar, prepararEncerramento } = require('../src/utils/encerramento');
 

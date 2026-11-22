@@ -43,7 +43,7 @@ resources:
 images:
   - name: leiloes-service
     newName: ghcr.io/ratzmann/leiloes-service
-    newTag: 1.2.5
+    newTag: 1.2.6
 
 # Arquivos de configuracao viram ConfigMaps (montados como arquivos nos pods).
 generatorOptions:

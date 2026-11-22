@@ -39,5 +39,5 @@ Write-Host ""
 Write-Host "Pronto. Para acessar, rode em OUTRO terminal (deixe aberto):  minikube tunnel" -ForegroundColor Green
 Write-Host "(nomes .localhost apontam sozinhos para o PC: nao precisa mexer no arquivo hosts)"
 Write-Host "API:        http://leiloes.localhost/health   (Swagger em /docs)"
-Write-Host "Grafana:    http://grafana.localhost  (admin / admin)"
-Write-Host "Prometheus: http://prometheus.localhost/targets"
+Write-Host "Grafana:    http://grafana-leiloes.localhost  (admin / admin)"
+Write-Host "Prometheus: http://prometheus-leiloes.localhost/targets"

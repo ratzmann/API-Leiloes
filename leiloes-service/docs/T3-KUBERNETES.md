@@ -8,7 +8,7 @@
 A **mesma imagem** que o pipeline do T2 publica no GHCR agora roda num cluster
 **Minikube**, com **2 réplicas**, banco próprio, configuração por **ConfigMap/Secret**,
 acesso por **Ingress**, **HPA** para escalar e **Prometheus + Grafana dentro do cluster**.
-O pipeline ganhou um job que sobe um Minikube e testa os manifests antes de publicar a imagem.
+O serviço ganhou o **encerramento gracioso**: ao apagar um pod, ele sai em ~1 s em vez de 30 s.
 
 ## 2. Requisitos × o que foi feito
 
@@ -23,17 +23,18 @@ O pipeline ganhou um job que sobe um Minikube e testa os manifests antes de publ
 | 5. Prometheus e Grafana no cluster | Prometheus descobre os pods sozinho; Grafana já sobe com o dashboard | `k8s/observabilidade/` |
 | 6. Roda localmente | `subir.ps1` sobe tudo com um comando | `k8s/subir.ps1` |
 | 7. Diretório `k8s/` + README | pasta `leiloes-service/k8s/` com README de execução | `k8s/README.md` |
-| (objetivo) Manter CI/CD | job `k8s` no workflow: Minikube no runner, `kubectl apply -k` e testes; só depois publica a imagem | `.github/workflows/leiloes-service.yml`, `ci/testar-k8s.sh` |
+| (objetivo) Manter CI/CD | o pipeline do T2 continua igual e publica no GHCR a imagem que o cluster usa; o T3 não pede CI/CD, então o teste do cluster é local | `ci/testar-k8s.sh` |
 
-**Mudança de código: nenhuma.** O T2 já tinha deixado tudo configurável por ambiente
-(`src/config/ambiente.js`, `src/config/db.js`), então o T3 é só infraestrutura.
-A versão subiu para **1.2.5** (patch), porque a `main` não publica duas vezes a mesma versão.
+**Mudança de código: só o encerramento gracioso** (seção 4). O T2 já tinha deixado tudo
+configurável por ambiente (`src/config/ambiente.js`, `src/config/db.js`), então o resto
+do T3 é só infraestrutura. Versão **1.2.6** (patch), porque a `main` não publica duas
+vezes a mesma versão.
 
 ## 3. Como funciona (desenho)
 
 ```
   navegador / curl
-       |   leiloes.localhost  |  grafana.localhost  |  prometheus.localhost
+       |   leiloes / grafana-leiloes / prometheus-leiloes  (.localhost)
        v
  +-----------------------------------------------------------------------+
  |                  Ingress (NGINX, addon do Minikube)                   |
@@ -72,7 +73,7 @@ spec:
     spec:
       containers:
         - name: leiloes-service
-          image: leiloes-service          # tag real no kustomization.yaml (1.2.5 do GHCR)
+          image: leiloes-service          # tag real no kustomization.yaml (1.2.6 do GHCR)
           envFrom:
             - configMapRef: { name: leiloes-service-config }   # APP_ENV, DB_HOST...
             - secretRef:    { name: leiloes-service-secret }   # JWT_SECRET, CHAVE_INTERNA
@@ -84,6 +85,11 @@ spec:
 **initContainer `esperar-banco`**: antes do serviço, um container com `pg_isready`
 espera o Postgres aceitar conexões. Sem ele, os pods reiniciavam algumas vezes
 enquanto o banco subia.
+
+**Encerramento gracioso (SIGTERM)** (`src/utils/encerramento.js`, chamado no `server.js`):
+ao apagar ou trocar um pod, o Kubernetes manda SIGTERM e espera até 30 s. Antes, o Node
+ignorava o sinal e o pod ficava 30 s em `Terminating`. Agora o serviço termina as
+requisições em andamento, fecha o banco e sai em ~1 s. Mesmo arquivo do auth e do usuarios.
 
 **ConfigMap × Secret**: o que não é sigiloso (porta, ambiente, host do banco) fica no
 ConfigMap; segredo do JWT, chave interna e senha do banco ficam em Secrets. O
@@ -106,7 +112,9 @@ relabel_configs:
 ```
 
 **Grafana**: o dashboard do T2 foi reaproveitado e ganhou a linha "Kubernetes"
-(pods no ar, requisições por pod, CPU por pod). Datasource e dashboard entram por
+(pods no ar, requisições por pod, CPU por pod). O "Pods no ar" conta só os pods lidos
+nos últimos 30 s (`timestamp(up) > time() - 30`): um pod apagado sai da contagem na hora,
+sem esperar até 5 min a última amostra dele expirar. Datasource e dashboard entram por
 ConfigMaps gerados no `kustomization.yaml` (`configMapGenerator`).
 
 **HPA** (`k8s/app/hpa.yaml`): CPU média acima de 70% → cria pods, até 5; nunca menos de 2.
@@ -114,28 +122,28 @@ ConfigMaps gerados no `kustomization.yaml` (`configMapGenerator`).
 **Kustomize** (`k8s/kustomization.yaml`): lista todos os arquivos e fixa a imagem;
 um comando aplica tudo: `kubectl apply -k leiloes-service/k8s`.
 
-## 5. CI/CD (continua o fluxo do T2)
+## 5. Imagem e teste do cluster
+
+O pipeline do T2 continua igual e é ele que entrega a imagem que o cluster usa:
 
 ```
-feature/* ─► ci (testes, Sonar) ─► k8s (Minikube no runner) ─► imagem (só build)
-develop   ─► ci ─► versao ─► k8s ─► imagem (GHCR :dev)   ─► deploy DEV   (Render)
-main      ─► ci ─► versao ─► k8s ─► imagem (GHCR :1.2.5) ─► deploy HOMOL (Render)
+feature/* ─► ci (testes, Sonar) ─► imagem (só build)
+develop   ─► ci ─► versao ─► imagem (GHCR :dev)   ─► deploy DEV   (Render)
+main      ─► ci ─► versao ─► imagem (GHCR :1.2.6) ─► deploy HOMOL (Render)
 ```
 
-O job `k8s` sobe um Minikube no próprio runner do GitHub, constrói a imagem, aplica os
-manifests e roda `ci/testar-k8s.sh`, que confere:
+O T3 não pede CI/CD, então o teste do cluster é local: `ci/testar-k8s.sh` (Git Bash,
+com o `minikube tunnel` ligado) confere:
 1. pelo menos 2 pods prontos;
 2. `/health` respondendo pelo Ingress;
 3. cadastro e listagem de um leilão (serviço + banco no cluster);
 4. Prometheus coletando de 2+ pods.
 
-Se o Kubernetes falhar, a imagem **não é publicada** e não há deploy.
-
-**Verificado localmente** (21/11/2026, Minikube 1.39): `kubectl apply -k` sobe os
-4 Deployments sem reinícios; `ci/testar-k8s.sh` passou nos 4 itens (2 pods prontos,
-`/health` na versão `1.2.5` pelo Ingress, leilão cadastrado e listado, Prometheus
-coletando de 2 pods); apagando os pods, o Kubernetes recriou os 2 em segundos; o
-Prometheus mostra as requisições repartidas entre os pods.
+**Verificado localmente** (22/11/2026, Minikube 1.39, versão `1.2.6`): `kubectl apply -k`
+sobe os 4 Deployments sem reinícios; `ci/testar-k8s.sh` passou nos 4 itens; um pod
+apagado sai em menos de 1 s (log: "Sinal SIGTERM recebido... Encerrado sem
+pendências") e o Kubernetes cria outro; o "Pods no ar" volta para 2 sozinho;
+o `gerar-trafego.ps1 -BaseUrl http://leiloes.localhost` funciona no PowerShell.
 
 ## 6. Como rodar (passo a passo)
 
@@ -162,8 +170,8 @@ próprio PC: **não precisa editar o arquivo hosts**.
 |---|---|
 | API (saúde) | http://leiloes.localhost/health |
 | Swagger | http://leiloes.localhost/docs |
-| Grafana (admin / admin) | http://grafana.localhost |
-| Prometheus (um alvo por pod) | http://prometheus.localhost/targets |
+| Grafana (admin / admin) | http://grafana-leiloes.localhost |
+| Prometheus (um alvo por pod) | http://prometheus-leiloes.localhost/targets |
 
 **Se algo der errado:**
 
@@ -192,16 +200,18 @@ kubectl -n leiloes get configmap,secret,svc,ingress,hpa
 # 3. aplicação funcionando pelo Ingress
 curl.exe http://leiloes.localhost/health        # ou abrir http://leiloes.localhost/docs
 
-# 4. auto-recuperação: apaga um pod e o Kubernetes cria outro
+# 4. auto-recuperação: apaga os pods e o Kubernetes cria outros
+#    (os antigos saem em ~1 s graças ao encerramento gracioso)
 kubectl -n leiloes delete pod -l app=leiloes-service --wait=false
 kubectl -n leiloes get pods -w
 
 # 5. observabilidade: tráfego + Grafana e Prometheus
 powershell -ExecutionPolicy Bypass -File .\leiloes-service\observabilidade\gerar-trafego.ps1 -BaseUrl http://leiloes.localhost
-#    http://grafana.localhost            -> painel "Pods no ar" = 2, requisições por pod
-#    http://prometheus.localhost/targets -> um alvo por pod
+#    http://grafana-leiloes.localhost            -> painel "Pods no ar" = 2, requisições por pod
+#    http://prometheus-leiloes.localhost/targets -> um alvo por pod
 
-# 6. CI/CD: aba Actions -> leiloes-service -> job "Kubernetes (Minikube)"
+# 6. teste automático do cluster (Git Bash)
+bash leiloes-service/ci/testar-k8s.sh 127.0.0.1
 ```
 
 ## 8. Perguntas prováveis
@@ -214,5 +224,10 @@ powershell -ExecutionPolicy Bypass -File .\leiloes-service\observabilidade\gerar
   no deploy isolado do T2). Com o usuarios no cluster, basta preencher a URL no ConfigMap.
 - **Secret no Git?** São os valores de desenvolvimento (os mesmos do `.env.example`).
   Num cluster real, o Secret é criado com `kubectl create secret` e não vai para o repositório.
+- **Por que antes o pod demorava 30 s para sair?** O Node, como processo 1 do container,
+  ignora o SIGTERM se ninguém tratar; o Kubernetes esperava os 30 s e matava a força.
+  O `encerramento.js` trata o sinal e o pod sai em ~1 s, sem cortar requisições.
+- **Os nomes `.localhost` não colidem com os outros serviços?** Não: cada serviço tem os
+  seus (`leiloes`, `grafana-leiloes`, `prometheus-leiloes`; o auth usa `grafana-auth`...).
 - **Por que `runAsUser: 1000`?** A imagem roda como o usuário `node`; com o número, o
   Kubernetes consegue garantir `runAsNonRoot`.
