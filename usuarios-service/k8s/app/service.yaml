@@ -1,0 +1,17 @@
+# Service: endereco fixo (usuarios-service:3002) na frente dos pods.
+# Os pods nascem e morrem com IPs diferentes; o Service acha todos pelo rotulo
+# app=usuarios-service e reparte as requisicoes entre eles (balanceamento).
+apiVersion: v1
+kind: Service
+metadata:
+  name: usuarios-service
+  labels:
+    app: usuarios-service
+spec:
+  type: ClusterIP
+  selector:
+    app: usuarios-service
+  ports:
+    - name: http
+      port: 3002
+      targetPort: http

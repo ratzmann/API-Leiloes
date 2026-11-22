@@ -1,0 +1,113 @@
+# Deployment: mantem 2 copias (replicas/pods) do usuarios-service rodando.
+# Se um pod cai, o Kubernetes cria outro. O Service distribui as requisicoes
+# entre os pods. O HPA (hpa.yaml) pode aumentar para ate 5 pela CPU.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: usuarios-service
+  labels:
+    app: usuarios-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: usuarios-service
+  # atualizacao sem parar o servico: sobe um pod novo antes de derrubar um antigo
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: usuarios-service
+      annotations:
+        # o Prometheus descobre os pods sozinho (observabilidade/prometheus.yml)
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3002"
+        prometheus.io/path: "/metrics"
+    spec:
+      # a imagem roda como o usuario "node" (uid 1000), nunca como root
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      # espera o Postgres aceitar conexoes antes de iniciar o servico (evita
+      # reinicios enquanto o banco sobe). Usa a mesma imagem do banco (pg_isready).
+      initContainers:
+        - name: esperar-banco
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until pg_isready -U postgres -h \"$DB_HOST\" -p \"$DB_PORT\"; do echo 'esperando o banco...'; sleep 2; done"]
+          envFrom:
+            - configMapRef:
+                name: usuarios-service-config
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+      containers:
+        - name: usuarios-service
+          # a tag real vem do kustomization.yaml (images)
+          image: usuarios-service
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3002
+          # variaveis nao sensiveis (ConfigMap) e sensiveis (Secret)
+          envFrom:
+            - configMapRef:
+                name: usuarios-service-config
+            - secretRef:
+                name: usuarios-service-secret
+          # usuario e senha do banco: lidos do Secret do Postgres (uma fonte so)
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: usuarios-db-secret
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: usuarios-db-secret
+                  key: POSTGRES_PASSWORD
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: usuarios-db-secret
+                  key: POSTGRES_DB
+          # startup: espera a migracao do banco (ate 60 s) antes das outras sondas
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          # readiness: so recebe trafego do Service quando responde
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+          # liveness: travou? o Kubernetes reinicia o container
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          # requests: reserva minima (e base do HPA); limits: teto de consumo
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false

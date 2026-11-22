@@ -1,0 +1,55 @@
+# Deployment do Postgres do usuarios-service (o banco e so dele: regra do T1).
+# 1 replica de proposito: o banco guarda estado e o disco (PVC) e de um pod so.
+# Quem tem 2+ replicas e o microsservico (app/deployment.yaml), que nao guarda estado.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: usuarios-db
+  labels:
+    app: usuarios-db
+spec:
+  replicas: 1
+  # derruba o pod antigo antes de subir o novo (o disco nao e compartilhado)
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: usuarios-db
+  template:
+    metadata:
+      labels:
+        app: usuarios-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - name: postgres
+              containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: usuarios-db-secret
+          env:
+            # subpasta: o volume novo pode ter "lost+found" na raiz
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            periodSeconds: 5
+          resources:
+            requests:
+              # 50m (e nao 100m): com os 4 servicos no mesmo Minikube de 2 CPUs, a soma
+              # dos "requests" precisa caber no no, senao pods ficam Pending
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: dados
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: dados
+          persistentVolumeClaim:
+            claimName: usuarios-db-dados
