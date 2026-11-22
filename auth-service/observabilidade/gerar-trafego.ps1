@@ -12,8 +12,20 @@ param(
     [int]$Rodadas = 20
 )
 
+# Nomes *.localhost (Ingress do Kubernetes, T3): o navegador e o curl.exe resolvem
+# sozinhos para 127.0.0.1, mas o PowerShell 5.1 nao. Entao a conexao vai para
+# 127.0.0.1 (mesma porta) e o nome segue no header Host, que o Ingress usa para
+# escolher o servico.
+$Destino = [Uri]$BaseUrl
+$HeaderHost = $null
+if ($Destino.Host -like "*.localhost") {
+    $HeaderHost = $Destino.Authority
+    $BaseUrl = "$($Destino.Scheme)://127.0.0.1:$($Destino.Port)$($Destino.AbsolutePath.TrimEnd('/'))"
+}
+
 function Chamar($metodo, $rota, $corpo = $null) {
-    $parametros = @{ Uri = "$BaseUrl$rota"; Method = $metodo; ContentType = "application/json" }
+    $parametros = @{ Uri = "$BaseUrl$rota"; Method = $metodo; ContentType = "application/json"; Headers = @{} }
+    if ($HeaderHost) { $parametros.Headers.Host = $HeaderHost }
     if ($corpo) { $parametros.Body = ($corpo | ConvertTo-Json -Depth 5) }
     try {
         $resposta = Invoke-RestMethod @parametros
