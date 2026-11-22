@@ -132,7 +132,7 @@ kubectl -n auth scale deployment/auth-service --replicas=3
 # tráfego para movimentar o Grafana (usa o mesmo script do T2)
 powershell -ExecutionPolicy Bypass -File .\auth-service\observabilidade\gerar-trafego.ps1 -BaseUrl http://auth.localhost
 
-# teste automático (o mesmo do pipeline), com o tunnel ligado (Git Bash)
+# teste automático, com o tunnel ligado (Git Bash)
 bash auth-service/ci/testar-k8s.sh 127.0.0.1
 ```
 

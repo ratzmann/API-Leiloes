@@ -9,8 +9,7 @@ A **mesma imagem** que o pipeline do T2 publica no GHCR agora roda num cluster
 **Minikube**, com **2 réplicas**, banco próprio, configuração por **ConfigMap/Secret**,
 acesso por **Ingress**, **HPA** para escalar e **Prometheus + Grafana dentro do cluster**.
 No registro, o auth conversa com o **usuarios-service em outro namespace** do mesmo
-cluster. O pipeline ganhou um job que sobe um Minikube com os dois serviços e testa o
-registro de ponta a ponta antes de publicar a imagem.
+cluster. Um script (`ci/testar-k8s.sh`) testa o cluster de ponta a ponta.
 
 ## 2. Requisitos × o que foi feito
 
@@ -25,7 +24,7 @@ registro de ponta a ponta antes de publicar a imagem.
 | 5. Prometheus e Grafana no cluster | Prometheus descobre os pods sozinho; Grafana já sobe com o dashboard | `k8s/observabilidade/` |
 | 6. Roda localmente | `subir.ps1` sobe o usuarios e o auth com um comando | `k8s/subir.ps1` |
 | 7. Diretório `k8s/` + README | pasta `auth-service/k8s/` com README de execução | `k8s/README.md` |
-| (objetivo) Manter CI/CD | job `k8s` no workflow: Minikube no runner, `kubectl apply -k` (usuarios + auth) e testes; só depois publica a imagem | `.github/workflows/auth-service.yml`, `ci/testar-k8s.sh` |
+| Teste do cluster (extra) | script que confere réplicas, registro entre namespaces e Prometheus | `ci/testar-k8s.sh` |
 
 **Mudança de código: nenhuma.** O T2 já tinha deixado tudo configurável por ambiente
 (`src/config/`, `utils/jwt.js`, `clients/`), então o T3 é só infraestrutura. A versão
@@ -89,23 +88,18 @@ registros darem `201` também quando o auth está ligado ao usuarios (cluster, c
 - **Pedidos de CPU menores no banco, Prometheus e Grafana (50m)**: com os 4 serviços no
   mesmo Minikube de 2 CPUs, a soma dos `requests` precisa caber no nó.
 
-## 5. CI/CD (continua o fluxo do T2)
+## 5. Teste automático do cluster
 
-```
-feature/* ─► ci (testes, Sonar) ─► k8s (Minikube no runner) ─► imagem (só build)
-develop   ─► ci ─► versao ─► k8s ─► imagem (GHCR :dev)   ─► deploy DEV   (Render)
-main      ─► ci ─► versao ─► k8s ─► imagem (GHCR :1.1.3) ─► deploy HOMOL (Render)
-```
+O T3 não pede CI/CD (combinado em sala): o cluster roda só na máquina local. O pipeline
+do T2 continua igual e é ele que publica no GHCR a imagem `1.1.3` usada aqui.
 
-O job `k8s` constrói as imagens do auth **e do usuarios**, aplica os dois `k8s/` e roda
-`ci/testar-k8s.sh`, que confere:
+Com o `subir.ps1` rodado e o `minikube tunnel` ligado, `bash auth-service/ci/testar-k8s.sh 127.0.0.1`
+(Git Bash) confere:
 1. pelo menos 2 pods prontos do auth;
 2. `/health` respondendo pelo Ingress, na versão recém-construída;
 3. registro de um leiloeiro com perfil criado no usuarios (outro namespace), login `200`,
    senha errada `401` e o usuarios aceitando o token do auth;
 4. Prometheus coletando de 2+ pods.
-
-Se o Kubernetes falhar, a imagem **não é publicada** e não há deploy.
 
 ## 6. Roteiro da demonstração (5 minutos)
 
@@ -133,7 +127,8 @@ powershell -ExecutionPolicy Bypass -File .\auth-service\observabilidade\gerar-tr
 #    http://grafana-auth.localhost            -> "Pods no ar" = 2, requisições por pod
 #    http://prometheus-auth.localhost/targets -> um alvo por pod
 
-# 6. CI/CD: aba Actions -> auth-service -> job "Kubernetes (Minikube)"
+# 6. teste automático (seção 5)
+bash auth-service/ci/testar-k8s.sh 127.0.0.1
 ```
 
 ## 7. Perguntas prováveis

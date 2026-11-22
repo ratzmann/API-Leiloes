@@ -2,9 +2,9 @@
 # =============================================================================
 # ci/testar-k8s.sh  -  confere o auth-service rodando no Kubernetes (T3)
 # -----------------------------------------------------------------------------
-# Usado pelo job "k8s" do pipeline, depois do kubectl apply -k (do usuarios e do
-# auth). Tambem roda na maquina local (com "minikube tunnel" ligado):
-#   bash ci/testar-k8s.sh 127.0.0.1
+# Teste automatico do cluster local (o T3 nao tem CI/CD): rode depois do subir.ps1
+# (que aplica o usuarios e o auth), com o "minikube tunnel" ligado, no Git Bash:
+#   bash auth-service/ci/testar-k8s.sh 127.0.0.1
 #
 #   1. o Deployment tem pelo menos 2 pods prontos (replicacao);
 #   2. GET /health pelo Ingress (host auth.localhost) responde;

@@ -3,13 +3,9 @@
 # Environments com prefixo (usuarios-dev / usuarios-homol): dev e homol sao do leiloes-service,
 # e o secret RENDER_DEPLOY_HOOK_URL tem o mesmo nome em todos.
 #
-#   feature/*  -> ci (build + testes + SonarCloud) -> k8s + build da imagem (sem publicar)
-#   develop    -> ci -> versao -> k8s -> imagem (GHCR) -> deploy DEV   (Render, Swagger ligado)
-#   main       -> ci -> versao -> k8s -> imagem (GHCR) -> deploy HOMOL (Render, Swagger desligado)
-#
-# T3: o job k8s sobe um Minikube no runner, aplica usuarios-service/k8s/ com a imagem
-# recem-construida e confere 2+ pods no ar, a API pelo Ingress e o Prometheus
-# coletando de cada pod. So depois a imagem e publicada.
+#   feature/*  -> ci (build + testes + SonarCloud) + build da imagem (sem publicar)
+#   develop    -> ci -> versao -> imagem (GHCR) -> deploy DEV   (Render, Swagger ligado)
+#   main       -> ci -> versao -> imagem (GHCR) -> deploy HOMOL (Render, Swagger desligado)
 name: usuarios-service
 
 on:
@@ -173,69 +169,9 @@ jobs:
             echo "- publica a imagem: \`$PUBLICAR\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  k8s:
-    name: Kubernetes (Minikube) - deploy de teste
-    needs: [ci, versao]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Validar os manifests (kustomize)
-        run: kubectl kustomize k8s > /dev/null
-
-      - name: Subir o Minikube (ingress + metrics-server)
-        run: |
-          if ! command -v minikube > /dev/null; then
-            curl -sSLo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-            sudo install minikube /usr/local/bin/minikube
-          fi
-          minikube start --driver=docker --wait=all
-          minikube addons enable ingress
-          minikube addons enable metrics-server
-
-      # build no Docker do runner e carga no Minikube (o runtime do Minikube e o containerd)
-      - name: Construir a imagem e carregar no Minikube
-        env:
-          VERSAO_IMAGEM: ${{ needs.versao.outputs.versao_imagem }}
-        run: |
-          docker build --build-arg "VERSAO_IMAGEM=$VERSAO_IMAGEM" -t usuarios-service:ci .
-          minikube image load usuarios-service:ci
-
-      # overlay temporario: os mesmos manifests de k8s/, trocando so a imagem pela do teste
-      - name: Aplicar os manifests (kubectl apply -k)
-        run: |
-          mkdir -p k8s-ci
-          cat > k8s-ci/kustomization.yaml <<'FIM'
-          apiVersion: kustomize.config.k8s.io/v1beta1
-          kind: Kustomization
-          resources:
-            - ../k8s
-          images:
-            - name: ghcr.io/ratzmann/usuarios-service
-              newName: usuarios-service
-              newTag: ci
-          FIM
-          kubectl apply -k k8s-ci
-          for d in usuarios-db usuarios-service prometheus grafana; do
-            kubectl -n usuarios rollout status "deployment/$d" --timeout=240s
-          done
-          kubectl -n usuarios get pods -o wide
-
-      - name: Conferir replicas, API pelo Ingress e Prometheus
-        env:
-          VERSAO_ESPERADA: ${{ needs.versao.outputs.versao_imagem }}
-        run: bash ci/testar-k8s.sh "$(minikube ip)"
-
-      - name: Diagnostico (so em falha)
-        if: failure()
-        run: |
-          kubectl -n usuarios get all,ingress,hpa,configmap,secret || true
-          kubectl -n usuarios describe pods || true
-          kubectl -n usuarios logs -l app=usuarios-service --tail=100 --prefix || true
-
   imagem:
     name: Imagem Docker (build e publicacao no GHCR)
-    needs: [ci, versao, k8s]
+    needs: [ci, versao]
     runs-on: ubuntu-latest
     permissions:
       contents: write # criar a tag git da versao (main)

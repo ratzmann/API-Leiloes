@@ -8,7 +8,7 @@
 A **mesma imagem** que o pipeline do T2 publica no GHCR agora roda num cluster
 **Minikube**, com **2 réplicas**, banco próprio, configuração por **ConfigMap/Secret**,
 acesso por **Ingress**, **HPA** para escalar e **Prometheus + Grafana dentro do cluster**.
-O pipeline ganhou um job que sobe um Minikube e testa os manifests antes de publicar a imagem.
+Um script (`ci/testar-k8s.sh`) testa o cluster de ponta a ponta.
 
 ## 2. Requisitos × o que foi feito
 
@@ -23,7 +23,7 @@ O pipeline ganhou um job que sobe um Minikube e testa os manifests antes de publ
 | 5. Prometheus e Grafana no cluster | Prometheus descobre os pods sozinho; Grafana já sobe com o dashboard | `k8s/observabilidade/` |
 | 6. Roda localmente | `subir.ps1` sobe tudo com um comando | `k8s/subir.ps1` |
 | 7. Diretório `k8s/` + README | pasta `usuarios-service/k8s/` com README de execução | `k8s/README.md` |
-| (objetivo) Manter CI/CD | job `k8s` no workflow: Minikube no runner, `kubectl apply -k` e testes; só depois publica a imagem | `.github/workflows/usuarios-service.yml`, `ci/testar-k8s.sh` |
+| Teste do cluster (extra) | script que confere réplicas, rota interna, LGPD e Prometheus | `ci/testar-k8s.sh` |
 
 **Mudança de código: nenhuma.** O T2 já tinha deixado tudo configurável por ambiente
 (`src/config/ambiente.js`, `src/config/db.js`, `middlewares/`), então o T3 é só
@@ -80,22 +80,18 @@ vezes a mesma versão.
 - **Pedidos de CPU menores no banco, Prometheus e Grafana (50m)**: com os 4 serviços no
   mesmo Minikube de 2 CPUs, a soma dos `requests` precisa caber no nó.
 
-## 5. CI/CD (continua o fluxo do T2)
+## 5. Teste automático do cluster
 
-```
-feature/* ─► ci (testes, Sonar) ─► k8s (Minikube no runner) ─► imagem (só build)
-develop   ─► ci ─► versao ─► k8s ─► imagem (GHCR :dev)   ─► deploy DEV   (Render)
-main      ─► ci ─► versao ─► k8s ─► imagem (GHCR :1.1.3) ─► deploy HOMOL (Render)
-```
+O T3 não pede CI/CD (combinado em sala): o cluster roda só na máquina local. O pipeline
+do T2 continua igual e é ele que publica no GHCR a imagem `1.1.3` usada aqui.
 
-O job `k8s` constrói a imagem, aplica os manifests e roda `ci/testar-k8s.sh`, que confere:
+Com o `subir.ps1` rodado e o `minikube tunnel` ligado, `bash usuarios-service/ci/testar-k8s.sh 127.0.0.1`
+(Git Bash) confere:
 1. pelo menos 2 pods prontos;
 2. `/health` respondendo pelo Ingress, na versão recém-construída;
 3. rota interna sem a chave → `403`; com a chave → leiloeiro cadastrado (serviço + banco);
    o dono (token assinado) vê o e-mail e quem não tem token não vê (LGPD);
 4. Prometheus coletando de 2+ pods.
-
-Se o Kubernetes falhar, a imagem **não é publicada** e não há deploy.
 
 ## 6. Roteiro da demonstração (5 minutos)
 
@@ -121,7 +117,8 @@ powershell -ExecutionPolicy Bypass -File .\usuarios-service\observabilidade\gera
 #    http://grafana-usuarios.localhost            -> "Pods no ar" = 2, requisições por pod
 #    http://prometheus-usuarios.localhost/targets -> um alvo por pod
 
-# 6. CI/CD: aba Actions -> usuarios-service -> job "Kubernetes (Minikube)"
+# 6. teste automático (seção 5)
+bash usuarios-service/ci/testar-k8s.sh 127.0.0.1
 ```
 
 ## 7. Perguntas prováveis
