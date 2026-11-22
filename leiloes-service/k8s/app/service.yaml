@@ -1,0 +1,17 @@
+# Service: endereco fixo (leiloes-service:3003) na frente dos pods.
+# Os pods nascem e morrem com IPs diferentes; o Service acha todos pelo rotulo
+# app=leiloes-service e reparte as requisicoes entre eles (balanceamento).
+apiVersion: v1
+kind: Service
+metadata:
+  name: leiloes-service
+  labels:
+    app: leiloes-service
+spec:
+  type: ClusterIP
+  selector:
+    app: leiloes-service
+  ports:
+    - name: http
+      port: 3003
+      targetPort: http

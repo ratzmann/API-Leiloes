@@ -160,3 +160,14 @@ Variáveis novas:
 
 Ao iniciar, o serviço roda `src/db/migrar.js` (cria a tabela se não existir),
 necessário em bancos gerenciados, que chegam vazios.
+
+## T3 — Kubernetes (Minikube)
+
+Manifests em **[`k8s/`](k8s/)** (Deployment com 2 réplicas, Service, ConfigMap,
+Secret, Ingress, HPA, Postgres próprio e Prometheus + Grafana dentro do cluster).
+Instruções de execução: **[`k8s/README.md`](k8s/README.md)**.
+Resumo para a apresentação: **[`docs/T3-KUBERNETES.md`](docs/T3-KUBERNETES.md)**.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\leiloes-service\k8s\subir.ps1
+```
