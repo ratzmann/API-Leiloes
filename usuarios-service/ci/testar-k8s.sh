@@ -50,7 +50,7 @@ fi
 
 echo "== 3. Cadastro de leiloeiro (rota interna + banco no cluster)"
 SUFIXO=$(date +%s)
-CORPO="{\"usuarioId\":$SUFIXO,\"nome\":\"Leiloeiro k8s\",\"email\":\"k8s$SUFIXO@teste.com\",\"registroProfissional\":\"KUBE-${SUFIXO: -6}\"}"
+CORPO="{\"usuarioId\":$SUFIXO,\"nome\":\"Leiloeiro k8s\",\"email\":\"usuarios-k8s$SUFIXO@teste.com\",\"registroProfissional\":\"USU-${SUFIXO: -6}\"}"
 
 SEM_CHAVE=$(chamar usuarios.localhost /leiloeiros -X POST -H "Content-Type: application/json" \
   -o /dev/null -w '%{http_code}' -d "$CORPO")
@@ -74,9 +74,9 @@ TOKEN=$(JWT_SECRET="$JWT_SECRET" PERFIL="$ID" node -e '
   const assinatura = c.createHmac("sha256", process.env.JWT_SECRET).update(corpo).digest("base64url");
   console.log(corpo + "." + assinatura);')
 # LGPD: o dono ve o e-mail; sem token so os campos publicos
-chamar usuarios.localhost "/leiloeiros/$ID" -H "Authorization: Bearer $TOKEN" | grep -q "k8s$SUFIXO@teste.com" ||
+chamar usuarios.localhost "/leiloeiros/$ID" -H "Authorization: Bearer $TOKEN" | grep -q "usuarios-k8s$SUFIXO@teste.com" ||
   { echo "::error::O dono nao recebeu os proprios dados (token conferido no servico?)."; exit 1; }
-chamar usuarios.localhost "/leiloeiros/$ID" | grep -q "k8s$SUFIXO@teste.com" &&
+chamar usuarios.localhost "/leiloeiros/$ID" | grep -q "usuarios-k8s$SUFIXO@teste.com" &&
   { echo "::error::Dados pessoais expostos sem token."; exit 1; }
 echo "OK: leiloeiro $ID cadastrado; dono ve o e-mail, anonimo nao"
 
@@ -84,7 +84,7 @@ echo "== 4. Prometheus coletando de cada pod"
 PODS=0
 for _ in $(seq 1 30); do
   RESPOSTA=$(chamar prometheus-usuarios.localhost /api/v1/query -G \
-    --data-urlencode 'query=count(up{job="usuarios-service"} == 1)' || true)
+    --data-urlencode 'query=count(timestamp(up{job="usuarios-service"} == 1) > time() - 30)' || true)
   PODS=$(echo "$RESPOSTA" | sed -n 's/.*"value":\[[^,]*,"\([0-9]*\)"\].*/\1/p')
   [ "${PODS:-0}" -ge 2 ] && break
   sleep 5

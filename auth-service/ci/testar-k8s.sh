@@ -50,9 +50,9 @@ fi
 
 echo "== 3. Registro (auth -> usuarios no cluster) e login"
 SUFIXO=$(date +%s)
-EMAIL="k8s$SUFIXO@teste.com"
+EMAIL="auth-k8s$SUFIXO@teste.com"
 REGISTRO=$(chamar auth.localhost /registrar -X POST -H "Content-Type: application/json" -w ' HTTP %{http_code}' \
-  -d "{\"nome\":\"Leiloeiro k8s\",\"email\":\"$EMAIL\",\"senha\":\"senha123\",\"papel\":\"LEILOEIRO\",\"dadosPerfil\":{\"registroProfissional\":\"KUBE-${SUFIXO: -6}\"}}")
+  -d "{\"nome\":\"Leiloeiro k8s\",\"email\":\"$EMAIL\",\"senha\":\"senha123\",\"papel\":\"LEILOEIRO\",\"dadosPerfil\":{\"registroProfissional\":\"AUTH-${SUFIXO: -6}\"}}")
 echo "$REGISTRO"
 echo "$REGISTRO" | grep -q 'HTTP 201' || { echo "::error::Registro falhou."; exit 1; }
 PERFIL=$(echo "${REGISTRO% HTTP *}" | campo 'perfil?.id')
@@ -78,7 +78,7 @@ echo "== 4. Prometheus coletando de cada pod"
 PODS=0
 for _ in $(seq 1 30); do
   RESPOSTA=$(chamar prometheus-auth.localhost /api/v1/query -G \
-    --data-urlencode 'query=count(up{job="auth-service"} == 1)' || true)
+    --data-urlencode 'query=count(timestamp(up{job="auth-service"} == 1) > time() - 30)' || true)
   PODS=$(echo "$RESPOSTA" | sed -n 's/.*"value":\[[^,]*,"\([0-9]*\)"\].*/\1/p')
   [ "${PODS:-0}" -ge 2 ] && break
   sleep 5

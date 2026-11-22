@@ -65,7 +65,7 @@
       "id": 2,
       "type": "stat",
       "title": "Pods no ar",
-      "description": "Quantos pods (replicas) do usuarios-service o Prometheus encontrou e conseguiu ler. O Deployment pede 2; o HPA pode subir ate 5.",
+      "description": "Quantos pods (replicas) do usuarios-service o Prometheus encontrou e conseguiu ler. O Deployment pede 2; o HPA pode subir ate 5. Conta so os pods lidos nos ultimos 30 s: um pod apagado sai na hora, sem esperar a ultima amostra dele expirar (ate 5 min).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -82,7 +82,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "count(up{job=\"usuarios-service\"} == 1) or vector(0)",
+          "expr": "count(timestamp(up{job=\"usuarios-service\"} == 1) > time() - 30) or vector(0)",
           "legendFormat": "pods",
           "refId": "A",
           "instant": true,
