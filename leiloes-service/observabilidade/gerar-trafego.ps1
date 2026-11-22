@@ -1,6 +1,7 @@
 # Gera trafego no leiloes-service para movimentar os graficos do Grafana.
 #   powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1
 #   powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1 -BaseUrl https://leiloes-service-dev-bnhz.onrender.com -Rodadas 10
+#   powershell -ExecutionPolicy Bypass -File .\gerar-trafego.ps1 -BaseUrl http://leiloes.localhost   (Kubernetes, T3)
 #
 # Fala direto com o servico (sem o Kong). Funciona com o servico rodando sozinho
 # (sem USUARIOS_SERVICE_URL), que nao valida o leiloeiro. Tambem funciona pelo
@@ -18,6 +19,17 @@ param(
     [string]$JwtIssuer = "sistema-leilao-auth"
 )
 
+# Nomes *.localhost (Ingress do Kubernetes, T3): o navegador e o curl.exe resolvem
+# sozinhos para 127.0.0.1, mas o PowerShell 5.1 nao. Entao a conexao vai para
+# 127.0.0.1 (mesma porta) e o nome segue no header Host, que o Ingress usa para
+# escolher o servico.
+$Destino = [Uri]$BaseUrl
+$HeaderHost = $null
+if ($Destino.Host -like "*.localhost") {
+    $HeaderHost = $Destino.Authority
+    $BaseUrl = "$($Destino.Scheme)://127.0.0.1:$($Destino.Port)$($Destino.AbsolutePath.TrimEnd('/'))"
+}
+
 # Monta um JWT HS256 (cabecalho.carga.assinatura, em base64url) para um leiloeiro.
 function Novo-Token($perfilId) {
     function B64Url([byte[]]$bytes) { [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_') }
@@ -31,8 +43,9 @@ function Novo-Token($perfilId) {
 }
 
 function Chamar($metodo, $rota, $corpo = $null, $token = $null) {
-    $parametros = @{ Uri = "$BaseUrl$rota"; Method = $metodo; ContentType = "application/json" }
-    if ($token) { $parametros.Headers = @{ Authorization = "Bearer $token" } }
+    $parametros = @{ Uri = "$BaseUrl$rota"; Method = $metodo; ContentType = "application/json"; Headers = @{} }
+    if ($token) { $parametros.Headers.Authorization = "Bearer $token" }
+    if ($HeaderHost) { $parametros.Headers.Host = $HeaderHost }
     if ($corpo) { $parametros.Body = ($corpo | ConvertTo-Json) }
     try {
         $resposta = Invoke-RestMethod @parametros
