@@ -112,7 +112,7 @@ Processo do T2 (CI/CD e observabilidade da equipe): [`docs/T2-PROCESSO.md`](docs
   - em auth, leiloes e lances: `clients/http.js`;
   - em usuarios, leiloes e lances: `middlewares/extrairUsuario.js`;
   - nos 4 serviços, também: `config/ambiente.js`;
-  - em auth e usuarios: `utils/encerramento.js` (encerramento gracioso no SIGTERM, T3).
+  - em auth, usuarios e leiloes: `utils/encerramento.js` (encerramento gracioso no SIGTERM, T3).
 
 ## Regras de negócio
 

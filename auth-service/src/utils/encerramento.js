@@ -14,7 +14,7 @@
 //   3. sai com codigo 0. Se algo travar, sai a forca (codigo 1) depois de um prazo.
 //
 // Camada: apoio (utils). Quem chama: server.js | Quem e chamado: http.Server e pg.Pool
-// (Arquivo identico no auth-service e no usuarios-service.)
+// (Arquivo identico no auth-service, no usuarios-service e no leiloes-service.)
 // =============================================================================
 
 // prazo maximo do encerramento: abaixo dos 30 s que o Kubernetes espera
