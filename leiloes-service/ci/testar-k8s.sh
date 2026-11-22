@@ -67,7 +67,7 @@ echo "OK: leilao cadastrado e listado"
 echo "== 4. Prometheus coletando de cada pod"
 PODS=0
 for _ in $(seq 1 30); do
-  RESPOSTA=$(chamar prometheus.localhost /api/v1/query -G \
+  RESPOSTA=$(chamar prometheus-leiloes.localhost /api/v1/query -G \
     --data-urlencode 'query=count(timestamp(up{job="leiloes-service"} == 1) > time() - 30)' || true)
   PODS=$(echo "$RESPOSTA" | sed -n 's/.*"value":\[[^,]*,"\([0-9]*\)"\].*/\1/p')
   [ "${PODS:-0}" -ge 2 ] && break
@@ -77,6 +77,6 @@ done
 echo "OK: Prometheus coletando de $PODS pods"
 
 echo "== Grafana"
-chamar grafana.localhost /api/health
+chamar grafana-leiloes.localhost /api/health
 echo
 echo "Tudo certo no Kubernetes."

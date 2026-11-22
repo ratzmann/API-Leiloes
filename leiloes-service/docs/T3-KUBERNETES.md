@@ -33,7 +33,7 @@ A versão subiu para **1.2.5** (patch), porque a `main` não publica duas vezes 
 
 ```
   navegador / curl
-       |   leiloes.localhost  |  grafana.localhost  |  prometheus.localhost
+       |   leiloes / grafana-leiloes / prometheus-leiloes  (.localhost)
        v
  +-----------------------------------------------------------------------+
  |                  Ingress (NGINX, addon do Minikube)                   |
@@ -162,8 +162,8 @@ próprio PC: **não precisa editar o arquivo hosts**.
 |---|---|
 | API (saúde) | http://leiloes.localhost/health |
 | Swagger | http://leiloes.localhost/docs |
-| Grafana (admin / admin) | http://grafana.localhost |
-| Prometheus (um alvo por pod) | http://prometheus.localhost/targets |
+| Grafana (admin / admin) | http://grafana-leiloes.localhost |
+| Prometheus (um alvo por pod) | http://prometheus-leiloes.localhost/targets |
 
 **Se algo der errado:**
 
@@ -198,8 +198,8 @@ kubectl -n leiloes get pods -w
 
 # 5. observabilidade: tráfego + Grafana e Prometheus
 powershell -ExecutionPolicy Bypass -File .\leiloes-service\observabilidade\gerar-trafego.ps1 -BaseUrl http://leiloes.localhost
-#    http://grafana.localhost            -> painel "Pods no ar" = 2, requisições por pod
-#    http://prometheus.localhost/targets -> um alvo por pod
+#    http://grafana-leiloes.localhost            -> painel "Pods no ar" = 2, requisições por pod
+#    http://prometheus-leiloes.localhost/targets -> um alvo por pod
 
 # 6. CI/CD: aba Actions -> leiloes-service -> job "Kubernetes (Minikube)"
 ```
