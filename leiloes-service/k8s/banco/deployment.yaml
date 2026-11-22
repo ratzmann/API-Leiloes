@@ -1,0 +1,53 @@
+# Deployment do Postgres do leiloes-service (o banco e so dele: regra do T1).
+# 1 replica de proposito: o banco guarda estado e o disco (PVC) e de um pod so.
+# Quem tem 2+ replicas e o microsservico (app/deployment.yaml), que nao guarda estado.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leiloes-db
+  labels:
+    app: leiloes-db
+spec:
+  replicas: 1
+  # derruba o pod antigo antes de subir o novo (o disco nao e compartilhado)
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: leiloes-db
+  template:
+    metadata:
+      labels:
+        app: leiloes-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - name: postgres
+              containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: leiloes-db-secret
+          env:
+            # subpasta: o volume novo pode ter "lost+found" na raiz
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: dados
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: dados
+          persistentVolumeClaim:
+            claimName: leiloes-db-dados

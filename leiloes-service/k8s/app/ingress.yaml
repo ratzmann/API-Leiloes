@@ -1,0 +1,23 @@
+# Ingress: porta de entrada HTTP de fora do cluster (addon "ingress" do Minikube,
+# NGINX). Quem acessa http://leiloes.localhost e levado ao Service leiloes-service.
+# Nomes terminados em .localhost apontam sozinhos para 127.0.0.1 (sem editar o
+# arquivo hosts). No Windows, basta deixar "minikube tunnel" rodando.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: leiloes-service
+  labels:
+    app: leiloes-service
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: leiloes.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: leiloes-service
+                port:
+                  name: http

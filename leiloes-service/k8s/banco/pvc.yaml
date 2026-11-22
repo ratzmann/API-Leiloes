@@ -1,0 +1,14 @@
+# PersistentVolumeClaim: um "disco" de 1 GiB para os dados do Postgres.
+# Os dados sobrevivem quando o pod do banco e recriado.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: leiloes-db-dados
+  labels:
+    app: leiloes-db
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

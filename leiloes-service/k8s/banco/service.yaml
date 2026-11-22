@@ -1,0 +1,16 @@
+# Service do banco: o leiloes-service conecta em "leiloes-db:5432"
+# (DB_HOST no app/configmap.yaml). Sem Ingress: o banco nao sai do cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: leiloes-db
+  labels:
+    app: leiloes-db
+spec:
+  type: ClusterIP
+  selector:
+    app: leiloes-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
