@@ -1,0 +1,16 @@
+# Service do banco: o auth-service conecta em "auth-db:5432"
+# (DB_HOST no app/configmap.yaml). Sem Ingress: o banco nao sai do cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-db
+  labels:
+    app: auth-db
+spec:
+  type: ClusterIP
+  selector:
+    app: auth-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
