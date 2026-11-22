@@ -26,7 +26,7 @@ cluster. Um script (`ci/testar-k8s.sh`) testa o cluster de ponta a ponta.
 | 7. Diretório `k8s/` + README | pasta `auth-service/k8s/` com README de execução | `k8s/README.md` |
 | Teste do cluster (extra) | script que confere réplicas, registro entre namespaces e Prometheus | `ci/testar-k8s.sh` |
 
-**Mudança de código: nenhuma.** O T2 já tinha deixado tudo configurável por ambiente
+**Mudança de código: só o encerramento gracioso** (seção 4). O T2 já tinha deixado tudo configurável por ambiente
 (`src/config/`, `utils/jwt.js`, `clients/`), então o T3 é só infraestrutura. A versão
 subiu para **1.1.3** (patch), porque a `main` não publica duas vezes a mesma versão.
 O `observabilidade/gerar-trafego.ps1` passou a mandar `dadosPerfil` válidos, para os
@@ -66,6 +66,13 @@ registros darem `201` também quando o auth está ligado ao usuarios (cluster, c
 - **Deployment** (`k8s/app/deployment.yaml`): 2 réplicas, `envFrom` do ConfigMap e do
   Secret, sondas `startup`/`readiness`/`liveness` no `/health`, `requests`/`limits`,
   `runAsNonRoot`. Usuário e senha do banco vêm do Secret do Postgres (uma fonte só).
+- **Encerramento gracioso (SIGTERM)**: ao apagar ou trocar um pod, o Kubernetes manda
+  SIGTERM e espera até 30 s. Antes, o Node ignorava o sinal e o pod ficava 30 s em
+  `Terminating`; agora `src/utils/encerramento.js` termina as requisições em andamento,
+  fecha o banco e sai (o pod sai em ~1 s). É a única mudança de código do T3.
+- **"Pods no ar" no Grafana** conta só os pods lidos nos últimos 30 s
+  (`timestamp(up == 1) > time() - 30`): um pod apagado sai do número na hora, sem
+  esperar a última amostra dele expirar no Prometheus (até 5 min).
 - **initContainer `esperar-banco`**: `pg_isready` até o Postgres aceitar conexões.
 - **Comunicação entre namespaces** (`k8s/app/configmap.yaml`):
 
@@ -103,7 +110,7 @@ Com o `subir.ps1` rodado e o `minikube tunnel` ligado, `bash auth-service/ci/tes
 
 **Verificado localmente** (22/11/2026, Minikube 1.39, `subir.ps1 -ImagemLocal`): todos os Deployments ficaram prontos sem reinícios, e o `testar-k8s.sh` passou nos 4 itens (2 pods, `/health` na `1.1.3` pelo Ingress, registro com perfil criado no usuarios, login `200`/`401`, token aceito pelo usuarios, Prometheus coletando de cada pod).
 Os scripts de tráfego funcionaram pelo Ingress e as requisições ficaram repartidas entre
-os 2 pods (61 × 56). Apagando os pods, o Kubernetes recriou os 2 em ~3 s. Os dashboards
+os 2 pods (61 × 56). Apagando os pods, o Kubernetes recriou os 2 em ~3 s, e o pod apagado sai em ~1 s (antes, 30 s). Os dashboards
 foram provisionados no Grafana, que lê o Prometheus.
 
 ## 6. Roteiro da demonstração (5 minutos)
