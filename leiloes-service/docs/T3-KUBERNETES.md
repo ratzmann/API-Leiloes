@@ -1,7 +1,21 @@
 # T3 — `leiloes-service` no Kubernetes (resumo para a apresentação)
 
 > O que foi feito, como funciona e como mostrar. Instruções completas de execução:
-> [`k8s/README.md`](../k8s/README.md).
+> [`k8s/README.md`](https://github.com/ratzmann/API-Leiloes/blob/main/leiloes-service/k8s/README.md).
+
+## Links
+
+| O quê | Link |
+|---|---|
+| Repositório (branch `main`) | [github.com/ratzmann/API-Leiloes](https://github.com/ratzmann/API-Leiloes) |
+| Manifests do Kubernetes (`k8s/`) | [leiloes-service/k8s](https://github.com/ratzmann/API-Leiloes/tree/main/leiloes-service/k8s) |
+| Instruções de execução | [k8s/README.md](https://github.com/ratzmann/API-Leiloes/blob/main/leiloes-service/k8s/README.md) |
+| Este resumo | [docs/T3-KUBERNETES.md](https://github.com/ratzmann/API-Leiloes/blob/main/leiloes-service/docs/T3-KUBERNETES.md) |
+| Teste do cluster | [ci/testar-k8s.sh](https://github.com/ratzmann/API-Leiloes/blob/main/leiloes-service/ci/testar-k8s.sh) |
+| Imagem usada no cluster (GHCR) | [ghcr.io/ratzmann/leiloes-service](https://github.com/ratzmann/API-Leiloes/pkgs/container/leiloes-service) (tag `1.2.6`) |
+| Pipeline (GitHub Actions) | [Actions → leiloes-service](https://github.com/ratzmann/API-Leiloes/actions/workflows/leiloes-service.yml) |
+| Render DEV / HOMOL (T2) | [leiloes-service-dev-bnhz.onrender.com](https://leiloes-service-dev-bnhz.onrender.com/health) / [leiloes-service-homol-igr9.onrender.com](https://leiloes-service-homol-igr9.onrender.com/health) |
+| No cluster local (com `minikube tunnel`) | [leiloes.localhost/docs](http://leiloes.localhost/docs) · [grafana-leiloes.localhost](http://grafana-leiloes.localhost) · [prometheus-leiloes.localhost/targets](http://prometheus-leiloes.localhost/targets) |
 
 ## 1. Em uma frase
 
