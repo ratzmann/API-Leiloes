@@ -7,6 +7,7 @@
 //   2. rodar a migracao (cria a tabela usuarios, se ainda nao existir, a partir
 //      do init.sql);
 //   3. so entao "ligar" o servidor HTTP numa porta.
+//   4. ao receber SIGTERM, encerrar com calma (utils/encerramento.js).
 // Se o banco nao ficar pronto, o processo encerra com erro (exit 1).
 //
 // Por que separar server.js de app.js?
@@ -26,6 +27,9 @@ const criarApp = require('./app');
 const { carregarAmbiente } = require('./config/ambiente');
 // migrar() executa o db/init.sql no banco, com novas tentativas se preciso.
 const migrar = require('./db/migrar');
+// pool do banco (fechado no encerramento) e o tratamento do SIGTERM do Kubernetes
+const pool = require('./config/db');
+const { prepararEncerramento } = require('./utils/encerramento');
 
 const ambiente = carregarAmbiente();
 // Porta em que o servico vai escutar. O operador || funciona como "senao":
@@ -39,12 +43,15 @@ migrar()
     // listen abre a porta e fica esperando requisicoes indefinidamente.
     // A crase (`) cria uma "template string", que permite colocar variaveis
     // dentro do texto com ${...}.
-    criarApp(ambiente).listen(PORT, () => {
+    const servidor = criarApp(ambiente).listen(PORT, () => {
       console.log(
         `auth-service ${ambiente.versao} (${ambiente.nome}) ouvindo na porta ${PORT}` +
           ` - swagger ${ambiente.swaggerHabilitado ? 'em /docs' : 'desligado'}`
       );
     });
+    // SIGTERM (Kubernetes, Docker, Render) ou Ctrl+C: termina as requisicoes em
+    // andamento, fecha o banco e sai, em vez de esperar 30 s e ser morto a forca
+    prepararEncerramento(servidor, pool);
   })
   .catch((err) => {
     console.error('Falha ao preparar o banco do auth-service:', err.message);

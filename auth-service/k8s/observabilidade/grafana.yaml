@@ -1,0 +1,100 @@
+# Grafana dentro do cluster, ja com o Prometheus cadastrado e o dashboard pronto.
+#   Secret     -> usuario e senha do admin
+#   Deployment -> o Grafana; monta os ConfigMaps gerados pelo kustomization.yaml:
+#                 grafana-provisionamento (datasource + provedor de dashboards) e
+#                 grafana-dashboards (o JSON do dashboard "auth-service (Kubernetes)")
+#   Service    -> "grafana:3000", publicado pelo Ingress (grafana-auth.localhost)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-secret
+  labels:
+    app: grafana
+type: Opaque
+stringData:
+  GF_SECURITY_ADMIN_USER: "admin"
+  GF_SECURITY_ADMIN_PASSWORD: "admin"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  labels:
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.3.0
+          envFrom:
+            - secretRef:
+                name: grafana-secret
+          env:
+            # quem so quer olhar entra sem login (somente leitura)
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "true"
+            - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+              value: Viewer
+            - name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH
+              value: /var/lib/grafana/dashboards/auth-service-k8s.json
+          ports:
+            - name: http
+              containerPort: 3000
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+          resources:
+            requests:
+              # 50m (e nao 100m): com os 4 servicos no mesmo Minikube de 2 CPUs, a soma
+              # dos "requests" precisa caber no no, senao pods ficam Pending
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: datasource
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: provedor-dashboards
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+      volumes:
+        - name: datasource
+          configMap:
+            name: grafana-provisionamento
+            items:
+              - key: datasource.yml
+                path: datasource.yml
+        - name: provedor-dashboards
+          configMap:
+            name: grafana-provisionamento
+            items:
+              - key: dashboards.yml
+                path: dashboards.yml
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  labels:
+    app: grafana
+spec:
+  selector:
+    app: grafana
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http

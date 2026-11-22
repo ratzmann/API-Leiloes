@@ -1,0 +1,22 @@
+# ConfigMap: variaveis de ambiente NAO sensiveis do usuarios-service.
+# O Deployment injeta todas como variaveis de ambiente (envFrom). O codigo le
+# tudo de process.env (src/config/ e middlewares/), sem nenhum valor fixo: a
+# mesma imagem que roda no Render roda aqui, so muda esta configuracao.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: usuarios-service-config
+  labels:
+    app: usuarios-service
+data:
+  PORT: "3002"
+  # nome do ambiente: aparece no /health e no rotulo "ambiente" das metricas
+  APP_ENV: "k8s"
+  # Swagger ligado no cluster local (em /docs), como no DEV
+  SWAGGER_ENABLED: "true"
+  # banco: o Service "usuarios-db" (DNS interno do cluster)
+  DB_HOST: "usuarios-db"
+  DB_PORT: "5432"
+  DB_SSL: "false"
+  # emissor do token: o mesmo do auth-service (extrairUsuario.js confere)
+  JWT_ISSUER: "sistema-leilao-auth"

@@ -1,0 +1,38 @@
+# Configuracao do Prometheus DENTRO do cluster (vira o ConfigMap prometheus-config).
+# Em vez de uma lista fixa de enderecos, o Prometheus pergunta a API do Kubernetes
+# quais pods existem (kubernetes_sd_configs) e coleta o /metrics de CADA replica.
+# Assim, quando o HPA cria um pod novo, ele entra na coleta sozinho.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: auth-service
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [auth]
+    relabel_configs:
+      # so os pods do auth-service (rotulo app=auth-service)...
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        regex: auth-service
+        action: keep
+      # ...que pediram coleta na anotacao prometheus.io/scrape
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        regex: "true"
+        action: keep
+      # ...e so a porta "http" do container
+      - source_labels: [__meta_kubernetes_pod_container_port_name]
+        regex: http
+        action: keep
+      # rotulo "pod": diferencia as replicas nos graficos do Grafana
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      # rotulo "alvo": o mesmo usado no dashboard do T2 (local, dev, homol...)
+      - target_label: alvo
+        replacement: k8s
+
+  # o proprio Prometheus
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']

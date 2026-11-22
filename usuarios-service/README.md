@@ -55,3 +55,14 @@ Variáveis:
 | `VERSAO_IMAGEM` | gravada pelo pipeline no build da imagem (ex.: `1.1.0-dev.14`) |
 | `JWT_SECRET`, `JWT_ISSUER` | os mesmos do auth-service |
 | `CHAVE_INTERNA` | exigida nas rotas internas (criar perfil, reservar e liberar crédito) no header `X-Chave-Interna`; a mesma em todos os serviços do ambiente; sem ela, essas rotas respondem `500` |
+
+## T3 — Kubernetes (Minikube)
+
+Manifests em **[`k8s/`](k8s/)** (Deployment com 2 réplicas, Service, ConfigMap,
+Secret, Ingress, HPA, Postgres próprio e Prometheus + Grafana dentro do cluster).
+Instruções de execução: **[`k8s/README.md`](k8s/README.md)**.
+Resumo para a apresentação: **[`docs/T3-KUBERNETES.md`](docs/T3-KUBERNETES.md)**.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\usuarios-service\k8s\subir.ps1
+```

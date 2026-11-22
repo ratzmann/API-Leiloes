@@ -1,0 +1,17 @@
+# Service: endereco fixo (auth-service:3001) na frente dos pods.
+# Os pods nascem e morrem com IPs diferentes; o Service acha todos pelo rotulo
+# app=auth-service e reparte as requisicoes entre eles (balanceamento).
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  labels:
+    app: auth-service
+spec:
+  type: ClusterIP
+  selector:
+    app: auth-service
+  ports:
+    - name: http
+      port: 3001
+      targetPort: http

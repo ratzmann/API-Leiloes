@@ -6,3 +6,4 @@ docs
 ci
 .env
 *.md
+k8s
