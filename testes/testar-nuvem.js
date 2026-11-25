@@ -41,7 +41,7 @@ const AMBIENTES = {
     lances: 'https://lances-service-homol.onrender.com',
   },
   // Minikube (T3): cada servico no proprio namespace, publicado pelo Ingress.
-  // Nomes .localhost apontam para 127.0.0.1 (o "minikube tunnel").
+  // Nomes .localhost apontam para 127.0.0.1 (o "minikube tunnel"): ver resolverLocalhost().
   k8s: {
     auth: 'http://auth.localhost',
     usuarios: 'http://usuarios.localhost',
@@ -56,6 +56,31 @@ if (!URLS) {
   console.log('Uso: node testes/testar-nuvem.js dev   (ou homol, ou k8s)');
   process.exit(2);
 }
+
+/**
+ * So no ambiente k8s: faz os nomes terminados em .localhost apontarem para
+ * 127.0.0.1 (onde o "minikube tunnel" publica o Ingress), sem depender do DNS.
+ * O navegador e o curl ja fazem isso sozinhos; o Node pergunta ao DNS da rede,
+ * e nem todo DNS responde *.localhost (o teste falhava com "fetch failed").
+ * Troca o dns.lookup (usado pelo fetch para achar o endereco) por uma versao que
+ * responde 127.0.0.1 para *.localhost e repassa os outros nomes ao original.
+ * Nao recebe nem devolve nada.
+ */
+function resolverLocalhost() {
+  const dns = require('node:dns');
+  const lookupOriginal = dns.lookup;
+  dns.lookup = (nome, opcoes, callback) => {
+    if (typeof opcoes === 'function') {
+      callback = opcoes;
+      opcoes = {};
+    }
+    if (!/\.localhost$/i.test(nome)) return lookupOriginal(nome, opcoes, callback);
+    if (opcoes && opcoes.all) return callback(null, [{ address: '127.0.0.1', family: 4 }]);
+    return callback(null, '127.0.0.1', 4);
+  };
+}
+
+if (nomeAmbiente === 'k8s') resolverLocalhost();
 
 const sufixo = Date.now();
 const dominio = `teste-${nomeAmbiente}.com`;
