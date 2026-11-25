@@ -1,5 +1,5 @@
 // =============================================================================
-// testes/testar-nuvem.js  -  TESTE INTEGRADO dos 4 servicos no Render (T2)
+// testes/testar-nuvem.js  -  TESTE INTEGRADO dos 4 servicos no Render (T2) ou no Kubernetes (T3)
 // -----------------------------------------------------------------------------
 // Confere, na nuvem, que os 4 servicos conversam entre si (sem o Kong: cada um
 // e chamado direto pela URL do Render). Sao 21 conferencias:
@@ -18,11 +18,13 @@
 // Uso (Node 24, sem instalar nada):
 //   node testes/testar-nuvem.js dev
 //   node testes/testar-nuvem.js homol
+//   node testes/testar-nuvem.js k8s     (Minikube do T3, com o "minikube tunnel" ligado)
 // Leva ~2 min: o leilao criado so comeca a aceitar lances depois de ~1 min.
 // No plano gratuito do Render os servicos "dormem"; a primeira chamada pode
 // levar quase 1 min.
-// Quem chama: a pessoa que quer conferir o DEV ou o HOMOL (docs/T2-PROCESSO.md).
-// Quem e chamado: os 4 servicos publicados no Render.
+// Quem chama: a pessoa que quer conferir o DEV ou o HOMOL (docs/T2-PROCESSO.md)
+// ou o cluster local (lances-service/k8s/README.md).
+// Quem e chamado: os 4 servicos publicados no Render ou no Ingress do Minikube.
 // =============================================================================
 
 const AMBIENTES = {
@@ -38,12 +40,20 @@ const AMBIENTES = {
     leiloes: 'https://leiloes-service-homol-igr9.onrender.com',
     lances: 'https://lances-service-homol.onrender.com',
   },
+  // Minikube (T3): cada servico no proprio namespace, publicado pelo Ingress.
+  // Nomes .localhost apontam para 127.0.0.1 (o "minikube tunnel").
+  k8s: {
+    auth: 'http://auth.localhost',
+    usuarios: 'http://usuarios.localhost',
+    leiloes: 'http://leiloes.localhost',
+    lances: 'http://lances.localhost',
+  },
 };
 
 const nomeAmbiente = process.argv[2];
 const URLS = AMBIENTES[nomeAmbiente];
 if (!URLS) {
-  console.log('Uso: node testes/testar-nuvem.js dev   (ou homol)');
+  console.log('Uso: node testes/testar-nuvem.js dev   (ou homol, ou k8s)');
   process.exit(2);
 }
 

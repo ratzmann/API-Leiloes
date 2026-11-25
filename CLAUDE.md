@@ -18,7 +18,7 @@ Processo do T2 (CI/CD e observabilidade da equipe): [`docs/T2-PROCESSO.md`](docs
 | `kong/kong.yml` | API Gateway em modo DB-less: único ponto de entrada (porta 8000), valida o JWT. |
 | `kong/erro.json` | Template dos erros gerados pelo próprio Kong (`{ "erro": ... }`). |
 | `docker-compose.yml` | Sobe os 4 serviços, os 4 Postgres e o Kong. |
-| `testes/` | `testar-unitarios.ps1` (Jest dos 4 serviços), `testar-tudo.ps1` (ponta a ponta), `testar-nuvem.js` (teste integrado no Render, DEV ou HOMOL), roteiro manual e coleção Postman. |
+| `testes/` | `testar-unitarios.ps1` (Jest dos 4 serviços), `testar-tudo.ps1` (ponta a ponta), `testar-nuvem.js` (teste integrado no Render, DEV ou HOMOL, ou no Minikube, `k8s`), roteiro manual e coleção Postman. |
 | `.github/` | T2: um workflow por serviço (CI, imagem no GHCR, deploy no Render) e o Dependabot. |
 | `<servico>/observabilidade/` | T2: Prometheus + Grafana do serviço, com dashboard provisionado e `gerar-trafego.ps1`. A do lances usa o sistema completo (rede `leilao-net` da raiz), porque a Saga precisa dos outros serviços. |
 | `<servico>/docs/T2-DECISOES.md` | T2: decisões, configuração das contas e roteiro de cada serviço. |
@@ -142,7 +142,8 @@ powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1
 # ponta a ponta pelo Kong (com a stack no ar: docker compose up --build -d)
 powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
 
-# teste integrado na nuvem: os 4 servicos do Render conversando (dev ou homol)
+# teste integrado na nuvem: os 4 servicos do Render conversando (dev ou homol);
+# "k8s" faz o mesmo no Minikube do T3 (lances-service/k8s/subir.ps1 + minikube tunnel)
 node testes/testar-nuvem.js dev
 
 # colecao Postman pelo newman (com a stack no ar)
