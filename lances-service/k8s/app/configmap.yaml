@@ -1,0 +1,32 @@
+# ConfigMap: variaveis de ambiente NAO sensiveis do lances-service.
+# O Deployment injeta todas como variaveis de ambiente (envFrom). O codigo le
+# tudo de process.env (src/config/), sem nenhum valor fixo: a mesma imagem que
+# roda no Render roda aqui, so muda esta configuracao.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lances-service-config
+  labels:
+    app: lances-service
+data:
+  PORT: "3003"
+  # nome do ambiente: aparece no /health e no rotulo "ambiente" das metricas
+  APP_ENV: "k8s"
+  # Swagger ligado no cluster local (em /docs), como no DEV
+  SWAGGER_ENABLED: "true"
+  # banco: o Service "lances-db" (DNS interno do cluster)
+  DB_HOST: "lances-db"
+  DB_PORT: "5432"
+  DB_SSL: "false"
+  # Saga do lance: o lances-service PRECISA dos outros dois (sem eles, todo
+  # lance responde 503). Cada servico roda no proprio namespace, entao o
+  # endereco usa o DNS completo do cluster: <service>.<namespace>.svc.cluster.local
+  LEILOES_SERVICE_URL: "http://leiloes-service.leiloes.svc.cluster.local:3003"
+  USUARIOS_SERVICE_URL: "http://usuarios-service.usuarios.svc.cluster.local:3002"
+  SERVICOS_TIMEOUT_MS: "3000"
+  # emissor do token: o mesmo do auth-service
+  JWT_ISSUER: "sistema-leilao-auth"
+  # libera o header X-Simular-Falha (demonstracao da compensacao, como no local)
+  SAGA_PERMITIR_FALHA_SIMULADA: "true"
+  # espera (ms) entre as tentativas do passo 4 da Saga (liberar credito do superado)
+  SAGA_ESPERA_REPETICAO_MS: "300"

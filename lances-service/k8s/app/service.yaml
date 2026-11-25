@@ -1,0 +1,17 @@
+# Service: endereco fixo (lances-service:3003) na frente dos pods.
+# Os pods nascem e morrem com IPs diferentes; o Service acha todos pelo rotulo
+# app=lances-service e reparte as requisicoes entre eles (balanceamento).
+apiVersion: v1
+kind: Service
+metadata:
+  name: lances-service
+  labels:
+    app: lances-service
+spec:
+  type: ClusterIP
+  selector:
+    app: lances-service
+  ports:
+    - name: http
+      port: 3003
+      targetPort: http

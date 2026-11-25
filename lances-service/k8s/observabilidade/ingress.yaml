@@ -1,0 +1,30 @@
+# Ingress da observabilidade: Grafana e Prometheus acessiveis de fora do cluster.
+# Nomes .localhost apontam sozinhos para 127.0.0.1 (sem editar o arquivo hosts).
+# No Windows, basta deixar "minikube tunnel" rodando.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: observabilidade
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: grafana-lances.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  name: http
+    - host: prometheus-lances.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus
+                port:
+                  name: http
