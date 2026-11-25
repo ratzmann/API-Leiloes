@@ -4,7 +4,8 @@
 // Mesma sequencia nos 4 servicos:
 //   1. carrega as variaveis de ambiente e o ambiente (DEV, HOMOL...);
 //   2. roda a migracao (cria/atualiza as tabelas lances e sagas_lance);
-//   3. so entao abre a porta HTTP.
+//   3. so entao abre a porta HTTP;
+//   4. ao receber SIGTERM, encerra com calma (utils/encerramento.js).
 // Se o banco nao ficar pronto, encerra com erro (exit 1): no Render o container
 // e reiniciado e o erro aparece no log.
 // =============================================================================
@@ -17,6 +18,11 @@ const criarApp = require('./app');
 const { carregarAmbiente } = require('./config/ambiente');
 // migrar() executa o db/init.sql no banco, com novas tentativas se preciso.
 const migrar = require('./db/migrar');
+// pool de conexoes do banco: fechado no encerramento gracioso.
+const pool = require('./config/db');
+// prepararEncerramento() liga o SIGTERM/SIGINT ao encerramento gracioso (T3):
+// no Kubernetes, o pod termina as requisicoes em andamento antes de sair.
+const { prepararEncerramento } = require('./utils/encerramento');
 
 const ambiente = carregarAmbiente();
 // Porta 3003 (a mesma do leiloes-service, mas cada um roda no SEU container,
@@ -29,12 +35,13 @@ const PORT = process.env.PORT || 3003;
 // tabelas existem.
 migrar()
   .then(() => {
-    criarApp(ambiente).listen(PORT, () => {
+    const servidor = criarApp(ambiente).listen(PORT, () => {
       console.log(
         `lances-service ${ambiente.versao} (${ambiente.nome}) ouvindo na porta ${PORT}` +
           ` - swagger ${ambiente.swaggerHabilitado ? 'em /docs' : 'desligado'}`
       );
     });
+    prepararEncerramento(servidor, pool);
   })
   .catch((err) => {
     console.error('Falha ao preparar o banco do lances-service:', err.message);

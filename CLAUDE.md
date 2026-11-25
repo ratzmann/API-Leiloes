@@ -112,7 +112,7 @@ Processo do T2 (CI/CD e observabilidade da equipe): [`docs/T2-PROCESSO.md`](docs
   - em auth, leiloes e lances: `clients/http.js`;
   - em usuarios, leiloes e lances: `middlewares/extrairUsuario.js`;
   - nos 4 serviços, também: `config/ambiente.js`;
-  - em auth, usuarios e leiloes: `utils/encerramento.js` (encerramento gracioso no SIGTERM, T3).
+  - nos 4 serviços, também: `utils/encerramento.js` (encerramento gracioso no SIGTERM, T3).
 
 ## Regras de negócio
 
@@ -149,7 +149,7 @@ node testes/testar-nuvem.js dev
 docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000
 ```
 
-- Estado atual: 422 testes unitários (cobertura de linhas entre 85% e 91%), 75 passos no
+- Estado atual: 427 testes unitários (cobertura de linhas entre 85% e 91%), 75 passos no
   ponta a ponta e 65 requisições (98 conferências) na coleção Postman, todos passando.
 - A coleção e o roteiro manual (`testes/roteiro-de-testes.md`, bash) geram dados novos a
   cada execução; ao mudar uma regra, atualize os dois junto com o `testar-tudo.ps1`.
