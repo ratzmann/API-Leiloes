@@ -68,3 +68,16 @@ Variáveis:
 | `SAGA_ESPERA_REPETICAO_MS` | espera entre as tentativas do passo 4 da Saga (padrão 300) |
 | `JWT_SECRET`, `JWT_ISSUER` | os mesmos do auth-service (o serviço confere a assinatura do token) |
 | `CHAVE_INTERNA` | vai no header `X-Chave-Interna` nas reservas e liberações de crédito (rotas internas do usuarios-service); a mesma em todos os serviços do ambiente |
+
+## T3 — Kubernetes (Minikube)
+
+Manifests em **[`k8s/`](k8s/)** (Deployment com 2 réplicas, Service, ConfigMap,
+Secret, Ingress, HPA, Postgres próprio e Prometheus + Grafana dentro do cluster).
+A Saga precisa do leiloes e do usuarios, então o `subir.ps1` sobe os 4 serviços, cada um
+no próprio namespace. Instruções de execução: **[`k8s/README.md`](k8s/README.md)**.
+Resumo para a apresentação: **[`docs/T3-KUBERNETES.md`](docs/T3-KUBERNETES.md)**.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\lances-service\k8s\subir.ps1
+node testes/testar-nuvem.js k8s   # o sistema inteiro no cluster (com o minikube tunnel ligado)
+```
