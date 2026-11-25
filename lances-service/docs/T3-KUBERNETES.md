@@ -140,6 +140,12 @@ Testes do cluster (com o `minikube tunnel` ligado):
   (registro, login, leilão, 2 lances pela Saga, crédito reservado e devolvido, recusas e
   cancelamento), agora no cluster.
 
+**Verificado localmente** (25/11/2026, Minikube 1.39, `subir.ps1 -ImagemLocal`): os 4
+serviços sobem com 2/2 pods e sem reinícios; `ci/testar-k8s.sh` passou nos 5 itens;
+`testar-nuvem.js k8s` deu **21/21**; um pod apagado sai na hora (log: "Sinal SIGTERM
+recebido... Encerrado sem pendencias") e o Kubernetes cria outro; o HPA lê a CPU (9%/70%)
+e o Grafana abre no dashboard "lances-service (Kubernetes)".
+
 ## 6. Como rodar (passo a passo)
 
 **Pré-requisitos** (uma vez só):
