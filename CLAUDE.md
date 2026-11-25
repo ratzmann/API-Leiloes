@@ -18,7 +18,7 @@ Processo do T2 (CI/CD e observabilidade da equipe): [`docs/T2-PROCESSO.md`](docs
 | `kong/kong.yml` | API Gateway em modo DB-less: único ponto de entrada (porta 8000), valida o JWT. |
 | `kong/erro.json` | Template dos erros gerados pelo próprio Kong (`{ "erro": ... }`). |
 | `docker-compose.yml` | Sobe os 4 serviços, os 4 Postgres e o Kong. |
-| `testes/` | `testar-unitarios.ps1` (Jest dos 4 serviços), `testar-tudo.ps1` (ponta a ponta), `testar-nuvem.js` (teste integrado no Render, DEV ou HOMOL), roteiro manual e coleção Postman. |
+| `testes/` | `testar-unitarios.ps1` (Jest dos 4 serviços), `testar-tudo.ps1` (ponta a ponta), `testar-nuvem.js` (teste integrado no Render, DEV ou HOMOL, ou no Minikube, `k8s`), roteiro manual e coleção Postman. |
 | `.github/` | T2: um workflow por serviço (CI, imagem no GHCR, deploy no Render) e o Dependabot. |
 | `<servico>/observabilidade/` | T2: Prometheus + Grafana do serviço, com dashboard provisionado e `gerar-trafego.ps1`. A do lances usa o sistema completo (rede `leilao-net` da raiz), porque a Saga precisa dos outros serviços. |
 | `<servico>/docs/T2-DECISOES.md` | T2: decisões, configuração das contas e roteiro de cada serviço. |
@@ -112,7 +112,7 @@ Processo do T2 (CI/CD e observabilidade da equipe): [`docs/T2-PROCESSO.md`](docs
   - em auth, leiloes e lances: `clients/http.js`;
   - em usuarios, leiloes e lances: `middlewares/extrairUsuario.js`;
   - nos 4 serviços, também: `config/ambiente.js`;
-  - em auth, usuarios e leiloes: `utils/encerramento.js` (encerramento gracioso no SIGTERM, T3).
+  - nos 4 serviços, também: `utils/encerramento.js` (encerramento gracioso no SIGTERM, T3).
 
 ## Regras de negócio
 
@@ -142,14 +142,15 @@ powershell -ExecutionPolicy Bypass -File .\testes\testar-unitarios.ps1
 # ponta a ponta pelo Kong (com a stack no ar: docker compose up --build -d)
 powershell -ExecutionPolicy Bypass -File .\testes\testar-tudo.ps1
 
-# teste integrado na nuvem: os 4 servicos do Render conversando (dev ou homol)
+# teste integrado na nuvem: os 4 servicos do Render conversando (dev ou homol);
+# "k8s" faz o mesmo no Minikube do T3 (lances-service/k8s/subir.ps1 + minikube tunnel)
 node testes/testar-nuvem.js dev
 
 # colecao Postman pelo newman (com a stack no ar)
 docker run --rm -v "${PWD}/testes:/etc/newman" postman/newman:alpine run leilao-microservicos.postman_collection.json --env-var base_url=http://host.docker.internal:8000
 ```
 
-- Estado atual: 422 testes unitários (cobertura de linhas entre 85% e 91%), 75 passos no
+- Estado atual: 427 testes unitários (cobertura de linhas entre 85% e 91%), 75 passos no
   ponta a ponta e 65 requisições (98 conferências) na coleção Postman, todos passando.
 - A coleção e o roteiro manual (`testes/roteiro-de-testes.md`, bash) geram dados novos a
   cada execução; ao mudar uma regra, atualize os dois junto com o `testar-tudo.ps1`.
